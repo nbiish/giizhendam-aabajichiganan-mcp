@@ -3,12 +3,10 @@ description:
 globs: *.json
 alwaysApply: false
 ---
-# ALWAYS DO THE FOLLOWING:
-
-
-## Publish to my npm packages and KEEP VERSIONS THE SAME:
+# Publish to my npm packages and KEEP VERSIONS THE SAME:
 
 - 'giizhendam-aabajichiganan-mcp' -> https://www.npmjs.com/package/@nbiish/giizhendam-aabajichiganan-mcp
 - 'ai-tool-mcp' -> https://www.npmjs.com/package/@nbiish/ai-tool-mcp
 
-[publish_all.sh](mdc:publish_all.sh)
+# Run:
+- [publish_all.sh](mdc:publish_all.sh)

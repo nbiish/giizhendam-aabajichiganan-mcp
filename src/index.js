@@ -47,7 +47,7 @@ const ToolOutputSchema = z.object({
 // --- Server Definition ---
 const server = new McpServer({
   name: "giizhendam-aabajichiganan", // Traditional name in romanized form
-  version: "0.2.4", // Match version in package.json
+  version: "0.2.5", // Match version in package.json
   capabilities: {
     resources: {}, // No resources defined yet
     tools: {

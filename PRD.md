@@ -64,4 +64,4 @@ Developers using AI-assisted coding environments (e.g., Cursor, Claude App) cann
 - **Aider:** A command-line tool that uses AI models to edit code within a local git repository.
 - **npx:** Node Package Execute. A tool to execute Node.js packages without explicitly installing them globally or locally.
 
-*Current Version: 0.2.4* 
+*Current Version: 0.2.5* 
