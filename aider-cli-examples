@@ -1,0 +1,23 @@
+# first shot
+aider \
+    --model gemini/gemini-2.5-pro-exp-03-25 \
+    -architect \
+    -reasoning-effort high \
+    --editor-model sonnet \
+    --no-detect-urls \
+    --no-auto-commit
+    --yes-always \
+    --file *.py \
+    -message "$prompt"
+
+# reflection
+aider \
+    --model gemini/gemini-2.5-pro-exp-03-25 \
+    -architect
+    -reasoning-effort high \
+    -editor-model sonnet \
+    -no-detect-urls \
+    --no-auto-commit \
+    -yes-always \
+    -file *.py
+    -message "Double all changes requested to make sure they've been implemented: $prompt"

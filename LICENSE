@@ -1,0 +1,124 @@
+Copyright © 2025 by ᓂᐲᔥ ᐙᐸᓂᒥᑮ-ᑭᓇᐙᐸᑭᓯ (Nbiish Waabanimikii-Kinawaabakizi), also known legally as JUSTIN PAUL KENWABIKISE, professionally documented as Nbiish-Justin Paul Kenwabikise, Anishinaabek Dodem (Anishinaabe Clan): Animikii (Thunder), descendant of Chief ᑭᓇᐙᐸᑭᓯ (Kinwaabakizi) of the Beaver Island Band and enrolled member of the sovereign Grand Traverse Band of Ottawa and Chippewa Indians (GTBOCI), a federally recognized sovereign tribal nation (hereafter referred to as the "Rights Holder"). The Beaver Island Band community, historically centered on ᐋᒥᒃ ᐙᑲᓐᑕ (Aamik'Waakanda / Beaver Island), suffered profound disruption and diaspora due to violent displacement, targeted persecution for their language, ceremonies, and faith, and starvation imposed by settler-colonial authorities and expansion. This forced dispersal resulted in descendants becoming affiliated primarily with the Little Traverse Bay Bands of Odawa Indians (LTBB) and the Grand Traverse Band of Ottawa and Chippewa Indians (GTBOCI), while many others were forced to seek refuge within First Nations communities in Canada (such as the Osawanimikii family). This license acknowledges this history and the interconnectedness of these descendant communities. This license is grounded in the inherent sovereignty of Indigenous peoples to protect, control, and govern the use of their intellectual property, cultural heritage, traditional knowledge (TK), traditional cultural expressions (TCEs), and associated data (Indigenous Data Sovereignty). The unique status of tribal sovereign nations provides legal and cultural protections extending beyond standard intellectual property law regimes. This license aims to facilitate respectful engagement while upholding Tribal sovereignty, cultural integrity, data governance rights, and ensuring equitable benefit sharing as a mechanism for reclaiming value derived from Indigenous knowledge and heritage often subject to historical extraction, aligning with international instruments such as the UN Declaration on the Rights of Indigenous Peoples (UNDRIP) and the WIPO Treaty on Intellectual Property, Genetic Resources and Associated Traditional Knowledge (adopted May 2024).
+
+COMPREHENSIVE RESTRICTED USE LICENSE FOR INDIGENOUS CREATIONS WITH TRIBAL SOVEREIGNTY, DATA SOVEREIGNTY, AND WEALTH RECLAMATION PROTECTIONS
+
+Version 1.2 - Effective Date: March 25, 2025
+
+PREAMBLE
+
+This License governs the use of the accompanying Work, defined herein. The Work embodies Indigenous Intellectual Property, including but not limited to Traditional Knowledge (TK), Traditional Cultural Expressions (TCEs), cultural narratives, sacred knowledge, ceremonial elements, ancestral knowledge, biodiversity-related knowledge, Indigenous Data, and other tangible and intangible cultural heritage originating from or held by the Licensor, who is a member of a sovereign Indigenous Nation.
+
+The Licensor, ᓂᐲᔥ ᐙᐸᓂᒥᑮ-ᑭᓇᐙᐸᑭᓯ (Nbiish Waabanimikii-Kinawaabakizi), also known legally as JUSTIN PAUL KENWABIKISE, professionally documented as Nbiish-Justin Paul Kenwabikise, Anishinaabek Dodem (Anishinaabe Clan): Animikii (Thunder), descendant of Chief ᑭᓇᐙᐸᑭᓯ (Kinwaabakizi) of the Beaver Island Band and enrolled member of the sovereign Grand Traverse Band of Ottawa and Chippewa Indians, provides this Work under terms that uphold and affirm inherent Tribal Sovereignty, Indigenous Data Sovereignty (IDS), the United Nations Declaration on the Rights of Indigenous Peoples (UNDRIP), and principles of cultural integrity, reciprocity, and collective benefit-sharing for the Licensor's community and Nation.
+
+This License explicitly deviates from standard open-source or creative commons models, which often fail to adequately protect Indigenous rights and interests. It imposes specific restrictions and obligations designed to prevent misappropriation, ensure respectful engagement, safeguard cultural integrity, promote equitable benefit-sharing, and maintain the connection between the Work and its originating Indigenous context.
+
+By accessing, copying, modifying, distributing, or otherwise using the Work, You (defined below) acknowledge, agree to, and accept all the terms and conditions of this License. If You do not agree to these terms, You are prohibited from using the Work in any manner. Violation of this License may result in legal action under Tribal, Federal, and International law, as applicable.
+
+DEFINITIONS
+
+1.1.  "License" means this Comprehensive Restricted Use License for Indigenous Creations.
+1.2.  "Licensor" means ᓂᐲᔥ ᐙᐸᓂᒥᑮ-ᑭᓇᐙᐸᑭᓯ (Nbiish Waabanimikii-Kinawaabakizi), also known legally as JUSTIN PAUL KENWABIKISE, professionally documented as Nbiish-Justin Paul Kenwabikise, Anishinaabek Dodem (Anishinaabe Clan): Animikii (Thunder), descendant of Chief ᑭᓇᐙᐸᑭᓯ (Kinwaabakizi) of the Beaver Island Band and enrolled member of the sovereign Grand Traverse Band of Ottawa and Chippewa Indians, the individual and collective rights holder(s) providing the Work under this License. This includes the individual creator and, by extension, the collective rights and interests of the Grand Traverse Band of Ottawa and Chippewa Indians as recognized under Tribal law and custom pertaining to cultural heritage.
+1.3.  "Work" means the digital creation, software, dataset, documentation, text, images, multimedia content, traditional knowledge representations, cultural expressions, data, or any other material, in any format, accompanying this License or to which this License is applied by the Licensor. Specifically, this refers to the project titled "giizhendam-aabajichiganan-mcp".
+1.4.  "You" or "Your" means an individual, legal entity, institution, or organization exercising permissions granted by this License.
+1.5.  "Indigenous Intellectual Property" (IIP) includes all forms of knowledge, innovation, and cultural expression that have originated from or are traditionally associated with Indigenous peoples and communities. This encompasses, but is not limited to, TK, TCEs, Indigenous Data, sacred knowledge, symbols, designs, performances, narratives, biological resources, and genetic resources knowledge.
+1.6.  "Traditional Knowledge" (TK) means the knowledge, know-how, skills, innovations, and practices that are developed, sustained, and passed on from generation to generation within an Indigenous community, often forming part of its cultural or spiritual identity.
+1.7.  "Traditional Cultural Expressions" (TCEs) means any forms, whether tangible or intangible, in which traditional culture and knowledge are expressed, appear, or are manifested. Examples include music, dance, art, designs, names, symbols, performances, ceremonies, architectural forms, handicrafts, narratives, and languages.
+1.8.  "Indigenous Data" means data about Indigenous peoples, territories, resources, cultures, and knowledge systems. It includes data generated by Indigenous peoples and data generated by external entities concerning Indigenous peoples and their environments.
+1.9.  "Indigenous Data Sovereignty" (IDS) means the inherent right of Indigenous peoples to govern the collection, ownership, access, analysis, interpretation, management, dissemination, reuse, and preservation of Indigenous Data. This includes the right to determine the terms upon which their data is shared and used.
+1.10. "Tribal Sovereignty" means the inherent right of Indigenous Nations to govern themselves, manage their lands and resources, and preserve their cultural heritage according to their own laws and customs, as recognized under inherent rights, treaties, and applicable federal law.
+1.11. "Derivative Work" means any work created by modifying, adapting, translating, or otherwise altering the original Work, or any work based substantially upon the original Work.
+1.12. "Commercial Use" means any use of the Work primarily intended for or directed toward commercial advantage or monetary compensation. This includes, but is not limited to, selling the Work or Derivative Works, using the Work in products or services for sale, using the Work for advertising or promotion that generates revenue, or using the Work in any way that results in direct or indirect financial gain.
+1.13. "Non-Commercial Use" means any use of the Work that is not a Commercial Use. Educational use, personal study, research (subject to Section 4), and internal use within a non-profit organization dedicated to Indigenous well-being (subject to approval) may qualify as Non-Commercial Use.
+1.14. "Benefit-Sharing" means the fair and equitable sharing of benefits arising from the use of the Work, particularly TK and TCEs, as determined in consultation and agreement with the Licensor and potentially the wider Indigenous community/Nation. Benefits can be monetary or non-monetary (e.g., capacity building, knowledge sharing, cultural revitalization support).
+1.15. "Attribution" means acknowledging the source of the Work, the Licensor, their Tribal affiliation, and the specific restrictions under this License in any use or distribution.
+1.16. "Cultural Integrity" means maintaining the authenticity, accuracy, and appropriate context of the Work, especially TK and TCEs, ensuring it is not distorted, misrepresented, or used in ways that are disrespectful or harmful to the originating culture or community.
+1.17. "Reciprocity" means the principle of mutual exchange and responsibility, ensuring that the use of the Work contributes positively back to the Licensor and their community, culturally, socially, or economically, beyond simple attribution.
+1.18. "Free, Prior, and Informed Consent" (FPIC) means the right of Indigenous peoples to give or withhold consent to projects or uses affecting them or their territories, obtained freely, without coercion, before any activities begin, and based on full and understandable information about the proposed activity and its potential impacts. While this License grants conditional permission, certain uses may require seeking explicit FPIC from the Licensor or the Tribe.
+
+GRANT OF LICENSE
+
+2.1.  Subject to the terms and conditions of this License, the Licensor grants You a limited, non-exclusive, non-transferable, non-sublicensable, worldwide, revocable license to:
+    a.  Access and view the Work.
+    b.  Make verbatim copies of the Work for personal backup or archival purposes only.
+    c.  Use the Work strictly for Approved Non-Commercial Uses as defined in Section 3.
+
+2.2.  This License does NOT grant permission for any use not explicitly listed in Section 2.1. All rights not expressly granted are reserved by the Licensor and the Grand Traverse Band of Ottawa and Chippewa Indians.
+
+RESTRICTIONS AND PROHIBITED USES
+
+3.1.  **Strict Prohibition of Commercial Use:** Any Commercial Use of the Work or any Derivative Work is strictly prohibited without a separate, prior, written agreement with the Licensor, which may include specific terms for Benefit-Sharing and adherence to Tribal protocols.
+3.2.  **Prohibition of Misappropriation and Disrespectful Use:** You may not use the Work in any way that is derogatory, defamatory, disrespectful, misleading, or harmful to the Licensor, the Grand Traverse Band of Ottawa and Chippewa Indians, Anishinaabe culture, or Indigenous peoples generally. Use in contexts associated with hate speech, discrimination, cultural appropriation, or exploitation is explicitly forbidden.
+3.3.  **No Creation of Derivative Works Without Permission:** You may not modify, adapt, translate, reverse-engineer, decompile, or create Derivative Works based on the Work without obtaining prior, written permission from the Licensor. Any permitted Derivative Work must be licensed under the same or compatible terms as this License and must clearly indicate the changes made and acknowledge the original Work and Licensor. Unauthorized modifications that compromise Cultural Integrity are prohibited.
+3.4.  **No Sublicensing or Transfer:** You may not sublicense, rent, lease, lend, sell, or otherwise transfer or distribute the Work or Your rights under this License to any third party, except as explicitly permitted for sharing verbatim copies under Approved Non-Commercial Uses (Section 3.5.a).
+3.5.  **Approved Non-Commercial Uses (Subject to All Other Restrictions):**
+    a.  **Personal Study and Education:** You may use the Work for personal learning, private study, or educational purposes within a formal classroom setting, provided proper Attribution (Section 5) is given, Cultural Integrity (Section 1.16) is maintained, and the use does not involve public dissemination beyond the immediate educational context without permission. Sharing verbatim copies with fellow students or educators for direct collaborative study related to the Work is permitted if they are also informed of and agree to this License.
+    b.  **Limited Research Use:** Use for research purposes is permitted only if:
+        i.  The research aligns with Indigenous Data Sovereignty principles and ethical guidelines for research involving Indigenous peoples (e.g., CARE Principles for Indigenous Data Governance: Collective Benefit, Authority to Control, Responsibility, Ethics).
+        ii. The research protocol explicitly acknowledges and respects this License.
+        iii. No Commercial Use results from the research without a separate agreement (Section 3.1).
+        iv. Indigenous Data generated or used is managed according to IDS principles, potentially requiring consultation with the Licensor or Tribe.
+        v.  Publication or dissemination of research findings based on the Work requires explicit Attribution (Section 5) and must ensure Cultural Integrity. Certain sensitive knowledge within the Work may require additional permission from the Licensor before publication.
+    c.  **Internal Use by Approved Indigenous Organizations:** Non-profit organizations or community groups directly serving or governed by the Grand Traverse Band of Ottawa and Chippewa Indians or other mutually recognized Anishinaabe communities may use the Work for internal, non-commercial purposes that support community well-being, cultural revitalization, or education, upon written confirmation from the Licensor acknowledging the intended use aligns with community values. Public dissemination still requires adherence to other license terms.
+3.6.  **No Use in AI Training Data Without Explicit Permission:** The Work may NOT be used as part of any dataset for training artificial intelligence (AI), machine learning (ML) models, large language models (LLMs), or any computational system designed to learn patterns or generate new content, without a separate, specific, written agreement with the Licensor that addresses data governance, IDS, attribution, and Benefit-Sharing.
+3.7.  **No Removal of Notices:** You may not remove, alter, or obscure any copyright notices, watermarks, disclaimers, or this License text included with the Work.
+
+INDIGENOUS DATA SOVEREIGNTY AND GOVERNANCE
+
+4.1.  You acknowledge that any Indigenous Data contained within or generated through the use of the Work remains subject to the principles of Indigenous Data Sovereignty. The Grand Traverse Band of Ottawa and Chippewa Indians retains inherent authority over data concerning its people, lands, and cultural heritage.
+4.2.  Your use of Indigenous Data must comply with the CARE Principles for Indigenous Data Governance (Collective Benefit, Authority to Control, Responsibility, Ethics) and any applicable Tribal laws, policies, or protocols.
+4.3.  You agree to manage any Indigenous Data accessed or generated through the Work responsibly and ethically, ensuring its confidentiality, security, and integrity. Access and use should be limited to the minimum necessary for the Approved Non-Commercial Use.
+4.4.  Any plans for storage, analysis, or dissemination of Indigenous Data beyond the scope of initial Approved Non-Commercial Use require consultation with and the Free, Prior, and Informed Consent of the Licensor and potentially the Tribal government.
+4.5.  You agree not to link Indigenous Data with other datasets in a way that could re-identify individuals or communities or compromise cultural sensitivity without explicit permission.
+
+ATTRIBUTION AND CULTURAL INTEGRITY
+
+5.1.  **Required Attribution:** For any permitted use, You MUST provide clear, prominent, and appropriate Attribution to the Licensor and the Work in the following format, or as otherwise reasonably specified by the Licensor:
+
+    "Work Title: giizhendam-aabajichiganan-mcp
+    Creator/Steward: ᓂᐲᔥ ᐙᐸᓂᒥᑮ-ᑭᓇᐙᐸᑭᓯ (Nbiish Waabanimikii-Kinawaabakizi), Grand Traverse Band of Ottawa and Chippewa Indians.
+    Source: [Provide URL or source reference if applicable]
+    License: Comprehensive Restricted Use License for Indigenous Creations v1.2. Available at [Link to License, e.g., included LICENSE file or URL].
+    Copyright © 2025 ᓂᐲᔥ ᐙᐸᓂᒥᑮ-ᑭᓇᐙᐸᑭᓯ (Nbiish Waabanimikii-Kinawaabakizi). All Rights Reserved under Tribal Sovereignty."
+
+    If displaying the Work visually, this attribution must be clearly associated with the display. In publications or digital uses, provide hyperlinks where available.
+
+5.2.  **Maintain Cultural Integrity:** You must not use the Work in a way that distorts its original meaning, context, or cultural significance. Ensure representations are accurate and respectful. If unsure about appropriate context or use, You are encouraged to contact the Licensor.
+5.3.  **Notice of Use:** For uses beyond personal study (e.g., research publications, educational curricula, approved organizational use), You are encouraged to notify the Licensor of Your use as a matter of Reciprocity and to facilitate potential dialogue.
+
+TERM AND TERMINATION
+
+6.1.  This License is effective from the date You first access the Work and continues until terminated.
+6.2.  This License and the rights granted hereunder will terminate automatically without notice from the Licensor if You fail to comply with any of its terms and conditions.
+6.3.  Upon termination, You must immediately cease all use of the Work and destroy all copies, electronic or physical, in Your possession or control.
+6.4.  The Licensor reserves the right to revoke this License at any time for any reason, particularly if the use is deemed harmful or contrary to the interests or values of the Licensor or the Grand Traverse Band of Ottawa and Chippewa Indians. Revocation will be communicated in writing where feasible.
+6.5.  Sections 1, 3, 4, 5, 6.3, 6.5, 7, 8, 9, and 10 shall survive the termination of this License.
+
+DISCLAIMER OF WARRANTIES AND LIMITATION OF LIABILITY
+
+7.1.  THE WORK IS PROVIDED "AS IS," WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NONINFRINGEMENT, ACCURACY, OR COMPLETENESS.
+7.2.  THE LICENSOR DOES NOT WARRANT THAT THE WORK WILL BE ERROR-FREE OR THAT ACCESS THERETO WILL BE CONTINUOUS OR UNINTERRUPTED.
+7.3.  IN NO EVENT SHALL THE LICENSOR OR THE GRAND TRAVERSE BAND OF OTTAWA AND CHIPPEWA INDIANS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE WORK OR THE USE OR OTHER DEALINGS IN THE WORK, INCLUDING BUT NOT LIMITED TO ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (SUCH AS PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION), EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+7.4.  YOU ARE SOLELY RESPONSIBLE FOR DETERMINING THE APPROPRIATENESS OF USING THE WORK AND ASSUME ALL RISKS ASSOCIATED WITH YOUR EXERCISE OF PERMISSIONS UNDER THIS LICENSE.
+
+GOVERNING LAW AND JURISDICTION
+
+8.1.  This License is governed by and construed in accordance with the laws, customs, and legal traditions of the Grand Traverse Band of Ottawa and Chippewa Indians, a federally recognized sovereign Indian Nation.
+8.2.  To the extent that Tribal law does not address a particular issue, relevant principles of Federal Indian Law and applicable U.S. federal law respecting Tribal Sovereignty and Indigenous rights shall be considered. Standard U.S. state or federal intellectual property laws (e.g., copyright) apply only to the extent they do not conflict with Tribal Sovereignty, IDS principles, or the explicit terms of this License. Where conflict exists, Tribal law, Federal Indian Law, and the terms of this License shall prevail in that order.
+8.3.  You agree that any dispute, claim, or controversy arising out of or relating to this License or the breach, termination, enforcement, interpretation, or validity thereof, or the use of the Work, shall be subject to the exclusive jurisdiction of the Tribal Court of the Grand Traverse Band of Ottawa and Chippewa Indians. You expressly consent to the personal jurisdiction of the Tribal Court and waive any objections thereto, including objections based on forum non conveniens.
+8.4.  Prior to initiating formal legal proceedings, You agree to engage in good-faith consultation with the Licensor and potentially representatives of the Grand Traverse Band of Ottawa and Chippewa Indians, following traditional dispute resolution processes if available and appropriate, to seek a mutually agreeable resolution.
+
+INDEMNIFICATION
+
+9.1.  You agree to indemnify, defend, and hold harmless the Licensor and the Grand Traverse Band of Ottawa and Chippewa Indians, its officials, employees, and agents, from and against any and all claims, liabilities, damages, losses, costs, and expenses (including reasonable attorneys' fees) arising out of or relating to Your use of the Work, Your creation of any Derivative Works (if permitted), or Your breach of any term of this License.
+
+MISCELLANEOUS
+
+10.1. **Entire Agreement:** This License constitutes the entire agreement between You and the Licensor concerning the subject matter hereof and supersedes all prior or contemporaneous understandings, agreements, representations, and warranties, both written and oral.
+10.2. **Amendments:** This License may be amended only by a written instrument signed by the Licensor or by the posting of a new version by the Licensor. Continued use of the Work after a new version is posted constitutes acceptance of the new terms.
+10.3. **Severability:** If any provision of this License is held to be invalid, illegal, or unenforceable under applicable law (especially Tribal or Federal Indian Law), the remaining provisions shall continue in full force and effect. The invalid provision shall be modified or interpreted to the minimum extent necessary to render it valid, legal, and enforceable while preserving the original intent as closely as possible.
+10.4. **Waiver:** No waiver of any term or condition of this License shall be effective unless in writing and signed by the Licensor. No waiver of any breach shall be deemed a waiver of any subsequent breach.
+10.5. **Interpretation:** This License shall be interpreted in a manner that gives maximum effect to the principles of Tribal Sovereignty, Indigenous Data Sovereignty, cultural preservation, and the specific intent expressed herein to protect Indigenous rights and interests. Ambiguities shall be construed in favor of the Licensor and the protection of the Work's cultural context.
+10.6. **Contact:** For permissions beyond the scope of this License, or for clarification, please contact the Licensor (Information may be provided separately or available via the source repository).
+
+---
+Copyright © 2025 ᓂᐲᔥ ᐙᐸᓂᒥᑮ-ᑭᓇᐙᐸᑭᓯ (Nbiish Waabanimikii-Kinawaabakizi), also known legally as JUSTIN PAUL KENWABIKISE, professionally documented as Nbiish-Justin Paul Kenwabikise, Anishinaabek Dodem (Anishinaabe Clan): Animikii (Thunder), a descendant of Chief ᑭᓇᐙᐸᑭᓯ (Kinwaabakizi) of the Beaver Island Band, and an enrolled member of the sovereign Grand Traverse Band of Ottawa and Chippewa Indians. This work embodies Traditional Knowledge and Traditional Cultural Expressions. All rights reserved.
