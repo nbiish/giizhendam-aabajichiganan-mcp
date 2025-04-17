@@ -21,6 +21,15 @@ const OptionalAiderArgsSchema = z.object({
     architect_model: z.string().optional().describe("Optional. Override for --model flag."),
     editor_model: z.string().optional().describe("Optional. Override for --editor-model flag."),
     additional_aider_args: z.array(z.string()).optional().default([]).describe("Optional. Extra flags for aider command."),
+    background: z.boolean().optional().default(true).describe("Optional. Run in background mode. Defaults to true."),
+    show_progress: z.boolean().optional().default(false).describe("Optional. Show task progress updates."),
+    task_type: z.enum([
+        "research",
+        "documentation",
+        "security",
+        "code_modification",
+        "verification"
+    ]).optional().describe("Optional. Specific type of task being requested.")
 });
 
 const RunAiderInputSchema = z.object({
@@ -47,7 +56,7 @@ const ToolOutputSchema = z.object({
 // --- Server Definition ---
 const server = new McpServer({
   name: "giizhendam-aabajichiganan", // Traditional name in romanized form
-  version: "0.2.5", // Match version in package.json
+  version: "0.2.11", // Match version in package.json
   capabilities: {
     resources: {}, // No resources defined yet
     tools: {
@@ -117,9 +126,19 @@ function launchAiderCommand(files, full_prompt, architectModel, editorModel, add
       '--yes-always' // Ensure non-interactive
     ];
 
+    // Add background and progress flags if specified
+    if (additional_aider_args.includes('--background')) {
+        baseArgs.push('--background');
+    }
+    if (additional_aider_args.includes('--show-progress')) {
+        baseArgs.push('--show-progress');
+    }
+
     const fileArgs = files;
     const messageArg = ['--message', full_prompt];
-    const extraArgs = additional_aider_args;
+    const extraArgs = additional_aider_args.filter(arg => 
+        arg !== '--background' && arg !== '--show-progress'
+    );
 
     const aiderArgs = [...baseArgs, ...fileArgs, ...messageArg, ...extraArgs];
 
@@ -175,23 +194,38 @@ function launchAiderCommand(files, full_prompt, architectModel, editorModel, add
 
 // Generic handler to determine models and call launchAiderCommand
 async function baseAiderHandler(params, promptConstructor) {
-    console.error(`Handling tool call with params:`, params); // Log received params
+    console.error(`Handling tool call with params:`, params);
 
     // Determine models (common logic for all tools)
-    // Use env vars from mcp.json OR defaults if not provided in params
     const architectModel = params.architect_model || process.env.CUSTOM_ARCHITECT_MODEL || process.env.DEFAULT_ARCHITECT_MODEL;
     const editorModel = params.editor_model || process.env.CUSTOM_EDITOR_MODEL || process.env.DEFAULT_EDITOR_MODEL;
-    const additional_aider_args = params.additional_aider_args || []; // Already defaulted by Zod, but safe
+    
+    // Build additional args array with new flags
+    const additional_aider_args = [...(params.additional_aider_args || [])];
+    
+    // Add background flag if specified (defaults to true)
+    if (params.background !== false) {
+        additional_aider_args.push('--background');
+    }
+    
+    // Add progress flag if specified
+    if (params.show_progress) {
+        additional_aider_args.push('--show-progress');
+    }
+
+    // Log task type if specified
+    if (params.task_type) {
+        console.error(`Task type specified: ${params.task_type}`);
+    }
 
     if (!architectModel || !editorModel) {
         const errorMsg = 'Could not determine required models. Set DEFAULT/CUSTOM env vars or provide in tool call.';
         console.error(errorMsg);
         return { status: 'maazhise', details: errorMsg };
     }
-     console.error(`Using Architect Model: ${architectModel}`);
-     console.error(`Using Editor Model: ${editorModel}`);
-     console.error(`Using Additional Args: ${additional_aider_args.join(' ')}`);
-
+    console.error(`Using Architect Model: ${architectModel}`);
+    console.error(`Using Editor Model: ${editorModel}`);
+    console.error(`Using Additional Args: ${additional_aider_args.join(' ')}`);
 
     // Construct the specific prompt using the provided function
     const full_prompt = promptConstructor(params);
@@ -209,8 +243,7 @@ async function baseAiderHandler(params, promptConstructor) {
             console.error(errorMsg);
             return { status: 'maazhise', details: errorMsg };
         }
-         console.error(`Directory ensured successfully.`);
-
+        console.error(`Directory ensured successfully.`);
     }
 
     // Determine files list based on tool type
@@ -220,18 +253,18 @@ async function baseAiderHandler(params, promptConstructor) {
     } else if (params.task_prompt) { // run_agentic_code_task
         filesToUse = params.files;
     } else if (params.research_topic) { // run_agentic_research
-        filesToUse = [params.output_file]; // Research uses the output file
+        filesToUse = [params.output_file];
     } else {
-         console.error('Internal Error: Could not determine files list for tool.');
-         return { status: 'maazhise', details: 'Internal error determining files list.' };
+        console.error('Internal Error: Could not determine files list for tool.');
+        return { status: 'maazhise', details: 'Internal error determining files list.' };
     }
 
     console.error(`Files list for aider: ${filesToUse.join(', ')}`);
 
-    // Launch the command
+    // Launch the command with updated args
     const launchResult = launchAiderCommand(filesToUse, full_prompt, architectModel, editorModel, additional_aider_args);
-    console.error(`Launch result:`, launchResult); // Log result before returning
-    return launchResult; // Directly return the result object
+    console.error(`Launch result:`, launchResult);
+    return launchResult;
 }
 
 

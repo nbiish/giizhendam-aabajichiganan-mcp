@@ -23,10 +23,17 @@ Developers using AI-assisted coding environments (e.g., Cursor, Claude App) cann
   - Implements basic MCP protocol for tool discovery and execution
   - Configurable via environment variables
 
-- **Single File Aider Integration**
-  - `run_aider` tool for editing/creating individual files
-  - Passes user instructions to `aider` to execute changes
-  - Reports success/failure of launching the `aider` process
+- **Agentic Aider Integration**
+  - `run_aider` tool for autonomous task completion
+  - Executes background tasks while user focuses on primary work
+  - Supports parallel workflows and non-blocking operations
+  - Handles various task types:
+    - Research and data analysis
+    - Documentation generation
+    - Security analysis
+    - Code modifications and improvements
+  - Configurable with high reasoning effort for complex tasks
+  - Reports task progress and completion status
 
 - **API Key Management**
   - Read API keys from environment variables (e.g., `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`)
@@ -34,9 +41,9 @@ Developers using AI-assisted coding environments (e.g., Cursor, Claude App) cann
 
 ### Explicitly Out of Scope (for MVP)
 
-- Multi-file `aider` operations
-- Agentic/autonomous task execution via `aider`
-- Research capabilities
+- Agentic task coordination across multiple AI assistants
+- Complex workflow orchestration
+- Research capabilities requiring human intervention
 - Advanced configuration options
 - Git status tools
 - Error recovery mechanisms

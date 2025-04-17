@@ -1,23 +1,48 @@
-# first shot
-aider \
-    --model gemini/gemini-2.5-pro-exp-03-25 \
-    -architect \
-    -reasoning-effort high \
-    --editor-model sonnet \
-    --no-detect-urls \
-    --no-auto-commit
-    --yes-always \
-    --file *.py \
-    -message "$prompt"
+#!/bin/bash
 
-# reflection
-aider \
+# Base configuration for autonomous background tasks
+# Uses high-reasoning model and architect mode for complex operations
+BASE_CONFIG="aider \
     --model gemini/gemini-2.5-pro-exp-03-25 \
-    -architect
-    -reasoning-effort high \
-    -editor-model sonnet \
-    -no-detect-urls \
+    --architect \
+    --editor-model gemini/gemini-2.5-pro-exp-03-25 \
+    --no-detect-urls \
     --no-auto-commit \
-    -yes-always \
-    -file *.py
-    -message "Double all changes requested to make sure they've been implemented: $prompt"
+    --yes-always"
+
+# Example 1: Research and Analysis Task
+# Delegates background research while user focuses on other work
+$BASE_CONFIG \
+    --background \
+    --message "Research task: $prompt"
+
+# Example 2: Documentation Generation
+# Automatically generates or updates project documentation
+$BASE_CONFIG \
+    --background \
+    --message "Documentation task: $prompt"
+
+# Example 3: Security Analysis
+# Performs security checks and generates reports
+$BASE_CONFIG \
+    --background \
+    --message "Security analysis task: $prompt"
+
+# Example 4: Code Modifications
+# Makes requested code changes across the codebase
+$BASE_CONFIG \
+    --background \
+    --message "Code modification task: $prompt"
+
+# Example 5: Task Verification
+# Double-checks that all requested changes were implemented
+$BASE_CONFIG \
+    --background \
+    --message "Verification task: Double-check all changes requested: $prompt"
+
+# Example 6: Progress Monitoring
+# Shows task progress and status updates
+$BASE_CONFIG \
+    --background \
+    --show-progress \
+    --message "Progress-tracked task: $prompt"

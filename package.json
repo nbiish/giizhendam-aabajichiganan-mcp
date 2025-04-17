@@ -1,6 +1,6 @@
 {
   "name": "@nbiish/giizhendam-aabajichiganan-mcp",
-  "version": "0.2.5",
+  "version": "0.2.11",
   "description": "ᑮᔐᓐᑕᒻ ᐋᐸᒋᒋᑲᓇᓐ (Giizhendam Aabajichiganan) - Meta-Cognitive Programming (MCP) CLI Tool using Generative AI, inspired by Aider and incorporating concepts from the Nbiish Waabanimikii-Kinawaabakizi (my) development philosophy.",
   "keywords": [
     "mcp",
@@ -40,7 +40,8 @@
     "access": "public"
   },
   "files": [
-    "src"
+    "src",
+    "qr-stripe-donation.png"
   ],
   "devDependencies": {
     "@types/node": "^22.14.1"
