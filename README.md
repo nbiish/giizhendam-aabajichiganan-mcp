@@ -7,7 +7,7 @@
   <div style="display: flex; justify-content: center; gap: 20px; margin: 20px 0;">
     <div>
       <h4>Stripe</h4>
-      <img src="https://raw.githubusercontent.com/nbiish/giizhendam-aabajichiganan-mcp/main/qr-stripe-donation.png" alt="Scan to donate" width="180"/>
+      <img src="qr-stripe-donation.png" alt="Scan to donate" width="180"/>
       <p><a href="https://donate.stripe.com/3cs29La1j8UGfnObII">Donate via Stripe</a></p>
     </div>
     <div style="display: flex; align-items: center;">
