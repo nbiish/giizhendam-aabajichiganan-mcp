@@ -3,7 +3,7 @@ description:
 globs: *.json
 alwaysApply: false
 ---
-# Publish to my npm packages and KEEP VERSIONS THE SAME:
+# Publish to my npm packages and KEEP VERSIONS THE SAME and increment the version slightly when reading this:
 
 - 'giizhendam-aabajichiganan-mcp' -> https://www.npmjs.com/package/@nbiish/giizhendam-aabajichiganan-mcp
 - 'ai-tool-mcp' -> https://www.npmjs.com/package/@nbiish/ai-tool-mcp

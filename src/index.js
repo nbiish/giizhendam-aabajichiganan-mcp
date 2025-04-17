@@ -47,10 +47,22 @@ const RunAgenticResearchInputSchema = z.object({
   output_file: z.string().describe("Target markdown file path (must start with RESEARCH/).")
 }).merge(OptionalAiderArgsSchema);
 
+// Define schema for the new echo tool input
+const EchoInputSchema = z.object({
+  message: z.string().describe("The message to echo back.")
+});
+
 // Define the output schema for all tools (immediate response)
 const ToolOutputSchema = z.object({
   status: z.enum(["minose", "maazhise"]).describe("Status: 'minose' (success) or 'maazhise' (error)."),
   details: z.string().describe("Details about the launch status or error message.")
+});
+
+// Define a specific output schema for the echo tool
+const EchoOutputSchema = z.object({
+  status: z.enum(["minose", "maazhise"]).describe("Status: 'minose' (success) or 'maazhise' (error)."),
+  echoed_message: z.string().optional().describe("The message that was echoed back."),
+  details: z.string().describe("Details about the echo operation or error message.")
 });
 
 // --- Server Definition ---
@@ -80,6 +92,13 @@ const server = new McpServer({
         inputSchema: RunAgenticResearchInputSchema,
         outputSchema: ToolOutputSchema,
         handler: handleRunAgenticResearch,
+      },
+      // Tool: echo_tool - Simple echo tool example
+      echo_tool: {
+        description: "A simple tool that echoes back the provided message.",
+        inputSchema: EchoInputSchema,     // Use echo-specific input schema
+        outputSchema: EchoOutputSchema,  // Use echo-specific output schema
+        handler: handleEcho,           // Link to the new handler function
       },
     },
   },
@@ -294,6 +313,31 @@ async function handleRunAgenticResearch(params) {
     return baseAiderHandler(params, (p) => constructResearchPrompt(p.research_topic, p.output_file));
 }
 
+// New handler function for the echo tool
+async function handleEcho(params) {
+  console.error(`Handling echo_tool call with params:`, params);
+  try {
+    const messageToEcho = params.message;
+    if (typeof messageToEcho !== 'string') {
+      // Should be caught by Zod, but good practice to check
+      throw new Error("Invalid input: message must be a string.");
+    }
+    console.error(`Echoing message: "${messageToEcho}"`);
+    // Return success status and the echoed message
+    return {
+      status: 'minose', // Anishinaabe for 'success'
+      echoed_message: messageToEcho,
+      details: 'Message echoed successfully.'
+    };
+  } catch (error) {
+    console.error('Error in handleEcho:', error);
+    // Return error status
+    return {
+      status: 'maazhise', // Anishinaabe for 'error'
+      details: `Error echoing message: ${error.message}`
+    };
+  }
+}
 
 // --- Main Execution ---
 async function main() {
