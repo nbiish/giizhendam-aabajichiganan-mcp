@@ -6,17 +6,6 @@
 .cursorrules.yaml
 .cursorrules.yml
 
-.npmignore
-.npmrc
-.npmrc.yaml
-.npmrc.yml
-.npmrc.json
-.npmrc.txt
-.npmrc.md
-
-aider-cli-examples/
-
-
 # Cursor files
 .cursor/
 .cursorignore
@@ -34,3 +23,6 @@ aider-cli-examples/
 .copilotignore
 .rooignore
 .github/copilot-instructions.md
+
+# Environment variables
+.env

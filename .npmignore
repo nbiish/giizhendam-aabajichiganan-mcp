@@ -1,0 +1,28 @@
+# Node / Common
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# Environment / Secrets
+.env*
+
+# OS / Editor specific
+.DS_Store
+.idea/
+.vscode/
+
+# Build / Test artifacts (if any)
+# build/
+# coverage/
+# *.test.js
+
+# Project specific
+.cursor/
+.git/
+.github/
+.gitignore
+aider-cli-commands.sh
+publish_all.sh
+# Add other project-specific files to ignore

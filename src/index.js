@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+import dotenv from 'dotenv';
+dotenv.config();
+
 /**
  * ᑮᔐᓐᑕᒻ ᐋᐸᒋᒋᑲᓇᓐ (Giizhendam Aabajichiganan) MCP Server
  * A Meta-Cognitive Programming server implementing the MCP protocol
@@ -16,102 +19,111 @@ import path from 'path';
 
 // --- Zod Schema Definitions ---
 
-// Optional args common to all tools
+// Shared optional args based on aider-cli-commands.sh base config and mcp.json env
 const OptionalAiderArgsSchema = z.object({
-    architect_model: z.string().optional().describe("Optional. Override for --model flag."),
-    editor_model: z.string().optional().describe("Optional. Override for --editor-model flag."),
-    additional_aider_args: z.array(z.string()).optional().default([]).describe("Optional. Extra flags for aider command."),
-    background: z.boolean().optional().default(true).describe("Optional. Run in background mode. Defaults to true."),
-    show_progress: z.boolean().optional().default(false).describe("Optional. Show task progress updates."),
-    task_type: z.enum([
-        "research",
-        "documentation",
-        "security",
-        "code_modification",
-        "verification"
-    ]).optional().describe("Optional. Specific type of task being requested.")
+    // Model overrides (optional, defaults will be read from env)
+    architect_model: z.string().optional().describe("Optional. Override the architect model (e.g., gemini/gemini-2.5-pro-exp-03-25:free). Defaults to env settings."),
+    editor_model: z.string().optional().describe("Optional. Override the editor model (e.g., deepseek/deepseek-chat-v3-0324:free). Defaults to env settings."),
+    // Aider flags (from base config in script)
+    no_detect_urls: z.boolean().optional().default(true).describe("Use --no-detect-urls flag."),
+    no_auto_commit: z.boolean().optional().default(true).describe("Use --no-auto-commit flag."),
+    yes_always: z.boolean().optional().default(true).describe("Use --yes-always flag."),
+    // Background execution (common pattern)
+    background: z.boolean().optional().default(true).describe("Run aider in the background. Defaults to true."),
+    // Files to operate on (required by most aider tasks)
+    files: z.array(z.string()).optional().default([]).describe("File paths for aider to operate on. Required for code, security, verify tasks.")
 });
 
-const RunAiderInputSchema = z.object({
-  files: z.array(z.string()).min(1).describe("File paths for aider."),
-  message: z.string().describe("Prompt/instructions for aider.")
-}).merge(OptionalAiderArgsSchema); // Merge common optional args
-
-const RunAgenticCodeTaskInputSchema = z.object({
-  files: z.array(z.string()).min(1).describe("Files for aider to work on."),
-  task_prompt: z.string().describe("Specific instructions for the coding task.")
+// Tool-specific input schemas
+const RunResearchInputSchema = z.object({
+  topic: z.string().describe("The research topic.")
 }).merge(OptionalAiderArgsSchema);
 
-const RunAgenticResearchInputSchema = z.object({
-  research_topic: z.string().describe("The topic to research."),
-  output_file: z.string().describe("Target markdown file path (must start with RESEARCH/).")
+const RunDocsInputSchema = z.object({
+  subject: z.string().describe("The subject for documentation generation."),
+  files: z.array(z.string()).optional().default([]).describe("Optional file paths relevant to the documentation subject.")
 }).merge(OptionalAiderArgsSchema);
 
-// Define schema for the new echo tool input
-const EchoInputSchema = z.object({
-  message: z.string().describe("The message to echo back.")
-});
+const RunSecurityInputSchema = z.object({
+  focus_area: z.string().describe("The specific focus area for the security analysis (e.g., a component, feature, or general request)."),
+  files: z.array(z.string()).min(1).describe("File paths for aider to analyze.") // Files required for security
+}).merge(OptionalAiderArgsSchema);
 
-// Define the output schema for all tools (immediate response)
+const RunCodeInputSchema = z.object({
+  request: z.string().describe("The code generation or modification request."),
+  files: z.array(z.string()).min(1).describe("File paths for aider to modify.") // Files required for code
+}).merge(OptionalAiderArgsSchema);
+
+const RunVerifyInputSchema = z.object({
+  verification_request: z.string().describe("The request detailing what to verify and the criteria."),
+  files: z.array(z.string()).min(1).describe("File paths containing the code/implementation to verify.") // Files required for verify
+}).merge(OptionalAiderArgsSchema);
+
+const RunTaskInputSchema = z.object({
+    prompt: z.string().describe("General prompt for a background aider task (e.g., status update, general query)."),
+    files: z.array(z.string()).optional().default([]).describe("Optional file paths relevant to the task.")
+}).merge(OptionalAiderArgsSchema);
+
+
+// Define the generic output schema for all tools (immediate response)
 const ToolOutputSchema = z.object({
   status: z.enum(["minose", "maazhise"]).describe("Status: 'minose' (success) or 'maazhise' (error)."),
   details: z.string().describe("Details about the launch status or error message.")
 });
 
-// Define a specific output schema for the echo tool
-const EchoOutputSchema = z.object({
-  status: z.enum(["minose", "maazhise"]).describe("Status: 'minose' (success) or 'maazhise' (error)."),
-  echoed_message: z.string().optional().describe("The message that was echoed back."),
-  details: z.string().describe("Details about the echo operation or error message.")
-});
 
 // --- Server Definition ---
 const server = new McpServer({
   name: "giizhendam-aabajichiganan", // Traditional name in romanized form
-  version: "0.2.11", // Match version in package.json
+  version: "0.2.20", // Match version in package.json
   capabilities: {
     resources: {}, // No resources defined yet
     tools: {
-      // Tool: run_aider - Part of ᑮᔐᓐᑕᒻ ᐋᐸᒋᒋᑲᓇᓐ MCP toolset
-      run_aider: {
-        description: "Launches an `aider` command-line process in the background to apply changes to specified files based on a prompt. Responds immediately with confirmation (minose) or error (maazhise).",
-        inputSchema: RunAiderInputSchema,
-        outputSchema: ToolOutputSchema, // Use shared output schema
-        handler: handleRunAider, // Link to handler function
-      },
-      // Tool: run_agentic_code_task - Part of ᑮᔐᓐᑕᒻ ᐋᐸᒋᒋᑲᓇᓐ MCP toolset
-      run_agentic_code_task: {
-        description: "Initiates a background `aider` process for an autonomous coding task using an OODA loop approach. Does not interfere with main assistant. Responds immediately with launch status (minose/maazhise).",
-        inputSchema: RunAgenticCodeTaskInputSchema,
+      // Tool: run_research - Based on aider-cli-commands.sh --research
+      run_research: {
+        description: "Act as a research analyst. Synthesize findings on a topic. Launches aider background task.",
+        inputSchema: RunResearchInputSchema,
         outputSchema: ToolOutputSchema,
-        handler: handleRunAgenticCodeTask,
+        handler: (params, context) => handleRunResearch(params, context), // Placeholder handler
       },
-      // Tool: run_agentic_research - Part of ᑮᔐᓐᑕᒻ ᐋᐸᒋᒋᑲᓇᓐ MCP toolset
-      run_agentic_research: {
-        description: "Initiates a background `aider` process for autonomous research, creating/updating a markdown file in RESEARCH/. Uses OODA loop. Responds immediately with launch status (minose/maazhise).",
-        inputSchema: RunAgenticResearchInputSchema,
+      // Tool: run_docs - Based on aider-cli-commands.sh --docs
+      run_docs: {
+        description: "Act as a technical writer. Generate documentation for a subject. Launches aider background task.",
+        inputSchema: RunDocsInputSchema,
         outputSchema: ToolOutputSchema,
-        handler: handleRunAgenticResearch,
+        handler: (params, context) => handleRunDocs(params, context), // Placeholder handler
       },
-      // Tool: echo_tool - Simple echo tool example
-      echo_tool: {
-        description: "A simple tool that echoes back the provided message.",
-        inputSchema: EchoInputSchema,     // Use echo-specific input schema
-        outputSchema: EchoOutputSchema,  // Use echo-specific output schema
-        handler: handleEcho,           // Link to the new handler function
+      // Tool: run_security - Based on aider-cli-commands.sh --security
+      run_security: {
+        description: "Act as a security analyst. Review code/context for vulnerabilities. Launches aider background task.",
+        inputSchema: RunSecurityInputSchema,
+        outputSchema: ToolOutputSchema,
+        handler: (params, context) => handleRunSecurity(params, context), // Placeholder handler
+      },
+      // Tool: run_code - Based on aider-cli-commands.sh --code
+      run_code: {
+        description: "Act as a software developer. Implement code generation/modification. Launches aider background task.",
+        inputSchema: RunCodeInputSchema,
+        outputSchema: ToolOutputSchema,
+        handler: (params, context) => handleRunCode(params, context), // Placeholder handler
+      },
+      // Tool: run_verify - Based on aider-cli-commands.sh --verify
+      run_verify: {
+        description: "Act as a code reviewer. Verify code/implementation against criteria. Launches aider background task.",
+        inputSchema: RunVerifyInputSchema,
+        outputSchema: ToolOutputSchema,
+        handler: (params, context) => handleRunVerify(params, context), // Placeholder handler
+      },
+      // Tool: run_task - Based on aider-cli-commands.sh --progress (general task)
+      run_task: {
+        description: "Run a general aider task in the background based on the provided prompt.",
+        inputSchema: RunTaskInputSchema,
+        outputSchema: ToolOutputSchema,
+        handler: (params, context) => handleRunTask(params, context), // Placeholder handler
       },
     },
   },
 });
-
-// --- Prompt Construction Helpers (Keep existing helpers) ---
-function constructCodeTaskPrompt(task_prompt) {
-    return `You are an autonomous agent performing a background coding task. Do not interfere with the main assistant's flow. Your task is to: ${task_prompt}. Use an OODA loop approach: Observe the code, Orient to the goal, Decide on changes, Act by implementing them, and repeat if necessary. Apply changes directly to the specified files.`;
-}
-
-function constructResearchPrompt(research_topic, output_file) {
-    return `You are an autonomous agent performing research. Your goal is to gather information on '${research_topic}' and create or update the markdown file '${output_file}'. Use an OODA loop approach: Observe available information, Orient to the research goal, Decide on key findings, Act by writing/updating the markdown file, and repeat. Ensure the output is well-structured markdown within the specified file.`;
-}
 
 // --- Utility Functions (Keep existing helper) ---
 async function ensureDirectoryExists(filePath) {
@@ -126,62 +138,84 @@ async function ensureDirectoryExists(filePath) {
     }
 }
 
-// --- Core Aider Launch Function (Adapt slightly for SDK context) ---
+// --- Core Aider Launch Function (Updated Env Handling) ---
 // Returns a standardized output object matching ToolOutputSchema
-function launchAiderCommand(files, full_prompt, architectModel, editorModel, additional_aider_args) {
+function launchAiderCommand(files, full_prompt, architectModel, editorModel, optionalArgs, context) {
   console.error("Entering launchAiderCommand...");
   try {
-    // Basic validation (types mostly handled by Zod now)
-    if (!full_prompt || !architectModel || !editorModel || !Array.isArray(files) || files.length === 0 || !Array.isArray(additional_aider_args)) {
+    // Basic validation
+    if (!full_prompt || !architectModel || !editorModel || !Array.isArray(files) || !optionalArgs) {
         console.error('Internal Error: Invalid arguments passed to launchAiderCommand.');
         return { status: 'maazhise', details: 'Internal error: Invalid arguments for launch.' };
     }
 
-    const baseArgs = [
-      '--model', architectModel,
-      '--editor-model', editorModel,
-      '--no-detect-urls',
-      '--no-auto-commit',
-      '--yes-always' // Ensure non-interactive
+    // --- Argument Construction ---
+    // Start with models
+    const aiderArgs = [
+        '--model', architectModel,
+        '--editor-model', editorModel,
     ];
 
-    // Add background and progress flags if specified
-    if (additional_aider_args.includes('--background')) {
-        baseArgs.push('--background');
-    }
-    if (additional_aider_args.includes('--show-progress')) {
-        baseArgs.push('--show-progress');
+    // Add optional boolean flags from OptionalAiderArgsSchema
+    if (optionalArgs.no_detect_urls) aiderArgs.push('--no-detect-urls');
+    if (optionalArgs.no_auto_commit) aiderArgs.push('--no-auto-commit');
+    if (optionalArgs.yes_always) aiderArgs.push('--yes-always');
+    // Note: --background is handled by spawn detached:true, not passed as arg here
+
+    // Add files (if any)
+    if (files && files.length > 0) {
+        aiderArgs.push(...files);
     }
 
-    const fileArgs = files;
-    const messageArg = ['--message', full_prompt];
-    const extraArgs = additional_aider_args.filter(arg => 
-        arg !== '--background' && arg !== '--show-progress'
-    );
-
-    const aiderArgs = [...baseArgs, ...fileArgs, ...messageArg, ...extraArgs];
+    // Add the constructed message
+    aiderArgs.push('--message', full_prompt);
 
     console.error(`Spawning aider with args: ${aiderArgs.join(' ')}`);
 
-    // Environment variables needed by aider (read from process.env)
+    // --- Environment Variable Construction ---
+    // Prioritize context.environment (client config) over process.env (server env from .env)
+    const clientEnv = context?.environment || {};
+    const serverEnv = process.env;
+
+    // Explicitly define needed keys and their priority
     const env = {
-        ...process.env, // Pass existing env vars
-        // Explicitly pass API keys aider might look for
-        OPENAI_API_KEY: process.env.OPENAI_API_KEY,
-        ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
-        GEMINI_API_KEY: process.env.GEMINI_API_KEY,
-        OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
-        // Add any other keys aider might need
+        ...serverEnv, // Start with server env as base, potentially filtered
+
+        // Required API Keys (Error if missing from both sources? Or let aider handle?)
+        GEMINI_API_KEY: clientEnv.GEMINI_API_KEY || serverEnv.GEMINI_API_KEY,
+        OPENROUTER_API_KEY: clientEnv.OPENROUTER_API_KEY || serverEnv.OPENROUTER_API_KEY,
+        // Add other potential API keys aider might use if configured
+        // OPENAI_API_KEY: clientEnv.OPENAI_API_KEY || serverEnv.OPENAI_API_KEY,
+        // ANTHROPIC_API_KEY: clientEnv.ANTHROPIC_API_KEY || serverEnv.ANTHROPIC_API_KEY,
+
+        // Model names (used by this function to construct args, not passed directly in env unless aider needs them)
+        // We already pass the determined models via args, but include them in env
+        // in case aider logic uses them directly somehow.
+        DEFAULT_ARCHITECT_MODEL: clientEnv.DEFAULT_ARCHITECT_MODEL || serverEnv.DEFAULT_ARCHITECT_MODEL,
+        DEFAULT_CODER_MODEL: clientEnv.DEFAULT_CODER_MODEL || serverEnv.DEFAULT_CODER_MODEL, // Alias for editor
+        CUSTOM_ARCHITECT_MODEL: clientEnv.CUSTOM_ARCHITECT_MODEL || serverEnv.CUSTOM_ARCHITECT_MODEL,
+        CUSTOM_CODER_MODEL: clientEnv.CUSTOM_CODER_MODEL || serverEnv.CUSTOM_CODER_MODEL, // Alias for editor
     };
-    // Filter out undefined keys to avoid passing them literally
-    Object.keys(env).forEach(key => env[key] === undefined && delete env[key]);
-    console.error(`Passing environment keys: ${Object.keys(env).join(', ')}`);
 
+    // Filter out undefined/null keys to avoid passing them literally
+    Object.keys(env).forEach(key => (env[key] === undefined || env[key] === null) && delete env[key]);
 
+    // Logging for verification
+    console.error("Using environment variables for aider process:");
+    console.error(`  GEMINI_API_KEY source: ${clientEnv.GEMINI_API_KEY ? 'client' : serverEnv.GEMINI_API_KEY ? 'server' : 'missing'}`);
+    console.error(`  OPENROUTER_API_KEY source: ${clientEnv.OPENROUTER_API_KEY ? 'client' : serverEnv.OPENROUTER_API_KEY ? 'server' : 'missing'}`);
+    console.error(`  DEFAULT_ARCHITECT_MODEL source: ${clientEnv.DEFAULT_ARCHITECT_MODEL ? 'client' : serverEnv.DEFAULT_ARCHITECT_MODEL ? 'server' : 'used_default'}`);
+    console.error(`  DEFAULT_CODER_MODEL source: ${clientEnv.DEFAULT_CODER_MODEL ? 'client' : serverEnv.DEFAULT_CODER_MODEL ? 'server' : 'used_default'}`);
+    console.error(`  CUSTOM_ARCHITECT_MODEL source: ${clientEnv.CUSTOM_ARCHITECT_MODEL ? 'client' : serverEnv.CUSTOM_ARCHITECT_MODEL ? 'server' : 'not_set'}`);
+    console.error(`  CUSTOM_CODER_MODEL source: ${clientEnv.CUSTOM_CODER_MODEL ? 'client' : serverEnv.CUSTOM_CODER_MODEL ? 'server' : 'not_set'}`);
+    console.error("Final Env object for spawn:", env);
+
+    // --- Spawning Process ---
+    const runInBackground = optionalArgs.background !== false;
     const aiderProcess = spawn('aider', aiderArgs, {
-      detached: true, // Run in background
-      stdio: 'ignore', // Ignore stdio streams
-      env: env        // Pass necessary environment variables
+      detached: runInBackground, // Run in background if requested
+      stdio: 'ignore', // Ignore stdio streams to avoid blocking
+      env: env        // Pass constructed environment variables
     });
 
     let spawnFailed = false;
@@ -190,154 +224,115 @@ function launchAiderCommand(files, full_prompt, architectModel, editorModel, add
       spawnFailed = true; // Set flag if spawn fails
     });
 
-    aiderProcess.unref(); // Allow parent process to exit independently
+    if (runInBackground) {
+        aiderProcess.unref(); // Allow parent process to exit independently
+    }
 
     // Check the flag *after* unref and event listener setup
     if (spawnFailed) {
-        // This error handling is still a bit racy but better than before
-        console.error("Aider process failed to spawn (e.g., command not found).");
-        return { status: 'maazhise', details: 'Aider process failed to spawn (e.g., command not found).' };
+        console.error("Aider process failed to spawn (e.g., command not found or permissions).");
+        return { status: 'maazhise', details: 'Aider process failed to spawn (e.g., command not found or permissions).' };
     }
 
-    console.error("Exiting launchAiderCommand (success). Aider launched in background.");
-    return { status: 'minose', details: 'Aider process launch initiated in background.' };
+    const launchMsg = runInBackground
+        ? 'Aider process launch initiated in background.'
+        : 'Aider process launch initiated (foreground - blocking).' // Should ideally not happen with current defaults
+    console.error(`Exiting launchAiderCommand (success). ${launchMsg}`);
+    return { status: 'minose', details: launchMsg };
 
   } catch (error) {
-    console.error('Error preparing aider command:', error);
+    console.error('Error preparing or launching aider command:', error);
     console.error("Exiting launchAiderCommand (error).");
-    return { status: 'maazhise', details: `Internal error preparing command: ${error.message}` };
+    return { status: 'maazhise', details: `Internal error preparing/launching command: ${error.message}` };
   }
 }
 
 // --- Tool Handler Functions ---
 
-// Generic handler to determine models and call launchAiderCommand
-async function baseAiderHandler(params, promptConstructor) {
+// Base handler to extract common logic: determine models, construct args, call launch
+async function baseAiderHandler(params, context, messageConstructor) {
     console.error(`Handling tool call with params:`, params);
+    console.error(`Received context keys: ${context ? Object.keys(context).join(', ') : 'null'}`);
+    const clientEnv = context?.environment || {};
+    const serverEnv = process.env;
 
-    // Determine models (common logic for all tools)
-    const architectModel = params.architect_model || process.env.CUSTOM_ARCHITECT_MODEL || process.env.DEFAULT_ARCHITECT_MODEL;
-    const editorModel = params.editor_model || process.env.CUSTOM_EDITOR_MODEL || process.env.DEFAULT_EDITOR_MODEL;
-    
-    // Build additional args array with new flags
-    const additional_aider_args = [...(params.additional_aider_args || [])];
-    
-    // Add background flag if specified (defaults to true)
-    if (params.background !== false) {
-        additional_aider_args.push('--background');
-    }
-    
-    // Add progress flag if specified
-    if (params.show_progress) {
-        additional_aider_args.push('--show-progress');
-    }
+    // Determine models (Priority: params -> clientEnv (custom) -> clientEnv (default) -> serverEnv (custom) -> serverEnv (default))
+    const architectModel = params.architect_model
+        || clientEnv.CUSTOM_ARCHITECT_MODEL
+        || clientEnv.DEFAULT_ARCHITECT_MODEL
+        || serverEnv.CUSTOM_ARCHITECT_MODEL
+        || serverEnv.DEFAULT_ARCHITECT_MODEL;
 
-    // Log task type if specified
-    if (params.task_type) {
-        console.error(`Task type specified: ${params.task_type}`);
-    }
+    const editorModel = params.editor_model
+        || clientEnv.CUSTOM_CODER_MODEL
+        || clientEnv.DEFAULT_CODER_MODEL
+        || serverEnv.CUSTOM_CODER_MODEL
+        || serverEnv.DEFAULT_CODER_MODEL;
 
+    // Check if essential models are determined
     if (!architectModel || !editorModel) {
-        const errorMsg = 'Could not determine required models. Set DEFAULT/CUSTOM env vars or provide in tool call.';
-        console.error(errorMsg);
-        return { status: 'maazhise', details: errorMsg };
+        const missing = [!architectModel && "Architect", !editorModel && "Editor"].filter(Boolean).join(' and ');
+        console.error(`Error: Could not determine essential models (${missing}). Check params or environment variables.`);
+        return { status: 'maazhise', details: `Configuration error: ${missing} model not found.` };
     }
+
     console.error(`Using Architect Model: ${architectModel}`);
     console.error(`Using Editor Model: ${editorModel}`);
-    console.error(`Using Additional Args: ${additional_aider_args.join(' ')}`);
 
-    // Construct the specific prompt using the provided function
-    const full_prompt = promptConstructor(params);
-    if (typeof full_prompt !== 'string') {
-        console.error('Internal Error: Prompt constructor did not return a string.');
-        return { status: 'maazhise', details: 'Internal error generating prompt.' };
-    }
+    // Construct the specific message for aider
+    const message = messageConstructor(params);
 
-    // Handle directory creation for research tool specifically
-    if (params.output_file && params.output_file.startsWith('RESEARCH' + path.sep)) {
-        console.error(`Ensuring directory exists for research file: ${params.output_file}`);
-        const dirOk = await ensureDirectoryExists(params.output_file);
-        if (!dirOk) {
-            const errorMsg = `Internal Error: Failed to create directory for output_file: ${params.output_file}`;
-            console.error(errorMsg);
-            return { status: 'maazhise', details: errorMsg };
-        }
-        console.error(`Directory ensured successfully.`);
-    }
+    // Extract files (handle optional/required nature at schema level)
+    const files = params.files || [];
 
-    // Determine files list based on tool type
-    let filesToUse;
-    if (params.message) { // run_aider
-        filesToUse = params.files;
-    } else if (params.task_prompt) { // run_agentic_code_task
-        filesToUse = params.files;
-    } else if (params.research_topic) { // run_agentic_research
-        filesToUse = [params.output_file];
-    } else {
-        console.error('Internal Error: Could not determine files list for tool.');
-        return { status: 'maazhise', details: 'Internal error determining files list.' };
-    }
-
-    console.error(`Files list for aider: ${filesToUse.join(', ')}`);
-
-    // Launch the command with updated args
-    const launchResult = launchAiderCommand(filesToUse, full_prompt, architectModel, editorModel, additional_aider_args);
-    console.error(`Launch result:`, launchResult);
-    return launchResult;
-}
-
-
-// Specific Handlers - they prepare the prompt constructor and call the base handler
-
-async function handleRunAider(params) {
-    // params are already validated by Zod against RunAiderInputSchema
-    return baseAiderHandler(params, (p) => p.message); // Simple prompt is just the message
-}
-
-async function handleRunAgenticCodeTask(params) {
-    // params are already validated by Zod against RunAgenticCodeTaskInputSchema
-    return baseAiderHandler(params, (p) => constructCodeTaskPrompt(p.task_prompt));
-}
-
-async function handleRunAgenticResearch(params) {
-    // params are already validated by Zod against RunAgenticResearchInputSchema
-
-    // Additional validation specific to research tool
-    const researchDir = 'RESEARCH';
-    if (!params.output_file.startsWith(researchDir + path.sep) && params.output_file !== researchDir) {
-        const errorMsg = `Invalid Params: output_file must be within the ${researchDir}/ directory. Received: ${params.output_file}`;
-         console.error(errorMsg);
-         return { status: 'maazhise', details: errorMsg };
-    }
-
-    return baseAiderHandler(params, (p) => constructResearchPrompt(p.research_topic, p.output_file));
-}
-
-// New handler function for the echo tool
-async function handleEcho(params) {
-  console.error(`Handling echo_tool call with params:`, params);
-  try {
-    const messageToEcho = params.message;
-    if (typeof messageToEcho !== 'string') {
-      // Should be caught by Zod, but good practice to check
-      throw new Error("Invalid input: message must be a string.");
-    }
-    console.error(`Echoing message: "${messageToEcho}"`);
-    // Return success status and the echoed message
-    return {
-      status: 'minose', // Anishinaabe for 'success'
-      echoed_message: messageToEcho,
-      details: 'Message echoed successfully.'
+    // Extract optional args (flags, background mode)
+    const optionalArgs = {
+        no_detect_urls: params.no_detect_urls,
+        no_auto_commit: params.no_auto_commit,
+        yes_always: params.yes_always,
+        background: params.background,
     };
-  } catch (error) {
-    console.error('Error in handleEcho:', error);
-    // Return error status
-    return {
-      status: 'maazhise', // Anishinaabe for 'error'
-      details: `Error echoing message: ${error.message}`
-    };
-  }
+
+    // Launch the command
+    return launchAiderCommand(files, message, architectModel, editorModel, optionalArgs, context);
 }
+
+// Specific Handlers
+async function handleRunResearch(params, context) {
+    return baseAiderHandler(params, context, (p) => 
+        `Act as a research analyst. Synthesize the key findings, evidence, and implications related to the following topic. Provide a concise summary suitable for a technical team. Topic: ${p.topic}`
+    );
+}
+
+async function handleRunDocs(params, context) {
+    return baseAiderHandler(params, context, (p) => 
+        `Act as a technical writer. Generate clear and concise documentation (e.g., explanation, usage guide, API reference) for the following subject, targeting an audience of developers. Subject: ${p.subject}`
+    );
+}
+
+async function handleRunSecurity(params, context) {
+    return baseAiderHandler(params, context, (p) => 
+        `Act as an expert security analyst. Review the provided context/code for potential security vulnerabilities (e.g., OWASP Top 10, injection flaws, insecure configurations, logic errors). Clearly identify any findings, explain the risks, and suggest mitigations. Focus area: ${p.focus_area}`
+    );
+}
+
+async function handleRunCode(params, context) {
+    return baseAiderHandler(params, context, (p) => 
+        `Act as an expert software developer. Implement the following code generation or modification request, ensuring code is efficient, readable, and adheres to best practices. Request: ${p.request}`
+    );
+}
+
+async function handleRunVerify(params, context) {
+    return baseAiderHandler(params, context, (p) => 
+        `Act as a meticulous code reviewer. Verify the following code or implementation against the requirements or criteria specified. Identify any discrepancies, potential bugs, logical errors, or areas for improvement (e.g., clarity, performance). Verification request: ${p.verification_request}`
+    );
+}
+
+async function handleRunTask(params, context) {
+    // Generic task based on the prompt
+    return baseAiderHandler(params, context, (p) => p.prompt );
+}
+
 
 // --- Main Execution ---
 async function main() {

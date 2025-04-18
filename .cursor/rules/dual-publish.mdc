@@ -9,4 +9,5 @@ alwaysApply: false
 - 'ai-tool-mcp' -> https://www.npmjs.com/package/@nbiish/ai-tool-mcp
 
 # Run:
+- [critical.mdc](mdc:.cursor/rules/critical.mdc)
 - [publish_all.sh](mdc:publish_all.sh)
