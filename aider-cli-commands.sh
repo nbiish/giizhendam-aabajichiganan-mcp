@@ -3,9 +3,9 @@
 # Base configuration for autonomous background tasks
 # Uses high-reasoning model and architect mode for complex operations
 BASE_CONFIG="aider \\
-    --model gemini/gemini-2.5-pro-exp-03-25:free \\
+    --model openrouter/google/gemini-2.5-pro-exp-03-25:free \\
     --architect \\
-    --editor-model deepseek/deepseek-chat-v3-0324:free \\
+    --editor-model openrouter/google/gemini-2.5-pro-exp-03-25:free \\
     --no-detect-urls \\
     --no-auto-commit \\
     --yes-always"

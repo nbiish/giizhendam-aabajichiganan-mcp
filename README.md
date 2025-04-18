@@ -40,10 +40,10 @@ To run this MCP server within a compatible editor (like Cursor or Claude Desktop
       "env": {
         "GEMINI_API_KEY": "YOUR_GEMINI_API_KEY",
         "OPENROUTER_API_KEY": "YOUR_OPENROUTER_API_KEY",
-        "DEFAULT_ARCHITECT_MODEL": "gemini-2.5-pro-preview-03-25",
-        "DEFAULT_CODER_MODEL": "gemini-2.5-pro-preview-03-25",
-        "CUSTOM_ARCHITECT_MODEL": "deepseek/deepseek-chat-v3-0324:free",
-        "CUSTOM_CODER_MODEL": "deepseek/deepseek-chat-v3-0324:free"
+        "DEFAULT_ARCHITECT_MODEL": "openrouter/google/gemini-2.5-pro-exp-03-25:free",
+        "DEFAULT_CODER_MODEL": "openrouter/google/gemini-2.5-pro-exp-03-25:free",
+        "CUSTOM_ARCHITECT_MODEL": "openrouter/google/gemini-2.5-pro-exp-03-25:free",
+        "CUSTOM_CODER_MODEL": "openrouter/google/gemini-2.5-pro-exp-03-25:free"
       }
     }
   }
@@ -64,10 +64,10 @@ Or using the English translation name:
       "env": {
         "GEMINI_API_KEY": "YOUR_GEMINI_API_KEY",
         "OPENROUTER_API_KEY": "YOUR_OPENROUTER_API_KEY",
-        "DEFAULT_ARCHITECT_MODEL": "gemini-2.5-pro-preview-03-25",
-        "DEFAULT_CODER_MODEL": "gemini-2.5-pro-preview-03-25",
-        "CUSTOM_ARCHITECT_MODEL": "deepseek/deepseek-chat-v3-0324:free",
-        "CUSTOM_CODER_MODEL": "deepseek/deepseek-chat-v3-0324:free"
+        "DEFAULT_ARCHITECT_MODEL": "openrouter/google/gemini-2.5-pro-exp-03-25:free",
+        "DEFAULT_CODER_MODEL": "openrouter/google/gemini-2.5-pro-exp-03-25:free",
+        "CUSTOM_ARCHITECT_MODEL": "openrouter/google/gemini-2.5-pro-exp-03-25:free",
+        "CUSTOM_CODER_MODEL": "openrouter/google/gemini-2.5-pro-exp-03-25:free"
       }
     }
   }
@@ -80,10 +80,10 @@ The server requires configuration via environment variables, passed through the 
 
 -   `GEMINI_API_KEY`: Your API key for Google Gemini.
 -   `OPENROUTER_API_KEY`: Your API key for OpenRouter (for access to various models).
--   `DEFAULT_ARCHITECT_MODEL`: The default LLM for higher-level planning (e.g., `gemini/gemini-2.5-pro-exp-03-25`).
--   `DEFAULT_CODER_MODEL`: The default LLM for code generation/editing (e.g., `gemini/gemini-2.5-pro-exp-03-25`).
--   `CUSTOM_ARCHITECT_MODEL`: A specific alternative model for planning (e.g., `deepseek/deepseek-chat-v3-0324:free`).
--   `CUSTOM_CODER_MODEL`: A specific alternative model for editing (e.g., `deepseek/deepseek-chat-v3-0324:free`).
+-   `DEFAULT_ARCHITECT_MODEL`: The default LLM for higher-level planning (e.g., `openrouter/google/gemini-2.5-pro-exp-03-25:free`).
+-   `DEFAULT_CODER_MODEL`: The default LLM for code generation/editing (e.g., `openrouter/google/gemini-2.5-pro-exp-03-25:free`).
+-   `CUSTOM_ARCHITECT_MODEL`: A specific alternative model for planning (e.g., `openrouter/google/gemini-2.5-pro-exp-03-25:free`).
+-   `CUSTOM_CODER_MODEL`: A specific alternative model for editing (e.g., `openrouter/google/gemini-2.5-pro-exp-03-25:free`).
 -   *(Potentially others as features are added)*
 
 ## Features

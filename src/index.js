@@ -22,8 +22,8 @@ import path from 'path';
 // Shared optional args based on aider-cli-commands.sh base config and mcp.json env
 const OptionalAiderArgsSchema = z.object({
     // Model overrides (optional, defaults will be read from env)
-    architect_model: z.string().optional().describe("Optional. Override the architect model (e.g., gemini/gemini-2.5-pro-exp-03-25:free). Defaults to env settings."),
-    editor_model: z.string().optional().describe("Optional. Override the editor model (e.g., deepseek/deepseek-chat-v3-0324:free). Defaults to env settings."),
+    architect_model: z.string().optional().describe("Optional. Override the architect model (e.g., openrouter/google/gemini-2.5-pro-exp-03-25:free). Defaults to env settings."),
+    editor_model: z.string().optional().describe("Optional. Override the editor model (e.g., openrouter/google/gemini-2.5-pro-exp-03-25:free). Defaults to env settings."),
     // Aider flags (from base config in script)
     no_detect_urls: z.boolean().optional().default(true).describe("Use --no-detect-urls flag."),
     no_auto_commit: z.boolean().optional().default(true).describe("Use --no-auto-commit flag."),

@@ -26,3 +26,6 @@ package-lock.json
 aider-cli-commands.sh
 publish_all.sh
 # Add other project-specific files to ignore
+
+# Aider files
+.aider*

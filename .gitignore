@@ -17,6 +17,7 @@
 .aider.conf.yml
 .aiderignore
 .env.example
+.aider*
 
 # Copilot files
 .copilot/
@@ -26,3 +27,4 @@
 
 # Environment variables
 .env
+.aider*

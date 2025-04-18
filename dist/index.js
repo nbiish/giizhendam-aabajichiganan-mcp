@@ -8,27 +8,85 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { spawn } from "child_process";
-import path from 'path';
 import fs from 'fs';
+import path from 'path';
 const LOG_FILE = '/tmp/giizhendam_mcp_log.txt';
-fs.appendFileSync(LOG_FILE, `\n--- Server script loading at ${new Date().toISOString()} ---\n`);
+fs.appendFileSync(LOG_FILE, `--- Starting server at ${new Date().toISOString()} ---\n`);
+// Helper function to create proper MCP response format
+function createMcpResponse(success, text, isError = false) {
+    return {
+        content: [{
+                type: "text",
+                text: text
+            }],
+        isError: isError,
+        _meta: {
+            success: success
+        }
+    };
+}
+// Aider Task Types and Configuration
+const TASK_TYPES = ['research', 'docs', 'security', 'code', 'verify', 'progress'];
+const BASE_CONFIG = {
+    model: 'openrouter/google/gemini-2.5-pro-exp-03-25:free',
+    editorModel: 'openrouter/google/gemini-2.5-pro-exp-03-25:free',
+    architect: true,
+    noDetectUrls: true,
+    noAutoCommit: true,
+    yesAlways: true
+};
+const TASK_PROMPTS = {
+    research: "Act as a research analyst. Synthesize the key findings, evidence, and implications related to the following topic. Provide a concise summary suitable for a technical team.",
+    docs: "Act as a technical writer. Generate clear and concise documentation (e.g., explanation, usage guide, API reference) for the following subject, targeting an audience of developers.",
+    security: "Act as an expert security analyst. Review the provided context/code for potential security vulnerabilities (e.g., OWASP Top 10, injection flaws, insecure configurations, logic errors). Clearly identify any findings, explain the risks, and suggest mitigations.",
+    code: "Act as an expert software developer. Implement the following code generation or modification request, ensuring code is efficient, readable, and adheres to best practices.",
+    verify: "Act as a meticulous code reviewer. Verify the following code or implementation against the requirements or criteria specified. Identify any discrepancies, potential bugs, logical errors, or areas for improvement (e.g., clarity, performance).",
+    progress: "Provide a status update or progress report based on the following request:"
+};
 /**
  * Input schema for the run_aider tool
  * Part of ᑮᔐᓐᑕᒻ ᐋᐸᒋᒋᑲᓇᓐ MCP toolset
+ *
+ * This tool enables fire-and-forget agentic tasks using aider with specific configurations.
+ * Each task type has its own focused behavior and LLM instructions:
+ * - research: Research analysis and synthesis
+ * - docs: Documentation generation
+ * - security: Security analysis
+ * - code: Code modification
+ * - verify: Code verification
+ * - progress: Progress tracking
  */
 const runAiderParamsSchema = z.object({
-    files: z.array(z.string()).optional().describe("Files/globs to add to the aider chat context."),
-    message: z.string().describe("The user's request/prompt for aider."),
-    model: z.string().optional().describe("Specify the model for aider to use (e.g., 'gemini/gemini-2.5-pro-exp-03-25')."),
-    editorModel: z.string().optional().describe("Specify the editor model (e.g., 'sonnet')."),
-    reasoningEffort: z.enum(["low", "medium", "high"]).optional().describe("Set the reasoning effort level."),
-    architect: z.boolean().optional().describe("Use architect mode."),
-    noDetectUrls: z.boolean().optional().describe("Disable URL detection."),
-    noAutoCommit: z.boolean().optional().describe("Disable automatic git commits. Strongly recommended for use cases involving parallel operations or verification to avoid interference."),
-    yesAlways: z.boolean().optional().default(true).describe("Automatically confirm actions (like applying changes). Default is true; use with caution in automated workflows."),
-    repoPath: z.string().optional().describe("Absolute or relative path to the git repository. Overrides AIDER_REPO_PATH env var."),
-    aiderPath: z.string().optional().describe("Path to the aider executable. Overrides AIDER_PATH env var."),
-    extraArgs: z.array(z.string()).optional().describe("Array of additional command-line arguments/flags for aider.")
+    files: z.array(z.string()).optional()
+        .describe('List of files to include in the task context. These files will be available for the aider agent to read and potentially modify.'),
+    message: z.string()
+        .describe('The specific task or request to be handled by the aider agent. This will be combined with task-specific prompting based on the taskType.'),
+    taskType: z.enum(TASK_TYPES)
+        .describe('The type of task to perform. This determines the agent\'s role and behavior:\n' +
+        '- research: Analyze and synthesize information on a topic\n' +
+        '- docs: Generate technical documentation\n' +
+        '- security: Perform security analysis\n' +
+        '- code: Implement or modify code\n' +
+        '- verify: Review and verify code/implementation\n' +
+        '- progress: Track and report progress'),
+    model: z.string().optional()
+        .describe('Override the default model. Default: openrouter/google/gemini-2.5-pro-exp-03-25:free'),
+    editorModel: z.string().optional()
+        .describe('Override the default editor model. Default: openrouter/google/gemini-2.5-pro-exp-03-25:free'),
+    architect: z.boolean().optional()
+        .describe('Enable/disable architect mode. When enabled, the agent takes a more high-level architectural approach. Default: true'),
+    noDetectUrls: z.boolean().optional()
+        .describe('Disable URL detection in messages. Default: true'),
+    noAutoCommit: z.boolean().optional()
+        .describe('Disable automatic git commits. Useful when running multiple tasks that modify the same codebase. Default: true'),
+    yesAlways: z.boolean().optional().default(true)
+        .describe('Automatically confirm all prompts. Essential for fire-and-forget operation. Default: true'),
+    repoPath: z.string().optional()
+        .describe('Path to the git repository to operate in. Defaults to current directory or AIDER_REPO_PATH env var.'),
+    aiderPath: z.string().optional()
+        .describe('Path to the aider executable. Defaults to "aider" in PATH or AIDER_PATH env var.'),
+    extraArgs: z.array(z.string()).optional()
+        .describe('Additional command-line arguments to pass to aider.')
 });
 /**
  * Conceptual Usage Notes for run_aider:
@@ -46,139 +104,73 @@ const runAiderParamsSchema = z.object({
  * - Sequential Execution: Note that underlying MCP execution is sequential. "Parallel"
  *   refers to the conceptual workflow management by the calling assistant.
  */
-/**
- * Tool definition for run_aider
- * Part of ᑮᔐᓐᑕᒻ ᐋᐸᒋᒋᑲᓇᓐ MCP toolset
- */
-const runAiderTool = {
-    name: "run_aider",
-    description: "Runs the aider command-line tool with specified parameters. Designed for delegating coding tasks, potentially in parallel workflows or for verification. Ensure non-interference by using appropriate flags (e.g., `noAutoCommit`).",
-    inputSchema: runAiderParamsSchema,
-    outputSchema: z.object({
-        success: z.boolean(),
-        output: z.string(),
-        error: z.string().optional(),
-    }),
-    async execute(params, context) {
-        return new Promise((resolve) => {
-            // 1. Get Configuration (prioritize params over environment variables)
-            const aiderCmd = params.aiderPath || process.env.AIDER_PATH || 'aider';
-            const repoDir = params.repoPath || process.env.AIDER_REPO_PATH || '.'; // Default to current dir
-            const resolvedRepoPath = path.resolve(repoDir);
-            console.error(`Attempting to run aider: command=${aiderCmd}, repoPath=${resolvedRepoPath}`);
-            // 2. Construct Arguments
-            const args = [];
-            if (params.model)
-                args.push('--model', params.model);
-            if (params.editorModel)
-                args.push('--editor-model', params.editorModel);
-            if (params.reasoningEffort)
-                args.push('--reasoning-effort', params.reasoningEffort);
-            if (params.architect)
-                args.push('--architect');
-            if (params.noDetectUrls)
-                args.push('--no-detect-urls');
-            if (params.noAutoCommit)
-                args.push('--no-auto-commit');
-            if (params.yesAlways)
-                args.push('--yes-always'); // Default is true in schema
-            // Add files *after* other options but *before* message
-            if (params.files && params.files.length > 0) {
-                args.push(...params.files);
-            }
-            // Add extra arguments
-            if (params.extraArgs && params.extraArgs.length > 0) {
-                args.push(...params.extraArgs);
-            }
-            // Add message last
-            args.push('--message', params.message);
-            console.error("Executing aider with args:", args.join(' '));
-            // 3. Execute Subprocess
-            let stdoutData = '';
-            let stderrData = '';
-            try {
-                const aiderProcess = spawn(aiderCmd, args, {
-                    cwd: resolvedRepoPath,
-                    stdio: 'pipe', // Use pipe to capture streams
-                    shell: false // More secure, avoids shell injection issues
-                });
-                aiderProcess.stdout.on('data', (data) => {
-                    stdoutData += data.toString();
-                });
-                aiderProcess.stderr.on('data', (data) => {
-                    stderrData += data.toString();
-                    console.error("Aider STDERR:", data.toString()); // Log stderr for debugging
-                });
-                aiderProcess.on('close', (code) => {
-                    console.error(`Aider process exited with code ${code}`);
-                    if (code === 0) {
-                        resolve({ success: true, output: stdoutData });
-                    }
-                    else {
-                        resolve({ success: false, output: stdoutData, error: stderrData || `Aider exited with code ${code}` });
-                    }
-                });
-                aiderProcess.on('error', (err) => {
-                    console.error('Failed to start aider process:', err);
-                    resolve({ success: false, output: '', error: `Failed to start aider process: ${err.message}` });
-                });
-            }
-            catch (error) {
-                console.error('Error spawning aider process:', error);
-                resolve({ success: false, output: '', error: `Error spawning aider process: ${error.message}` });
-            }
-        });
-    },
-};
 // Create server instance
 const server = new McpServer({
-    name: "nbiish-aider", // Using a distinct name
-    version: "0.1.0", // Match package.json version
-    capabilities: {
-        resources: {}, // No resources defined initially
-        tools: {
-            [runAiderTool.name]: runAiderTool,
-        },
-    },
+    name: "giizhendam-aabajichiganan-mcp",
+    version: "0.2.20",
+    capabilities: { resources: {}, tools: {} },
 });
-// Main function to run the server
+// Register the 'run_aider' tool using the high-level API
+server.tool("run_aider", "Executes fire-and-forget agentic tasks using aider with specialized configurations. Each task type has focused behavior and prompting:\n- research: Analyze and synthesize information\n- docs: Generate technical documentation\n- security: Perform security analysis\n- code: Implement or modify code\n- verify: Review and verify code/implementation\n- progress: Track and report progress\n\nUses OpenRouter's Gemini Pro model for both main and editor roles, with architect mode enabled by default.", runAiderParamsSchema.shape, async (params) => {
+    const cmd = params.aiderPath || process.env.AIDER_PATH || 'aider';
+    const cwd = path.resolve(params.repoPath || process.env.AIDER_REPO_PATH || '.');
+    // Combine base config with provided params
+    const config = {
+        ...BASE_CONFIG,
+        model: params.model || BASE_CONFIG.model,
+        editorModel: params.editorModel || BASE_CONFIG.editorModel,
+        architect: params.architect ?? BASE_CONFIG.architect,
+        noDetectUrls: params.noDetectUrls ?? BASE_CONFIG.noDetectUrls,
+        noAutoCommit: params.noAutoCommit ?? BASE_CONFIG.noAutoCommit,
+        yesAlways: params.yesAlways ?? BASE_CONFIG.yesAlways
+    };
+    // Build command arguments
+    const args = [];
+    if (config.model)
+        args.push('--model', config.model);
+    if (config.editorModel)
+        args.push('--editor-model', config.editorModel);
+    if (config.architect)
+        args.push('--architect');
+    if (config.noDetectUrls)
+        args.push('--no-detect-urls');
+    if (config.noAutoCommit)
+        args.push('--no-auto-commit');
+    if (config.yesAlways)
+        args.push('--yes-always');
+    if (params.files)
+        args.push(...params.files);
+    if (params.extraArgs)
+        args.push(...params.extraArgs);
+    // Construct task-specific message
+    const taskPrompt = TASK_PROMPTS[params.taskType];
+    const fullMessage = `${taskPrompt} ${params.message}`;
+    args.push('--message', fullMessage);
+    return new Promise((resolve) => {
+        let out = '', err = '';
+        const p = spawn(cmd, args, { cwd, stdio: ['pipe', 'pipe', 'pipe'] });
+        p.stdout.on('data', d => out += d.toString());
+        p.stderr.on('data', d => err += d.toString());
+        p.on('close', code => {
+            if (code === 0) {
+                resolve(createMcpResponse(true, out));
+            }
+            else {
+                resolve(createMcpResponse(false, `${out}\nError: ${err}`, true));
+            }
+        });
+        p.on('error', e => {
+            resolve(createMcpResponse(false, `Error: ${e.message}`, true));
+        });
+    });
+});
 async function main() {
-    fs.appendFileSync(LOG_FILE, `Main function started at ${new Date().toISOString()}\n`);
-    // Determine the directory of the current module
-    // Needed if aider needs to be run relative to the package
-    // const __filename = fileURLToPath(import.meta.url);
-    // const __dirname = path.dirname(__filename);
-    // console.error(`MCP Server running in directory: ${__dirname}`);
     const transport = new StdioServerTransport();
-    try {
-        fs.appendFileSync(LOG_FILE, `Attempting server.connect() at ${new Date().toISOString()}\n`);
-        await server.connect(transport);
-        fs.appendFileSync(LOG_FILE, `Server connected via stdio at ${new Date().toISOString()}\n`);
-        console.error("@nbiish/aider-mcp-server running on stdio");
-    }
-    catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        fs.appendFileSync(LOG_FILE, `Error during server.connect(): ${errorMessage} at ${new Date().toISOString()}\nStack: ${error instanceof Error ? error.stack : 'N/A'}\n`);
-        console.error("Fatal error during server connection:", errorMessage);
-    }
+    await server.connect(transport);
+    console.error("giizhendam-aabajichiganan-mcp running on stdio");
 }
 main().catch((error) => {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    fs.appendFileSync(LOG_FILE, `Fatal error in main(): ${errorMessage} at ${new Date().toISOString()}\nStack: ${error instanceof Error ? error.stack : 'N/A'}\n`);
-    console.error("Fatal error in @nbiish/aider-mcp-server:", error);
-    process.exit(1);
-});
-// Add an explicit uncaught exception handler for extra safety
-process.on('uncaughtException', (error) => {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    fs.appendFileSync(LOG_FILE, `CRITICAL: Uncaught Exception: ${errorMessage} at ${new Date().toISOString()}\nStack: ${error.stack}\n`);
-    console.error('CRITICAL: Uncaught Exception:', error);
-    process.exit(1);
-});
-process.on('unhandledRejection', (reason, promise) => {
-    const reasonMessage = reason instanceof Error ? reason.message : String(reason);
-    fs.appendFileSync(LOG_FILE, `CRITICAL: Unhandled Rejection: ${reasonMessage} at ${new Date().toISOString()}\nReason: ${reason}\n`);
-    console.error('CRITICAL: Unhandled Rejection at:', promise, 'reason:', reason);
+    console.error("Fatal error in main():", error);
     process.exit(1);
 });
 //# sourceMappingURL=index.js.map
