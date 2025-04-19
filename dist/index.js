@@ -1,17 +1,26 @@
+#!/usr/bin/env node
 /**
  * ᑮᔐᓐᑕᒻ ᐋᐸᒋᒋᑲᓇᓐ (Giizhendam Aabajichiganan) MCP Server
  * A Meta-Cognitive Programming server implementing the MCP protocol
  * Traditional Anishinaabe'mowin Name: ᑮᔐᓐᑕᒻ ᐋᐸᒋᒋᑲᓇᓐ
  * Romanized: Giizhendam Aabajichiganan
  */
+import dotenv from 'dotenv';
+dotenv.config();
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { spawn } from "child_process";
 import fs from 'fs';
 import path from 'path';
+// Setting up logging
 const LOG_FILE = '/tmp/giizhendam_mcp_log.txt';
-fs.appendFileSync(LOG_FILE, `--- Starting server at ${new Date().toISOString()} ---\n`);
+try {
+    fs.appendFileSync(LOG_FILE, `--- Starting server at ${new Date().toISOString()} ---\n`);
+}
+catch (error) {
+    console.error(`Unable to write to log file: ${error.message}`);
+}
 // Helper function to create proper MCP response format
 function createMcpResponse(success, text, isError = false) {
     return {

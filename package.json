@@ -1,6 +1,6 @@
 {
   "name": "@nbiish/giizhendam-aabajichiganan-mcp",
-  "version": "0.2.20",
+  "version": "0.2.23",
   "description": "ᑮᔐᓐᑕᒻ ᐋᐸᒋᒋᑲᓇᓐ (Giizhendam Aabajichiganan) - Meta-Cognitive Programming (MCP) CLI Tool using Generative AI, inspired by Aider and incorporating concepts from the Nbiish Waabanimikii-Kinawaabakizi (my) development philosophy.",
   "keywords": [
     "mcp",
@@ -17,10 +17,10 @@
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "giizhendam-aabajichiganan": "dist/index.js"
+    "giizhendam-aabajichiganan-mcp": "dist/index.js"
   },
   "scripts": {
-    "build": "tsc && chmod +x dist/index.js",
+    "build": "tsc && node scripts/add-shebang.js && chmod +x dist/index.js",
     "prepublishOnly": "npm run build",
     "start": "node dist/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -45,6 +45,7 @@
   },
   "files": [
     "dist",
+    "scripts",
     "qr-stripe-donation.png",
     "LICENSE"
   ],

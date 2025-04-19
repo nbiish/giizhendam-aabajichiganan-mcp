@@ -5,6 +5,9 @@
  * Romanized: Giizhendam Aabajichiganan
  */
 
+import dotenv from 'dotenv';
+dotenv.config();
+
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
@@ -12,8 +15,13 @@ import { spawn } from "child_process";
 import fs from 'fs';
 import path from 'path';
 
+// Setting up logging
 const LOG_FILE = '/tmp/giizhendam_mcp_log.txt';
-fs.appendFileSync(LOG_FILE, `--- Starting server at ${new Date().toISOString()} ---\n`);
+try {
+  fs.appendFileSync(LOG_FILE, `--- Starting server at ${new Date().toISOString()} ---\n`);
+} catch (error: any) {
+  console.error(`Unable to write to log file: ${error.message}`);
+}
 
 // MCP Response Types
 type McpTextContent = {
