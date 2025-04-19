@@ -11,7 +11,8 @@ dotenv.config();
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { spawn } from "child_process";
+// Remove spawn as we won't execute directly
+// import { spawn } from "child_process";
 import fs from 'fs';
 import path from 'path';
 
@@ -23,7 +24,8 @@ try {
   console.error(`Unable to write to log file: ${error.message}`);
 }
 
-// MCP Response Types
+// MCP Response Types (No longer needed as we return commands)
+/*
 type McpTextContent = {
   type: "text";
   text: string;
@@ -40,27 +42,21 @@ type McpResponse = {
   [key: string]: unknown;
 };
 
-// Helper function to create proper MCP response format
+// Helper function to create proper MCP response format (No longer needed)
 function createMcpResponse(success: boolean, text: string, isError = false): McpResponse {
-  return {
-    content: [{
-      type: "text" as const,
-      text: text
-    }],
-    isError: isError,
-    _meta: {
-      success: success
-    }
-  };
+  // ... implementation ...
 }
+*/
 
 // Aider Task Types and Configuration
 const TASK_TYPES = ['research', 'docs', 'security', 'code', 'verify', 'progress'] as const;
 type TaskType = typeof TASK_TYPES[number];
 
-const BASE_CONFIG = {
-  model: 'openrouter/google/gemini-2.5-pro-exp-03-25:free',
-  editorModel: 'openrouter/google/gemini-2.5-pro-exp-03-25:free',
+// Use environment variables for defaults, allowing override via params
+const DEFAULT_ARCHITECT_MODEL = process.env.DEFAULT_ARCHITECT_MODEL || 'openrouter/google/gemini-2.5-pro-exp-03-25:free';
+const DEFAULT_EDITOR_MODEL = process.env.DEFAULT_EDITOR_MODEL || 'openrouter/google/gemini-2.5-pro-exp-03-25:free'; // Use separate env var if desired
+
+const BASE_FLAGS = {
   architect: true,
   noDetectUrls: true,
   noAutoCommit: true,
@@ -77,10 +73,12 @@ const TASK_PROMPTS: Record<TaskType, string> = {
 };
 
 /**
- * Input schema for the run_aider tool
+ * Input schema for the generate_aider_commands tool
  * Part of ᑮᔐᓐᑕᒻ ᐋᐸᒋᒋᑲᓇᓐ MCP toolset
- * 
- * This tool enables fire-and-forget agentic tasks using aider with specific configurations.
+ *
+ * Generates aider CLI command strings for agentic 'fire-and-forget' tasks.
+ * It provides a primary command for the task and a verification command.
+ * The assistant should then use a terminal execution tool to run these commands.
  * Each task type has its own focused behavior and LLM instructions:
  * - research: Research analysis and synthesis
  * - docs: Documentation generation
@@ -89,136 +87,184 @@ const TASK_PROMPTS: Record<TaskType, string> = {
  * - verify: Code verification
  * - progress: Progress tracking
  */
-const runAiderParamsSchema = z.object({
+const generateAiderCommandsParamsSchema = z.object({
     files: z.array(z.string()).optional()
-      .describe('List of files to include in the task context. These files will be available for the aider agent to read and potentially modify.'),
-    
+      .describe('List of files for aider to operate on. Add only files needing modification.'),
+
     message: z.string()
-      .describe('The specific task or request to be handled by the aider agent. This will be combined with task-specific prompting based on the taskType.'),
-    
+      .describe('The specific task or request for aider. This will be combined with task-specific prompting.'),
+
     taskType: z.enum(TASK_TYPES)
-      .describe('The type of task to perform. This determines the agent\'s role and behavior:\n' +
-        '- research: Analyze and synthesize information on a topic\n' +
-        '- docs: Generate technical documentation\n' +
-        '- security: Perform security analysis\n' +
-        '- code: Implement or modify code\n' +
-        '- verify: Review and verify code/implementation\n' +
-        '- progress: Track and report progress'),
-    
+      .describe('The type of task to perform, determining the agent\'s role and behavior.'),
+
     model: z.string().optional()
-      .describe('Override the default model. Default: openrouter/google/gemini-2.5-pro-exp-03-25:free'),
-    
+      .describe(`Override the default architect model. Default: ${DEFAULT_ARCHITECT_MODEL}`),
+
     editorModel: z.string().optional()
-      .describe('Override the default editor model. Default: openrouter/google/gemini-2.5-pro-exp-03-25:free'),
-    
+      .describe(`Override the default editor model. Default: ${DEFAULT_EDITOR_MODEL}`),
+
     architect: z.boolean().optional()
-      .describe('Enable/disable architect mode. When enabled, the agent takes a more high-level architectural approach. Default: true'),
-    
+      .describe('Enable/disable architect mode. Default: true'),
+
     noDetectUrls: z.boolean().optional()
       .describe('Disable URL detection in messages. Default: true'),
-    
+
     noAutoCommit: z.boolean().optional()
-      .describe('Disable automatic git commits. Useful when running multiple tasks that modify the same codebase. Default: true'),
-    
+      .describe('Disable automatic git commits. Default: true'),
+
     yesAlways: z.boolean().optional().default(true)
-      .describe('Automatically confirm all prompts. Essential for fire-and-forget operation. Default: true'),
-    
-    repoPath: z.string().optional()
-      .describe('Path to the git repository to operate in. Defaults to current directory or AIDER_REPO_PATH env var.'),
-    
-    aiderPath: z.string().optional()
-      .describe('Path to the aider executable. Defaults to "aider" in PATH or AIDER_PATH env var.'),
-    
+      .describe('Automatically confirm all prompts. Default: true'),
+
+    // repoPath: z.string().optional() // Not needed as command runs in user's shell
+    //   .describe('Path to the git repository to operate in. Defaults to current directory or AIDER_REPO_PATH env var.'),
+
+    aiderPath: z.string().optional().default('aider')
+      .describe('Path to the aider executable. Defaults to "aider" in PATH.'),
+
     extraArgs: z.array(z.string()).optional()
       .describe('Additional command-line arguments to pass to aider.')
 });
 
 /**
- * Conceptual Usage Notes for run_aider:
- * This tool allows an LLM assistant to delegate coding tasks to the `aider` tool.
- * It's intended for scenarios such as:
- * 1. Offloading specific, well-defined coding tasks to run concurrently (conceptually)
- *    while the primary assistant focuses on other objectives.
- * 2. Performing verification or double-checking on complex coding tasks by having
- *    `aider` attempt the same task.
- *
- * **Important Considerations:**
- * - Non-Interference: When using this tool in parallel with other operations
- *   modifying the same codebase, it is CRUCIAL to prevent conflicts.
- *   Using the `noAutoCommit: true` parameter is strongly advised in such cases.
- * - Sequential Execution: Note that underlying MCP execution is sequential. "Parallel"
- *   refers to the conceptual workflow management by the calling assistant.
+ * Output schema for the generate_aider_commands tool
  */
+const generateAiderCommandsOutputSchema = z.object({
+    primary_command: z.string()
+      .describe('The primary aider command string to execute the requested task.'),
+    verification_command: z.string()
+      .describe('A secondary aider command string to verify the primary task was completed correctly.'),
+    instructions: z.string()
+      .describe('Instructions for the LLM assistant on how to use the generated commands.')
+});
+
+// Helper to escape shell arguments (basic version, might need refinement)
+function escapeShellArg(arg: string): string {
+  // Simple escaping for demonstration; robust escaping is complex.
+  // This handles spaces and basic special characters for common shells.
+  if (/[^A-Za-z0-9_\/:=-]/.test(arg)) {
+    return "'" + arg.replace(/'/g, "'\\''") + "'";
+  }
+  return arg;
+}
 
 // Create server instance
 const server = new McpServer({
     name: "giizhendam-aabajichiganan-mcp",
-    version: "0.2.20",
+    version: "0.2.25", // Increment version for the change
     capabilities: { resources: {}, tools: {} },
 });
 
-// Register the 'run_aider' tool using the high-level API
+// Register the 'generate_aider_commands' tool
 server.tool(
-  "run_aider",
-  "Executes fire-and-forget agentic tasks using aider with specialized configurations. Each task type has focused behavior and prompting:\n- research: Analyze and synthesize information\n- docs: Generate technical documentation\n- security: Perform security analysis\n- code: Implement or modify code\n- verify: Review and verify code/implementation\n- progress: Track and report progress\n\nUses OpenRouter's Gemini Pro model for both main and editor roles, with architect mode enabled by default.",
-  runAiderParamsSchema.shape,
+  "generate_aider_commands",
+  "Generates primary and verification aider CLI command strings for agentic tasks. The assistant should run these using a terminal tool.",
+  generateAiderCommandsParamsSchema.shape,
   async (params) => {
-    const cmd = params.aiderPath || process.env.AIDER_PATH || 'aider';
-    const cwd = path.resolve(params.repoPath || process.env.AIDER_REPO_PATH || '.');
-    
-    // Combine base config with provided params
-    const config = {
-      ...BASE_CONFIG,
-      model: params.model || BASE_CONFIG.model,
-      editorModel: params.editorModel || BASE_CONFIG.editorModel,
-      architect: params.architect ?? BASE_CONFIG.architect,
-      noDetectUrls: params.noDetectUrls ?? BASE_CONFIG.noDetectUrls,
-      noAutoCommit: params.noAutoCommit ?? BASE_CONFIG.noAutoCommit,
-      yesAlways: params.yesAlways ?? BASE_CONFIG.yesAlways
-    };
+    try {
+        const aiderCmdPath = params.aiderPath || 'aider';
+        const architectModel = params.model || DEFAULT_ARCHITECT_MODEL;
+        const editorModel = params.editorModel || DEFAULT_EDITOR_MODEL;
+        const useArchitect = params.architect ?? BASE_FLAGS.architect;
+        const useNoDetectUrls = params.noDetectUrls ?? BASE_FLAGS.noDetectUrls;
+        const useNoAutoCommit = params.noAutoCommit ?? BASE_FLAGS.noAutoCommit;
+        const useYesAlways = params.yesAlways ?? BASE_FLAGS.yesAlways;
+        const taskBasePrompt = TASK_PROMPTS[params.taskType];
+        const fullPrompt = `${taskBasePrompt} ${params.message}`;
 
-    // Build command arguments
-    const args: string[] = [];
-    if (config.model) args.push('--model', config.model);
-    if (config.editorModel) args.push('--editor-model', config.editorModel);
-    if (config.architect) args.push('--architect');
-    if (config.noDetectUrls) args.push('--no-detect-urls');
-    if (config.noAutoCommit) args.push('--no-auto-commit');
-    if (config.yesAlways) args.push('--yes-always');
-    if (params.files) args.push(...params.files);
-    if (params.extraArgs) args.push(...params.extraArgs);
-
-    // Construct task-specific message
-    const taskPrompt = TASK_PROMPTS[params.taskType];
-    const fullMessage = `${taskPrompt} ${params.message}`;
-    args.push('--message', fullMessage);
-
-    return new Promise<McpResponse>((resolve) => {
-      let out = '', err = '';
-      const p = spawn(cmd, args, { cwd, stdio: ['pipe','pipe','pipe'] });
-      p.stdout.on('data', d => out += d.toString());
-      p.stderr.on('data', d => err += d.toString());
-      p.on('close', code => {
-        if (code === 0) {
-          resolve(createMcpResponse(true, out));
-        } else {
-          resolve(createMcpResponse(false, `${out}\nError: ${err}`, true));
+        const primaryArgs: string[] = [aiderCmdPath];
+        primaryArgs.push('--model', escapeShellArg(architectModel));
+        primaryArgs.push('--editor-model', escapeShellArg(editorModel));
+        if (useArchitect) primaryArgs.push('--architect');
+        if (useNoDetectUrls) primaryArgs.push('--no-detect-urls');
+        if (useNoAutoCommit) primaryArgs.push('--no-auto-commit');
+        if (useYesAlways) primaryArgs.push('--yes-always');
+        if (params.files && params.files.length > 0) {
+            primaryArgs.push(...params.files.map(escapeShellArg));
         }
-      });
-      p.on('error', e => {
-        resolve(createMcpResponse(false, `Error: ${e.message}`, true));
-      });
-    });
+        if (params.extraArgs) {
+            primaryArgs.push(...params.extraArgs.map(escapeShellArg));
+        }
+        primaryArgs.push('--message', escapeShellArg(fullPrompt));
+        const primaryCommand = primaryArgs.join(' ');
+
+        const verificationArgs: string[] = [aiderCmdPath];
+        verificationArgs.push('--model', escapeShellArg(architectModel));
+        verificationArgs.push('--editor-model', escapeShellArg(editorModel));
+        if (useArchitect) verificationArgs.push('--architect');
+        if (useNoDetectUrls) verificationArgs.push('--no-detect-urls');
+        if (useNoAutoCommit) verificationArgs.push('--no-auto-commit');
+        if (useYesAlways) verificationArgs.push('--yes-always');
+        if (params.files && params.files.length > 0) {
+            verificationArgs.push(...params.files.map(escapeShellArg));
+        }
+        if (params.extraArgs) {
+            verificationArgs.push(...params.extraArgs.map(escapeShellArg));
+        }
+        const verificationPrompt = `Double check the following was implemented correctly:\n\n${fullPrompt}`;
+        verificationArgs.push('--message', escapeShellArg(verificationPrompt));
+        const verificationCommand = verificationArgs.join(' ');
+
+        const instructions = `Please run the following commands using a terminal execution tool (like run_terminal_cmd).
+1.  **Primary Task:** Run this command first to perform the requested action.
+    \`\`\`bash
+    ${primaryCommand}
+    \`\`\`
+2.  **Verification (Optional):** After the primary task completes, you can run this command to have aider double-check the work.
+    \`\`\`bash
+    ${verificationCommand}
+    \`\`\`
+Note: These commands will run 'aider' in the user's current terminal environment and working directory, using their file system permissions.`;
+
+        // Format output simply as text content
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: instructions // Send instructions and commands as plain text
+                }
+            ],
+            _meta: {
+                success: true,
+                // Optionally include raw commands here if needed for robust parsing
+                // primary_command: primaryCommand,
+                // verification_command: verificationCommand
+            }
+        };
+
+    } catch (error: any) {
+        console.error("Error generating aider commands:", error);
+        // Format error response to comply with MCP standard
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: `Failed to generate aider commands: ${error.message}`
+                }
+            ],
+            isError: true,
+            _meta: { success: false }
+        };
+    }
   }
 );
 
 async function main() {
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-  console.error("giizhendam-aabajichiganan-mcp running on stdio");
+  try {
+    const transport = new StdioServerTransport();
+    await server.connect(transport);
+    // Revert to using the originally passed config for logging - Removed as properties aren't accessible
+    // console.error(`${server.config.name} MCP Server v${server.config.version} running on stdio`);
+    console.error("Giizhendam Aabajichiganan MCP Server running on stdio"); // Generic log message
+    // Get registered tools if needed - Removed as properties aren't accessible
+    // const registeredTools = Object.keys(server.config.capabilities.tools);
+    // console.error(`Registered Tools: ${registeredTools.join(', ')}`);
+  } catch (error: any) {
+    console.error("Fatal error in main():", error);
+    process.exit(1);
+  }
 }
 
-main().catch((error) => {
-  console.error("Fatal error in main():", error);
+main().catch((error: any) => {
+  console.error("Fatal error outside main():", error);
   process.exit(1);
 });
