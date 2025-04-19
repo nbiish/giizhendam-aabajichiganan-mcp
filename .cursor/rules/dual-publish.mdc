@@ -1,6 +1,6 @@
 ---
 description: 
-globs: *.json
+globs: package*.json
 alwaysApply: false
 ---
 # Publish to my npm packages and KEEP VERSIONS THE SAME and increment the version slightly when reading this:
