@@ -30,16 +30,21 @@ fi
 
 echo "Current package name verified: $CURRENT_NAME (ᑮᔐᓐᑕᒻ ᐋᐸᒋᒋᑲᓇᓐ)"
 
+# --- Prompt for OTP ---
+# Prompt for OTP without echoing to terminal
+read -sp "Enter NPM OTP: " NPM_OTP
+echo # Add a newline for cleaner output
+
 # --- Publish Primary Name ---
 echo "Publishing primary name ($PRIMARY_NAME - ᑮᔐᓐᑕᒻ ᐋᐸᒋᒋᑲᓇᓐ)..."
-npm publish --access public
+npm publish --access public --otp="$NPM_OTP"
 echo "Successfully published $PRIMARY_NAME"
 
 # --- Publish English Translation Name ---
 echo "Temporarily setting package name to English translation ($ENGLISH_NAME)..."
 npm pkg set name="$ENGLISH_NAME"
 echo "Publishing English translation name ($ENGLISH_NAME)..."
-npm publish --access public
+npm publish --access public --otp="$NPM_OTP"
 echo "Successfully published $ENGLISH_NAME"
 
 # --- Revert to Primary Name --- 
