@@ -26,25 +26,23 @@ This project is intended to be run via `npx` and published under two names:
 
 ## Installation & Usage (via npx)
 
-To run this MCP server within a compatible editor (like Cursor), you can use `npx`. Configure your editor's MCP settings to run the command, providing necessary environment variables directly within the `env` object as shown below. Ensure you replace placeholder values (like API keys) with your actual credentials.
+To run this MCP server within a compatible editor (like Cursor), you can use `npx`. Configure your editor's MCP settings to run the command, providing necessary environment variables directly within the `env` object as shown below. Ensure you replace placeholder values (like API keys and model names) with your actual credentials and desired models.
 
 **Example Configuration:**
 
 ```json
 {
   "mcpServers": {
-    "giizhendam-aabajichiganan": { 
-      "type": "stdio", // Assuming stdio transport, adjust if needed
+    "giizhendam-aabajichiganan-mcp": { // Use a unique key for this server
       "command": "npx",
       "args": [
         "-y", // Automatically install the package if needed
-        "@nbiish/giizhendam-aabajichiganan-mcp"
+        "@nbiish/giizhendam-aabajichiganan-mcp" // Or @nbiish/ai-tool-mcp
       ],
       "env": {
-        "GEMINI_API_KEY": "YOUR_GEMINI_API_KEY", // Add if needed by specific tools
-        "OPENROUTER_API_KEY": "YOUR_OPENROUTER_API_KEY", // Required for OpenRouter models
-        "DEFAULT_ARCHITECT_MODEL": "openrouter/google/gemini-2.5-pro-exp-03-25:free", // Recommended Default
-        "DEFAULT_EDITOR_MODEL": "openrouter/google/gemini-2.5-pro-exp-03-25:free" // Recommended Default
+        "OPENROUTER_API_KEY": "YOUR_OPENROUTER_API_KEY", // Required
+        "DEFAULT_ARCHITECT_MODEL": "openrouter/some-model", // Model for aider architect
+        "DEFAULT_EDITOR_MODEL": "openrouter/some-other-model" // Model for aider editor & direct prompts
         // Add other environment variables as needed by tools
       }
     }
@@ -55,73 +53,34 @@ To run this MCP server within a compatible editor (like Cursor), you can use `np
 
 *(Note: The exact structure under `mcpServers` might vary slightly depending on your specific MCP client/editor. The key part is providing the `command`, `args`, and `env`.)*
 
-Alternatively, use the English translation name `@nbiish/ai-tool-mcp` in the `args` array.
 
 ## Configuration
 
-The server is configured using environment variables. These can be set in two primary ways:
+The server is configured using environment variables passed via the MCP client's `env` object (see example above).
 
-1.  **Shell Environment:** Export the variables in your terminal session before launching the editor/client (e.g., `export OPENROUTER_API_KEY="your_key_here"`).
-2.  **MCP Client `env` Object:** Pass the variables directly within the `env` object in your MCP client's JSON configuration, as shown in the example above. This is often the most convenient method.
+**Prerequisites:**
+
+*   **`aider` CLI:** The `aider` command-line tool must be installed and accessible in the system's PATH where the MCP server process runs.
 
 **Required/Common Environment Variables:**
 
--   `OPENROUTER_API_KEY`: **Required** for using any OpenRouter models (which are the defaults).
--   `DEFAULT_ARCHITECT_MODEL`: Overrides the default architect model used by tools like `generate_aider_commands`. Defaults to `openrouter/google/gemini-2.5-pro-exp-03-25:free` if not set. See recommended models below.
--   `DEFAULT_EDITOR_MODEL`: Overrides the default editor model used by tools like `generate_aider_commands`. Defaults to `openrouter/google/gemini-2.5-pro-exp-03-25:free` if not set. See recommended models below.
--   `GEMINI_API_KEY`: May be required if specific tools are implemented to use the Gemini API directly (currently placeholder tools may not require this).
--   *(Other variables may be needed depending on the specific tools implemented or added in the future.)*
+*   `OPENROUTER_API_KEY`: **Required** for using OpenRouter models.
+*   `DEFAULT_ARCHITECT_MODEL`: **Required** Specifies the default model used by the `run_aider_task` tool for the primary 'architect' role. Must be a valid OpenRouter model ID recognized by `aider` (e.g., `openrouter/google/gemini-2.5-pro-exp-03-25:free`).
+*   `DEFAULT_EDITOR_MODEL`: **Required** Specifies the default model used by the `run_aider_task` tool for the 'editor' role, *and* by the `prompt` and `prompt_from_file` tools for their direct API calls. Must be a valid OpenRouter model ID.
 
-**Recommended Models (OpenRouter)**
-
-You can override the default models used by the server (specifically `DEFAULT_ARCHITECT_MODEL` and `DEFAULT_EDITOR_MODEL` for the `generate_aider_commands` tool) by setting the corresponding environment variable in your MCP client's `env` object.
-
-Here is the prioritized list of recommended OpenRouter models (use the full ID string):
-
-```
-- openrouter/google/gemini-2.5-pro-exp-03-25:free
-- openrouter/deepseek/deepseek-coder-v2:free
-- openrouter/google/gemini-2.5-flash-preview
-- openrouter/google/gemini-2.5-pro-preview
-- openrouter/deepseek/deepseek-coder-v2
-- openrouter/deepseek/deepseek-chat:free
-- openrouter/google/gemini-flash-1.5
-- openrouter/anthropic/claude-3.5-sonnet
-```
-
-**Example: Using DeepSeek Coder V2 Free as the Editor Model**
-
-Modify your MCP client's configuration JSON like this:
-
-```json
-{
-  "mcpServers": {
-    "giizhendam-aabajichiganan": { 
-      // ... other settings ...
-      "env": {
-        "OPENROUTER_API_KEY": "YOUR_OPENROUTER_API_KEY",
-        "DEFAULT_ARCHITECT_MODEL": "openrouter/google/gemini-2.5-pro-exp-03-25:free", 
-        "DEFAULT_EDITOR_MODEL": "openrouter/deepseek/deepseek-coder-v2:free" // <-- Changed Editor Model
-      }
-    }
-  }
-}
-```
-
-For tools like `prompt`, `prompt_from_file`, etc., you can specify models using the `models_prefixed_by_provider` parameter when calling the tool.
+**Important:** Ensure the model IDs you provide are valid on OpenRouter and recognizable by `aider`. You can check available models using `aider --list-models`. The server uses the `DEFAULT_EDITOR_MODEL` for direct API calls (stripping any `:free` suffix if present for the API call itself).
 
 ## Features
 
-ᑮᔐᓐᑕᒻ ᐋᐸᒋᒋᑲᓇᓐ (Giizhendam Aabajichiganan) MCP provides cognitive tools and integrates external functionalities like `aider` command generation to enhance AI-assisted coding workflows.
+ᑮᔐᓐᑕᒻ ᐋᐸᒋᒋᑲᓇᓐ (Giizhendam Aabajichiganan) MCP provides cognitive tools and integrates external functionalities like `aider` command execution to enhance AI-assisted coding workflows.
 
 **Available Tools (as of latest update):**
 
-*   `generate_aider_commands`: Generates `aider` CLI commands for various tasks (research, coding, security, etc.) using configurable OpenRouter models.
-*   `prompt`: (Placeholder) Sends a prompt to specified LLM models.
-*   `prompt_from_file`: (Placeholder) Sends a prompt from a file to specified LLM models.
-*   `prompt_from_file_to_file`: (Placeholder) Sends a prompt from a file, gets responses, and saves to files.
-*   `ceo_and_board`: (Placeholder) Simulates a board/CEO decision process using LLMs.
-*   `list_providers`: (Placeholder) Lists available LLM providers.
+*   `run_aider_task`: Executes an `aider` command directly with the specified task type, message, files, etc. Uses models specified by `DEFAULT_ARCHITECT_MODEL` and `DEFAULT_EDITOR_MODEL` environment variables, allowing overrides via `model` and `editorModel` parameters. Returns the stdout, stderr, and exit code of the `aider` process.
+*   `prompt`: Sends a prompt to the LLM specified by the `DEFAULT_EDITOR_MODEL` environment variable.
+*   `prompt_from_file`: Sends a prompt from a file to the LLM specified by the `DEFAULT_EDITOR_MODEL` environment variable.
+*   `prompt_from_file_to_file`: (Placeholder) Sends a prompt from a file to the default LLM and saves the response.
+*   `ceo_and_board`: (Placeholder) Simulates a board/CEO decision process using the default LLM.
 *   `finance_experts`: (Placeholder) Consults specialized financial agent personas.
 
 *(Placeholder tools require further implementation for full functionality.)*
@@ -131,7 +90,7 @@ For tools like `prompt`, `prompt_from_file`, etc., you can specify models using 
 1.  **Clone:** `git clone https://github.com/nbiish/giizhendam-aabajichiganan-mcp.git`
 2.  **Install:** `cd giizhendam-aabajichiganan-mcp && npm install`
 3.  **Build:** `npm run build`
-4.  **Run Locally (for testing):** `node dist/index.js` (ensure required ENV VARS are set)
+4.  **Run Locally (for testing):** `node dist/index.js` (ensure required ENV VARS are set, matching the structure expected by your client config)
 
 ## Publishing
 
