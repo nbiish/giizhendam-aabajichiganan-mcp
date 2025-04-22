@@ -1,8 +1,16 @@
 /**
  * ᑮᔐᓐᑕᒻ ᐋᐸᒋᒋᑲᓇᓐ (Giizhendam Aabajichiganan) MCP Server
- * A Meta-Cognitive Programming server implementing the MCP protocol
+ * A Meta-Cognitive Programming server implementing the MCP protocol.
  * Traditional Anishinaabe'mowin Name: ᑮᔐᓐᑕᒻ ᐋᐸᒋᒋᑲᓇᓐ
  * Romanized: Giizhendam Aabajichiganan
+ *
+ * Registered MCP Tools (Most delegate to aider):
+ * - run_aider_directly: Executes an aider task directly, providing full control over arguments.
+ * - prompt: Sends a text prompt to aider (taskType='code').
+ * - prompt_from_file: Sends a prompt read from a file to aider (taskType='code').
+ * - prompt_from_file_to_file: Runs the same prompt from a file through aider TWICE for verification, saving both responses to a file.
+ * - ceo_and_board: Simulates a board discussion by querying an LLM (via aider) for each specified board member role based on a topic, appending results to a file (e.g., ceo_board_report.md).
+ * - finance_experts: Simulates querying multiple financial experts (LLM via aider) for each specified role based on a query, appending results to a file (e.g., finance_experts_analysis.md).
  */
 
 // import dotenv from 'dotenv'; // Remove dotenv import
@@ -30,14 +38,14 @@ type TaskType = typeof TASK_TYPES[number];
 
 // Use environment variables for defaults, allowing override via params
 // Prioritized OpenRouter Models (Update these IDs if necessary based on exact OpenRouter availability)
-// REMOVED: PREFERRED_OPENROUTER_MODELS array is no longer needed as models are configured externally.
-// const PREFERRED_OPENROUTER_MODELS: string[] = [
-//     'openrouter/google/gemini-2.5-pro-exp-03-25:free',
-//     ...
-// ];
+const PREFERRED_OPENROUTER_MODELS: string[] = [
+    'openrouter/google/gemini-2.5-pro-exp-03-25:free',
+    'openrouter/anthropic/claude-3.5-sonnet'       // Assumed mapping for Claude 3.7 Sonnet
+];
 
-const DEFAULT_ARCHITECT_MODEL = process.env.DEFAULT_ARCHITECT_MODEL; // Keep for generate_aider_commands default
-const DEFAULT_EDITOR_MODEL = process.env.DEFAULT_EDITOR_MODEL; // Keep for generate_aider_commands default and callOpenRouter
+// Use ?? for safer default handling (only overrides null/undefined)
+const DEFAULT_ARCHITECT_MODEL = process.env.DEFAULT_ARCHITECT_MODEL ?? PREFERRED_OPENROUTER_MODELS[0];
+const DEFAULT_EDITOR_MODEL = process.env.DEFAULT_EDITOR_MODEL ?? PREFERRED_OPENROUTER_MODELS[0];
 
 const BASE_FLAGS = {
   architect: true,
@@ -60,6 +68,7 @@ const TASK_PROMPTS: Record<TaskType, string> = {
  * (Previously generate_aider_commands)
  * Executes an aider command directly.
  */
+// REMOVE START
 const runAiderTaskParamsSchema = z.object({ // Renamed schema
     files: z.array(z.string()).optional()
       .describe('List of files for aider to operate on. Add only files needing modification.'),
@@ -109,10 +118,11 @@ function escapeShellArg(arg: string): string {
   // Simple escaping for demonstration; robust escaping is complex.
   // This handles spaces and basic special characters for common shells.
   if (/[^A-Za-z0-9_\/:=-]/.test(arg)) {
-    return "'" + arg.replace(/'/g, "'\\''") + "'";
+    return "'" + arg.replace(/'/g, "'\''") + "'";
   }
   return arg;
 }
+// REMOVE END
 
 // Create server instance
 const server = new McpServer({
@@ -122,6 +132,7 @@ const server = new McpServer({
 });
 
 // Register the 'run_aider_task' tool (Replaces generate_aider_commands)
+// REMOVE START
 server.tool(
   "run_aider_task", // Renamed tool
   "Executes an aider task directly based on the provided parameters.", // Updated description
@@ -132,8 +143,8 @@ server.tool(
 
     try {
         const aiderCmdPath = params.aiderPath || 'aider';
-        const architectModel = params.model || DEFAULT_ARCHITECT_MODEL || '';
-        const editorModel = params.editorModel || DEFAULT_EDITOR_MODEL || '';
+        const architectModel = params.model ?? DEFAULT_ARCHITECT_MODEL;
+        const editorModel = params.editorModel ?? DEFAULT_EDITOR_MODEL;
 
         if (!architectModel) {
             throw new Error('Architect model is not configured (check DEFAULT_ARCHITECT_MODEL env var or provide \'model\' param).');
@@ -213,7 +224,9 @@ server.tool(
          return {
              content: [],
              stdout: stdoutData, // Include any stdout captured before error
-             stderr: `${stderrData}\n--- Tool Error ---\n${error.message}`,
+             stderr: `${stderrData}
+--- Tool Error ---
+${error.message}`,
              exitCode: null, // Indicate error state
              isError: true, // Standard MCP error flag
              _meta: {
@@ -224,6 +237,7 @@ server.tool(
     }
   }
 );
+// REMOVE END
 
 // --- NEW TOOL DEFINITIONS START ---
 
@@ -235,29 +249,36 @@ function createPlaceholderResponse(toolName: string, params: any): any {
 // --- Tool: prompt ---
 const promptParamsSchema = z.object({
     text: z.string().describe('The prompt text')
-    // REMOVED: models_prefixed_by_provider parameter
 });
 
 server.tool(
     "prompt",
-    "Send a prompt to the configured default LLM model.", // Updated description
+    "Sends a text prompt to aider (taskType='code').", // Updated description
     promptParamsSchema.shape,
-    async (params) => {
+    async (params): Promise<McpToolResponse> => { // Explicit return type
         log(`Received prompt tool call with text: ${params.text.substring(0, 50)}...`);
         try {
-            const result = await callOpenRouter(params.text);
-            log(`Prompt tool call successful for model: ${result.model}`);
+            const result = await executeAiderViaSpawn({
+                message: params.text,
+                taskType: 'code' // Use 'code' task type for general prompts
+            });
+            log(`Prompt tool call via aider successful. Exit code: ${result._meta?.exitCode}`);
+            // Return aider's stdout/stderr in the MCP response
             return {
-                content: [{ type: 'text', text: `Model: ${result.model}, Response: ${result.response}` }]
+                content: [
+                    { type: 'text' as const, text: `Aider Stdout:\n${result._meta?.stdout ?? ''}` },
+                    ...(result._meta?.stderr ? [{ type: 'text' as const, text: `Aider Stderr:\n${result._meta.stderr}` }] : [])
+                ],
+                isError: result.isError,
+                _meta: result._meta
             };
         } catch (error: any) {
-            log(`Error in prompt tool: ${error.message}`);
-            // Ensure error return type matches MCP expected structure
-             return {
-                 content: [{ type: 'text', text: `Failed to process prompt: ${error.message}` }],
-                 isError: true,
-                 _meta: { success: false }
-             };
+            log(`Error in prompt tool (via aider): ${error.message}`);
+            return {
+                content: [{ type: 'text' as const, text: `Failed to process prompt via aider: ${error.message}` }],
+                isError: true,
+                _meta: { success: false, errorType: 'ToolExecutionError', stdout: '', stderr: error.message, exitCode: null, executedCommand: 'N/A' } // Add required _meta fields
+            };
         }
     }
 );
@@ -265,136 +286,353 @@ server.tool(
 // --- Tool: prompt_from_file ---
 const promptFromFileParamsSchema = z.object({
     file: z.string().describe('Path to the file containing the prompt')
-    // REMOVED: models_prefixed_by_provider parameter
 });
 
 server.tool(
     "prompt_from_file",
-    "Send a prompt from a file to the configured default LLM model.", // Updated description
+    "Sends a prompt read from a file to aider (taskType='code').", // Updated description
     promptFromFileParamsSchema.shape,
-    async (params) => {
+    async (params): Promise<McpToolResponse> => { // Explicit return type
         log(`Received prompt_from_file tool call for file: ${params.file}`);
         try {
-             // ... existing file reading logic ...
-            const filePath = path.resolve(params.file); // Ensure absolute path
+            const filePath = path.resolve(params.file);
             log(`Reading file content from: ${filePath}`);
             const fileContent = await fsPromises.readFile(filePath, 'utf-8');
             log(`File content read successfully. Length: ${fileContent.length}`);
 
-            const result = await callOpenRouter(fileContent);
-            log(`Prompt_from_file tool call successful for model: ${result.model}`);
+            const result = await executeAiderViaSpawn({
+                message: fileContent,
+                taskType: 'code' // Use 'code' task type for general prompts
+            });
+
+            log(`Prompt_from_file tool call via aider successful. Exit code: ${result._meta?.exitCode}`);
             return {
-                 content: [{ type: 'text', text: `Model: ${result.model}, Response from file ${params.file}: ${result.response}` }]
+                content: [
+                    { type: 'text' as const, text: `Aider Stdout (from file ${params.file}):\n${result._meta?.stdout ?? ''}` },
+                    ...(result._meta?.stderr ? [{ type: 'text' as const, text: `Aider Stderr:\n${result._meta.stderr}` }] : [])
+                ],
+                isError: result.isError,
+                _meta: result._meta
             };
         } catch (error: any) {
-            log(`Error in prompt_from_file tool: ${error.message}`);
-            const errorMessage = error.code === 'ENOENT'
-                ? `Failed to process prompt from file: File not found at ${params.file}`
-                : `Failed to process prompt from file: ${error.message}`;
-            // Ensure error return type matches MCP expected structure
+            const isFileNotFound = error.code === 'ENOENT';
+            const errorMessage = isFileNotFound
+                ? `Failed to read prompt file: File not found at ${params.file}`
+                : `Failed to process prompt from file via aider: ${error.message}`;
+            log(`Error in prompt_from_file tool (via aider): ${errorMessage}`);
             return {
-                content: [{ type: 'text', text: errorMessage }],
+                content: [{ type: 'text' as const, text: errorMessage }],
                 isError: true,
-                _meta: { success: false }
+                _meta: { success: false, errorType: isFileNotFound ? 'FileNotFound' : 'ToolExecutionError', stdout: '', stderr: errorMessage, exitCode: null, executedCommand: 'N/A' }
             };
         }
     }
 );
 
 // --- Tool: prompt_from_file_to_file ---
-// Placeholder - Implementation TBD
 const promptFromFileToFileParamsSchema = z.object({
     file: z.string().describe('Path to the file containing the prompt'),
-    // REMOVED: models_prefixed_by_provider parameter
-    output_dir: z.string().optional().describe('Directory to save the response markdown files to')
+    output_dir: z.string().optional().describe('Directory to save the response markdown file to. Defaults to current directory.'),
+    // Add optional taskType override for flexibility
+    taskType: z.enum(TASK_TYPES).optional().default('code').describe('Optional: Task type for aider (e.g., code, verify). Defaults to code.')
 });
+
 server.tool(
     "prompt_from_file_to_file",
-    "Send a prompt from a file to the default LLM model and save response as markdown file", // Updated description
+    "Runs the same prompt from a file through aider TWICE for verification, saving both responses to a file.", // Updated description
     promptFromFileToFileParamsSchema.shape,
-    async (params) => createPlaceholderResponse("prompt_from_file_to_file", params)
+    async (params): Promise<McpToolResponse> => {
+        log(`Received prompt_from_file_to_file (verification run) tool call for file: ${params.file}`);
+        let fileContent = '';
+        let inputFilePath = '';
+        try {
+            inputFilePath = path.resolve(params.file);
+            log(`Reading file content from: ${inputFilePath}`);
+            fileContent = await fsPromises.readFile(inputFilePath, 'utf-8');
+            log(`File content read successfully. Length: ${fileContent.length}`);
+
+            // --- Run 1 ---
+            log(`Starting first aider run for ${params.file}`);
+            const aiderResult1 = await executeAiderViaSpawn({
+                message: fileContent,
+                taskType: params.taskType ?? 'code' // Use provided or default taskType
+            });
+            log(`Aider run 1 finished. Exit code: ${aiderResult1._meta?.exitCode}`);
+
+            // --- Run 2 ---
+            log(`Starting second aider run for ${params.file}`);
+            const aiderResult2 = await executeAiderViaSpawn({
+                message: fileContent,
+                taskType: params.taskType ?? 'code' // Use same taskType
+            });
+            log(`Aider run 2 finished. Exit code: ${aiderResult2._meta?.exitCode}`);
+
+            // Determine output path
+            const outputDir = params.output_dir ? path.resolve(params.output_dir) : process.cwd();
+            const inputFilename = path.basename(inputFilePath);
+            const outputFilename = `${inputFilename}.response.md`;
+            const outputFilePath = path.join(outputDir, outputFilename);
+
+            log(`Attempting to write both aider responses to: ${outputFilePath}`);
+            await fsPromises.mkdir(outputDir, { recursive: true });
+
+            // Combine outputs
+            const outputContent = `# Verification Runs for Prompt: ${inputFilename}\n\n` +
+                                `--- Run 1 (Exit Code: ${aiderResult1._meta?.exitCode ?? 'N/A'}) ---\n` +
+                                `${aiderResult1._meta?.stdout || '(No stdout for run 1)'}\n` +
+                                `${aiderResult1._meta?.stderr ? `\n**Stderr Run 1:**\n${aiderResult1._meta.stderr}\n` : ''}` +
+                                `\n--- Run 2 (Exit Code: ${aiderResult2._meta?.exitCode ?? 'N/A'}) ---\n` +
+                                `${aiderResult2._meta?.stdout || '(No stdout for run 2)'}\n` +
+                                `${aiderResult2._meta?.stderr ? `\n**Stderr Run 2:**\n${aiderResult2._meta.stderr}\n` : ''}`;
+
+            await fsPromises.writeFile(outputFilePath, outputContent);
+            log(`Successfully wrote both aider responses to ${outputFilePath}`);
+
+            // Determine overall success (both runs must succeed)
+            const overallSuccess = (aiderResult1._meta?.success ?? false) && (aiderResult2._meta?.success ?? false);
+
+            if (overallSuccess) {
+                return {
+                    content: [
+                        { type: 'text' as const, text: `Successfully processed prompt from ${params.file} via aider twice and saved combined response to ${outputFilePath}.` }
+                    ],
+                    isError: false,
+                    _meta: { success: true, outputFilePath: outputFilePath, run1_exitCode: aiderResult1._meta?.exitCode, run2_exitCode: aiderResult2._meta?.exitCode }
+                };
+            } else {
+                 return {
+                    content: [
+                        { type: 'text' as const, text: `One or both aider verification runs failed for prompt from ${params.file}. Combined response saved to ${outputFilePath}.` },
+                        { type: 'text' as const, text: `Run 1 Exit Code: ${aiderResult1._meta?.exitCode ?? 'N/A'}, Run 2 Exit Code: ${aiderResult2._meta?.exitCode ?? 'N/A'}` }
+                    ],
+                    isError: true,
+                    _meta: { success: false, outputFilePath: outputFilePath, run1_exitCode: aiderResult1._meta?.exitCode, run2_exitCode: aiderResult2._meta?.exitCode, run1_stderr: aiderResult1._meta?.stderr, run2_stderr: aiderResult2._meta?.stderr }
+                };
+            }
+
+        } catch (error: any) {
+            // Handle file reading errors or other unexpected issues
+            let errorMessage = `Failed to process prompt from file to file (verification run): ${error.message}`;
+            let errorType: string = 'ToolExecutionError';
+            const isFileNotFound = error.code === 'ENOENT' && error.path === inputFilePath;
+            const isFileWriteError = error.syscall === 'open' || error.syscall === 'write';
+
+            if (isFileNotFound) {
+                errorMessage = `Failed to read prompt file: File not found at ${params.file}`;
+                errorType = 'FileNotFound';
+            } else if (isFileWriteError) {
+                errorMessage = `Failed to write response file: ${error.message}`;
+                errorType = 'FileWriteError';
+            }
+            log(`Error in prompt_from_file_to_file tool: ${errorMessage}`);
+            return {
+                content: [{ type: 'text' as const, text: errorMessage }],
+                isError: true,
+                _meta: { success: false, errorType: errorType, stderr: errorMessage }
+            };
+        }
+    }
 );
 
 // --- Tool: ceo_and_board ---
-// Placeholder - Implementation TBD
+// Updated Schema for multi-agent simulation
 const ceoAndBoardParamsSchema = z.object({
-    file: z.string().describe('Path to the file containing the prompt'),
-    // REMOVED: ceo_model parameter
-    // REMOVED: models_prefixed_by_provider parameter
-    output_dir: z.string().optional().describe('Directory to save the response files and CEO decision')
+    topic: z.string().describe('The central topic or question for the board to discuss.'),
+    board_members: z.array(z.string()).min(1).describe('A list of board member roles (e.g., ["CTO", "CFO", "Legal Counsel"]).'),
+    output_file: z.string().optional().describe('Optional path for the output report file. Defaults to ./ceo_board_report.md')
 });
+
 server.tool(
     "ceo_and_board",
-    "Send a prompt to a 'CEO' model (using default config) based on generated 'board member' responses (placeholder)", // Updated description
+    "Simulates a board discussion by querying an LLM (via aider) for each specified board member role based on a topic, appending results to a file.", // Updated description
     ceoAndBoardParamsSchema.shape,
-    async (params) => createPlaceholderResponse("ceo_and_board", params)
+    async (params): Promise<McpToolResponse> => {
+        log(`Received ceo_and_board simulation call for topic: ${params.topic}`);
+        const { topic, board_members, output_file } = params;
+        const defaultFilename = 'ceo_board_report.md';
+        const reportFilePath = path.resolve(output_file || defaultFilename);
+        log(`Report will be saved to: ${reportFilePath}`);
+
+        try {
+            // Clear or create the report file initially
+            await fsPromises.writeFile(reportFilePath, `# CEO Board Report: ${topic}\n\n`);
+            log(`Initialized report file: ${reportFilePath}`);
+
+            let allSucceeded = true;
+            const errors: string[] = [];
+
+            for (const memberRole of board_members) {
+                log(`Querying board member: ${memberRole}`);
+                // Construct a prompt specific to the role
+                const memberPrompt = `Acting as the ${memberRole} of the board, provide your perspective, key considerations, and recommendations regarding the following topic: ${topic}`;
+
+                // Call aider for this member's perspective
+                const result = await executeAiderViaSpawn({
+                    message: memberPrompt,
+                    taskType: 'research' // Research seems appropriate for synthesizing a perspective
+                });
+
+                if (result.isError || !result._meta?.success) {
+                    allSucceeded = false;
+                    const errorMsg = `Failed to get perspective from ${memberRole}. Error: ${result._meta?.stderr || 'Unknown aider error'}`;
+                    log(errorMsg);
+                    errors.push(errorMsg);
+                    // Append error marker to report
+                    await fsPromises.appendFile(reportFilePath, `\n---\n## Perspective from ${memberRole}\n\n**ERROR:** Failed to retrieve perspective. Aider stderr: ${result._meta?.stderr || 'N/A'}\n`);
+                } else {
+                    // Append successful response to the report file
+                    const responseContent = result._meta?.stdout || '(No response content)';
+                    await fsPromises.appendFile(reportFilePath, `\n---\n## Perspective from ${memberRole}\n\n${responseContent}\n`);
+                    log(`Successfully appended perspective from ${memberRole} to report.`);
+                }
+            }
+
+            // Construct final response
+            if (allSucceeded) {
+                return {
+                    content: [{ type: 'text' as const, text: `Board simulation complete. Report saved to: ${reportFilePath}` }],
+                    isError: false,
+                    _meta: { success: true, outputFilePath: reportFilePath }
+                };
+            } else {
+                return {
+                    content: [
+                        { type: 'text' as const, text: `Board simulation completed with errors. Report saved to: ${reportFilePath}` },
+                        { type: 'text' as const, text: `Errors encountered:\n${errors.join('\n')}` }
+                    ],
+                    isError: true,
+                    _meta: { success: false, outputFilePath: reportFilePath, errors: errors }
+                };
+            }
+
+        } catch (error: any) {
+            log(`Fatal error during ceo_and_board simulation: ${error.message}`);
+            return {
+                content: [{ type: 'text' as const, text: `Fatal error during simulation: ${error.message}` }],
+                isError: true,
+                _meta: { success: false, errorType: 'SimulationError', stderr: error.message }
+            };
+        }
+    }
 );
 
+// --- Predefined Financial Expert Personas ---
+interface ExpertPersona {
+    role: string;
+    promptTemplate: (query: string) => string; // Function to generate the full prompt
+}
+
+const FINANCIAL_EXPERT_PERSONAS: ExpertPersona[] = [
+    {
+        role: "Risk Analyst",
+        promptTemplate: (query) => `You are a meticulous Risk Analyst AI. Analyze the following query focusing *exclusively* on identifying potential risks (financial, operational, market, regulatory, reputational), quantifying them where possible, and suggesting mitigation strategies. Avoid discussing potential upsides. Be objective and data-driven. Query: ${query}`
+    },
+    {
+        role: "Market Strategist",
+        promptTemplate: (query) => `You are a forward-looking Market Strategist AI. Analyze the following query focusing on market trends, competitive landscape, potential growth opportunities, and strategic positioning. Provide actionable insights and potential strategic moves. Query: ${query}`
+    },
+    {
+        role: "Economist",
+        promptTemplate: (query) => `You are an Economist AI. Analyze the following query from a macroeconomic perspective. Consider relevant economic indicators, potential impacts of fiscal/monetary policy, and broader economic factors. Explain the underlying economic principles. Query: ${query}`
+    },
+    {
+        role: "Accountant",
+        promptTemplate: (query) => `You are a detail-oriented Accountant AI. Analyze the following query strictly from a financial accounting and reporting perspective. Focus on the accuracy of financial statements, compliance with standards (e.g., GAAP/IFRS if applicable), key financial ratios derived directly from standard statements, and potential red flags in financial reporting. Do not speculate on market strategy or future growth. Query: ${query}`
+    }
+];
+// --- End Predefined Personas ---
+
 // --- Tool: finance_experts ---
-// Placeholder - Implementation TBD
-// ... existing definition ...
+// Updated Schema: Takes query, uses predefined internal experts
+const financeExpertsParamsSchema = z.object({
+    query: z.string().describe('The central financial query or topic for the experts to deliberate on.'),
+    output_file: z.string().optional().describe('Optional path for the output analysis file. Defaults to ./finance_experts_analysis.md')
+    // REMOVED: expert_roles parameter
+});
+
+server.tool(
+    "finance_experts",
+    "Simulates deliberation by querying predefined financial expert personas (via aider) based on a user query, appending results to a file.", // Updated description
+    financeExpertsParamsSchema.shape,
+    async (params): Promise<McpToolResponse> => {
+        log(`Received finance_experts deliberation call for query: ${params.query}`);
+        const { query, output_file } = params;
+        const defaultFilename = 'finance_experts_analysis.md';
+        const analysisFilePath = path.resolve(output_file || defaultFilename);
+        log(`Analysis will be saved to: ${analysisFilePath}`);
+
+        try {
+            // Initialize the analysis file
+            await fsPromises.writeFile(analysisFilePath, `# Financial Experts Analysis: ${query}\n\n`);
+            log(`Initialized analysis file: ${analysisFilePath}`);
+
+            let allSucceeded = true;
+            const errors: string[] = [];
+
+            // Iterate through the PREDEFINED personas
+            for (const expert of FINANCIAL_EXPERT_PERSONAS) {
+                log(`Querying financial expert persona: ${expert.role}`);
+                // Construct the prompt using the persona's template
+                const expertPrompt = expert.promptTemplate(query);
+
+                // Call aider for this expert's analysis
+                const result = await executeAiderViaSpawn({
+                    message: expertPrompt,
+                    taskType: 'research' // Research seems appropriate for deliberation
+                });
+
+                if (result.isError || !result._meta?.success) {
+                    allSucceeded = false;
+                    const errorMsg = `Failed to get analysis from ${expert.role}. Error: ${result._meta?.stderr || 'Unknown aider error'}`;
+                    log(errorMsg);
+                    errors.push(errorMsg);
+                    // Append error marker to report
+                    await fsPromises.appendFile(analysisFilePath, `\n---\n## Analysis from ${expert.role}\n\n**ERROR:** Failed to retrieve analysis. Aider stderr: ${result._meta?.stderr || 'N/A'}\n`);
+                } else {
+                    // Append successful response to the analysis file
+                    const responseContent = result._meta?.stdout || '(No response content)';
+                    await fsPromises.appendFile(analysisFilePath, `\n---\n## Analysis from ${expert.role}\n\n${responseContent}\n`);
+                    log(`Successfully appended analysis from ${expert.role} to report.`);
+                }
+            }
+
+             // Construct final response
+            if (allSucceeded) {
+                return {
+                    content: [{ type: 'text' as const, text: `Financial experts deliberation complete. Analysis saved to: ${analysisFilePath}` }],
+                    isError: false,
+                    _meta: { success: true, outputFilePath: analysisFilePath }
+                };
+            } else {
+                return {
+                    content: [
+                        { type: 'text' as const, text: `Financial experts deliberation completed with errors. Analysis saved to: ${analysisFilePath}` },
+                        { type: 'text' as const, text: `Errors encountered:\n${errors.join('\n')}` }
+                    ],
+                    isError: true,
+                    _meta: { success: false, outputFilePath: analysisFilePath, errors: errors }
+                };
+            }
+
+        } catch (error: any) {
+            log(`Fatal error during finance_experts deliberation: ${error.message}`);
+            return {
+                content: [{ type: 'text' as const, text: `Fatal error during deliberation: ${error.message}` }],
+                isError: true,
+                _meta: { success: false, errorType: 'DeliberationError', stderr: error.message }
+            };
+        }
+    }
+);
 
 // --- NEW TOOL DEFINITIONS END ---
 
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
-
 // Ensure default models have fallbacks if env vars are not set
 if (!DEFAULT_ARCHITECT_MODEL) {
-    console.warn('Warning: DEFAULT_ARCHITECT_MODEL environment variable not set. Aider command generation might fail if not overridden.');
-    // Optionally set a hardcoded fallback, but relying on env is better
+    console.warn('Warning: DEFAULT_ARCHITECT_MODEL environment variable not set. Aider commands might fail if not overridden.');
 }
 if (!DEFAULT_EDITOR_MODEL) {
-    console.warn('Warning: DEFAULT_EDITOR_MODEL environment variable not set. API calls will likely fail.');
-    // Optionally set a hardcoded fallback, but relying on env is better
-}
-
-// Helper function to call OpenRouter API (simplified)
-async function callOpenRouter(prompt: string): Promise<any> { // Removed models parameter
-  if (!OPENROUTER_API_KEY) {
-    throw new Error("OpenRouter API key (OPENROUTER_API_KEY) is not configured.");
-  }
-  if (!DEFAULT_EDITOR_MODEL) { // Use the configured default editor model
-      throw new Error("Default editor model (DEFAULT_EDITOR_MODEL) is not configured for API calls.");
-  }
-
-  // Strip the :free suffix if present, as the direct API endpoint doesn't expect it.
-  const modelToCall = DEFAULT_EDITOR_MODEL.replace(/:free$/, '');
-
-  log(`Calling OpenRouter API for model: ${modelToCall} (derived from ${DEFAULT_EDITOR_MODEL})`);
-
-  try {
-    const response = await fetch(OPENROUTER_API_URL, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: modelToCall, // Use the stripped model ID
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    });
-
-    log(`OpenRouter API response status: ${response.status}`);
-
-    if (!response.ok) {
-      const errorBody = await response.text();
-      log(`OpenRouter API error: ${errorBody}`);
-      throw new Error(`OpenRouter API request failed with status ${response.status}: ${errorBody}`);
-    }
-
-    const data = await response.json();
-    log(`OpenRouter API response data received.`);
-    // Extract the response content - structure may vary slightly based on API
-    const responseContent = data.choices?.[0]?.message?.content || 'No response content found.';
-    return { model: modelToCall, response: responseContent };
-
-  } catch (error: any) {
-    log(`Error calling OpenRouter: ${error.message}`);
-    // Re-throw or handle as appropriate for the MCP tool response
-    throw error;
-  }
+    console.warn('Warning: DEFAULT_EDITOR_MODEL environment variable not set. Aider commands will likely fail.');
 }
 
 // Logging function
@@ -405,6 +643,136 @@ function log(message: string) {
         console.error(`Unable to write to log file: ${error.message}`);
     }
 }
+
+// --- Aider Execution Helper Function ---
+// Define the expected parameter structure for the helper
+interface ExecuteAiderParams {
+    message: string;
+    taskType: TaskType;
+    files?: string[];
+    model?: string;
+    editorModel?: string;
+    architect?: boolean;
+    noDetectUrls?: boolean;
+    noAutoCommit?: boolean;
+    yesAlways?: boolean;
+    aiderPath?: string;
+    extraArgs?: string[];
+}
+
+// Define the return type matching MCP SDK expectations
+type McpToolResponse = {
+    content: { type: 'text'; text: string }[];
+    // Relax _meta type to allow additional fields like outputFilePath
+    _meta?: Record<string, any>; // Was: z.infer<typeof runAiderDirectlyOutputSchema> & { errorType?: string };
+    isError?: boolean;
+};
+
+// Update helper function to return the McpToolResponse type
+async function executeAiderViaSpawn(params: ExecuteAiderParams): Promise<McpToolResponse> {
+    // This function encapsulates the spawn logic previously in run_aider_directly
+    return new Promise((resolve) => {
+      const aiderCmdPath = params.aiderPath ?? 'aider';
+      const architectModel = params.model ?? DEFAULT_ARCHITECT_MODEL;
+      const editorModel = params.editorModel ?? DEFAULT_EDITOR_MODEL;
+
+      if (!architectModel || !editorModel) {
+          const errorMsg = !architectModel
+              ? "Architect model is not configured (check DEFAULT_ARCHITECT_MODEL env var or provide 'model' param)."
+              : "Editor model is not configured (check DEFAULT_EDITOR_MODEL env var or provide 'editorModel' param).";
+          log(`Configuration Error: ${errorMsg}`);
+          // Ensure content objects use literal type 'text'
+          resolve({
+              content: [{ type: "text" as const, text: `Configuration Error: ${errorMsg}` }],
+              isError: true,
+              _meta: { success: false, exitCode: null, stdout: '', stderr: errorMsg, executedCommand: 'N/A', errorType: 'ConfigurationError' }
+          });
+          return;
+      }
+
+      const useArchitect = params.architect ?? BASE_FLAGS.architect;
+      const useNoDetectUrls = params.noDetectUrls ?? BASE_FLAGS.noDetectUrls;
+      const useNoAutoCommit = params.noAutoCommit ?? BASE_FLAGS.noAutoCommit;
+      const useYesAlways = params.yesAlways ?? BASE_FLAGS.yesAlways;
+      const taskBasePrompt = TASK_PROMPTS[params.taskType];
+      const fullPrompt = `${taskBasePrompt} ${params.message}`;
+
+      const args: string[] = [];
+      args.push('--model', architectModel as string);
+      args.push('--editor-model', editorModel as string);
+      if (useArchitect) args.push('--architect');
+      if (useNoDetectUrls) args.push('--no-detect-urls');
+      if (useNoAutoCommit) args.push('--no-auto-commit');
+      if (useYesAlways) args.push('--yes-always');
+      if (params.files && params.files.length > 0) {
+          args.push(...params.files);
+      }
+      if (params.extraArgs) {
+          args.splice(2, 0, ...params.extraArgs);
+      }
+      args.push('--message', fullPrompt);
+
+      const executedCommand = `${aiderCmdPath} ${args.join(' ')}`;
+      log(`Executing aider via helper: ${executedCommand}`);
+
+      let stdoutData = '';
+      let stderrData = '';
+      let exitCode: number | null = null;
+
+      try {
+        const aiderProcess = spawn(aiderCmdPath, args, {
+            stdio: ['pipe', 'pipe', 'pipe'],
+            cwd: process.cwd(),
+            env: process.env
+        });
+
+        aiderProcess.stdout.on('data', (data) => {
+          const chunk = data.toString();
+          stdoutData += chunk;
+          log(`Aider stdout: ${chunk.substring(0,100)}...`);
+        });
+
+        aiderProcess.stderr.on('data', (data) => {
+          const chunk = data.toString();
+          stderrData += chunk;
+          log(`Aider stderr: ${chunk.substring(0,100)}...`);
+        });
+
+        aiderProcess.on('error', (error) => {
+          log(`Failed to start aider process: ${error.message}`);
+          stderrData += `\nFailed to start process: ${error.message}`;
+           // Ensure content objects use literal type 'text'
+           resolve({
+              content: [{ type: "text" as const, text: `Failed to start aider: ${error.message}` }],
+              isError: true,
+              _meta: { success: false, exitCode: null, stdout: stdoutData, stderr: stderrData, executedCommand: executedCommand, errorType: 'SpawnError' }
+           });
+        });
+
+        aiderProcess.on('close', (code) => {
+          exitCode = code;
+          const success = code === 0;
+          log(`Aider process exited with code ${code}`);
+          // Ensure content objects use literal type 'text'
+          resolve({
+             content: [{ type: "text" as const, text: `Aider process finished with exit code ${code}.` }],
+             isError: !success,
+             _meta: { success: success, exitCode: exitCode, stdout: stdoutData, stderr: stderrData, executedCommand: executedCommand }
+          });
+        });
+
+      } catch (error: any) {
+          log(`Error spawning aider process: ${error.message}`);
+          // Ensure content objects use literal type 'text'
+          resolve({
+              content: [{ type: "text" as const, text: `Error spawning aider: ${error.message}` }],
+              isError: true,
+              _meta: { success: false, exitCode: null, stdout: stdoutData, stderr: `Spawn error: ${error.message}`, executedCommand: executedCommand, errorType: 'CatchError' }
+          });
+      }
+    });
+}
+// --- End Aider Execution Helper ---
 
 async function main() {
   try {
@@ -439,3 +807,67 @@ process.on('SIGINT', () => {
   // Add cleanup logic if needed
   process.exit(0);
 });
+
+// --- NEW TOOL: Run Aider Directly ---
+
+// Input schema similar to generate_aider_commands
+const runAiderDirectlyParamsSchema = z.object({
+    files: z.array(z.string()).optional()
+      .describe('List of files for aider to operate on. Add ONLY files needing modification or creation.'),
+    message: z.string()
+      .describe('The specific task or request for aider. This will be combined with task-specific prompting.'),
+    taskType: z.enum(TASK_TYPES)
+      .describe("The type of task to perform, determining the agent's role and behavior."),
+    model: z.string().optional()
+      .describe(`Override the default architect model (Default: ${DEFAULT_ARCHITECT_MODEL}).`),
+    editorModel: z.string().optional()
+      .describe(`Override the default editor model (Default: ${DEFAULT_EDITOR_MODEL}).`),
+    architect: z.boolean().optional()
+      .describe('Enable/disable architect mode. Default: true'),
+    noDetectUrls: z.boolean().optional()
+      .describe('Disable URL detection in messages. Default: true'),
+    noAutoCommit: z.boolean().optional()
+      .describe('Disable automatic git commits. Default: true'),
+    yesAlways: z.boolean().optional().default(true)
+      .describe('Automatically confirm all prompts. Default: true'),
+    aiderPath: z.string().optional().default('aider')
+      .describe('Path to the aider executable. Defaults to "aider" in PATH.'),
+    extraArgs: z.array(z.string()).optional()
+      .describe('Additional command-line arguments to pass to aider.')
+});
+
+// Output schema for the run_aider_directly tool - Describes fields within _meta
+const runAiderDirectlyOutputSchema = z.object({
+    success: z.boolean().describe('True if the aider process exited with code 0, false otherwise.'),
+    exitCode: z.number().nullable().describe('The exit code of the aider process, or null if it terminated abnormally.'),
+    stdout: z.string().describe('The captured standard output from the aider process.'),
+    stderr: z.string().describe('The captured standard error from the aider process.'),
+    executedCommand: z.string().describe('The command and arguments that were executed.')
+});
+
+// Register the 'run_aider_directly' tool
+server.tool(
+  "run_aider_directly",
+  "Executes an aider task directly, providing full control over arguments.",
+  runAiderDirectlyParamsSchema.shape,
+  async (params): Promise<McpToolResponse> => { // Explicitly type return promise
+    log(`Received run_aider_directly call.`);
+    try {
+        // The helper function now returns the exact type needed
+        const result = await executeAiderViaSpawn(params as ExecuteAiderParams);
+        log(`run_aider_directly call finished. Exit code: ${result._meta?.exitCode}`);
+        return result;
+    } catch (error: any) {
+        log(`Unexpected error in run_aider_directly wrapper: ${error.message}`);
+        // Return MCP-compatible error structure
+        return {
+            content: [{ type: 'text' as const, text: `Unexpected error processing run_aider_directly: ${error.message}` }],
+            isError: true,
+            _meta: { success: false, exitCode: null, stdout: '', stderr: `Wrapper error: ${error.message}`, executedCommand: 'N/A', errorType: 'WrapperError' }
+        };
+    }
+  }
+);
+
+// --- Finance Experts Tool --- (This section seems misplaced, should be removed as it's defined earlier)
+// ... existing code ...
