@@ -34,4 +34,18 @@ Implement and verify the functionality of all tools provided by the `giizhendam-
     *   Test `prompt_from_file` with a test file.
     *   Test `finance_experts` with a sample query.
 5.  **Implement Remaining Tools:** Address the TODO items for the placeholder tools (`prompt_from_file_to_file`, `ceo_and_board`).
-6.  **Enhance `finance_experts`:** Add actual LLM calls based on the generated prompts. 
+6.  **Enhance `finance_experts`:** Add actual LLM calls based on the generated prompts.
+
+## Iteration 3: Aider Configuration & Refactoring (YYYY-MM-DD)
+
+*   **Goal:** Ensure MCP server tools reliably use configuration specified in `~/.cursor/mcp.json` when invoking `aider`.
+*   **Problem:** Observed `aider` using models different from those specified in `mcp.json`.
+*   **Investigation:**
+    *   Confirmed server code correctly reads environment variables (`AIDER_MODEL`, `AIDER_EDITOR_MODEL`, `OPENROUTER_API_KEY`) set by Cursor from `mcp.json`.
+    *   Confirmed server code passes models via command-line arguments (`--model`, `--editor-model`) to `aider`, which should override config files.
+    *   Identified potential conflict with global `~/.aider.conf.yml`.
+*   **Solution:**
+    *   Clarified that environment variables and command-line args are the correct integration method and take precedence for MCP-launched `aider` instances.
+    *   Recommended removing/commenting conflicting settings in `~/.aider.conf.yml`.
+    *   Refactored `src/index.ts`: removed legacy `run_aider_task` tool definition, commented-out code (`dotenv`), and added logging to verify environment variable loading on server start.
+*   **Status:** Code refactored. Awaiting user confirmation of `~/.aider.conf.yml` adjustment and testing via rebuild/publish. 

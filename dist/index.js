@@ -41,6 +41,10 @@ const PREFERRED_OPENROUTER_MODELS = [
 // Use ?? for safer default handling (only overrides null/undefined)
 const DEFAULT_ARCHITECT_MODEL = process.env.DEFAULT_ARCHITECT_MODEL ?? PREFERRED_OPENROUTER_MODELS[0];
 const DEFAULT_EDITOR_MODEL = process.env.DEFAULT_EDITOR_MODEL ?? PREFERRED_OPENROUTER_MODELS[0];
+// Log the effective models and API key presence
+log(`MCP Server: Effective Architect Model = ${DEFAULT_ARCHITECT_MODEL}`);
+log(`MCP Server: Effective Editor Model = ${DEFAULT_EDITOR_MODEL}`);
+log(`MCP Server: OPENROUTER_API_KEY is ${process.env.OPENROUTER_API_KEY ? 'set' : 'NOT set'}`);
 const BASE_FLAGS = {
     architect: true,
     noDetectUrls: true,
