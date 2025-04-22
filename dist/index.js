@@ -22,6 +22,8 @@ import { spawn } from "child_process"; // Import spawn
 import fs from 'fs';
 import path from 'path';
 import fsPromises from 'fs/promises'; // Use promises version of fs
+import crypto from 'crypto'; // For generating unique filenames
+import os from 'os'; // For temporary directory path
 // Setting up logging
 const LOG_FILE = '/tmp/giizhendam_mcp_log.txt';
 try {
@@ -561,19 +563,19 @@ function log(message) {
         console.error(`Unable to write to log file: ${error.message}`);
     }
 }
-// Update helper function to return the McpToolResponse type
+// Update helper function to use uv run with a temporary Python script
 async function executeAiderViaSpawn(params) {
-    // This function encapsulates the spawn logic previously in run_aider_directly
-    return new Promise((resolve) => {
+    return new Promise(async (resolve) => {
         const aiderCmdPath = params.aiderPath ?? 'aider';
         const architectModel = params.model ?? DEFAULT_ARCHITECT_MODEL;
         const editorModel = params.editorModel ?? DEFAULT_EDITOR_MODEL;
+        const openRouterApiKey = process.env.OPENROUTER_API_KEY; // Get API key from server env
+        // --- Configuration Check ---
         if (!architectModel || !editorModel) {
             const errorMsg = !architectModel
-                ? "Architect model is not configured (check DEFAULT_ARCHITECT_MODEL env var or provide 'model' param)."
-                : "Editor model is not configured (check DEFAULT_EDITOR_MODEL env var or provide 'editorModel' param).";
+                ? "Architect model is not configured (check AIDER_MODEL env var or provide 'model' param)."
+                : "Editor model is not configured (check AIDER_EDITOR_MODEL env var or provide 'editorModel' param).";
             log(`Configuration Error: ${errorMsg}`);
-            // Ensure content objects use literal type 'text'
             resolve({
                 content: [{ type: "text", text: `Configuration Error: ${errorMsg}` }],
                 isError: true,
@@ -581,81 +583,211 @@ async function executeAiderViaSpawn(params) {
             });
             return;
         }
+        if (!openRouterApiKey) {
+            const errorMsg = "OPENROUTER_API_KEY environment variable is not set for the server process.";
+            log(`Configuration Error: ${errorMsg}`);
+            resolve({
+                content: [{ type: "text", text: `Configuration Error: ${errorMsg}` }],
+                isError: true,
+                _meta: { success: false, exitCode: null, stdout: '', stderr: errorMsg, executedCommand: 'N/A', errorType: 'ConfigurationError' }
+            });
+            return;
+        }
+        // --- Prepare Aider Arguments ---
         const useArchitect = params.architect ?? BASE_FLAGS.architect;
         const useNoDetectUrls = params.noDetectUrls ?? BASE_FLAGS.noDetectUrls;
         const useNoAutoCommit = params.noAutoCommit ?? BASE_FLAGS.noAutoCommit;
         const useYesAlways = params.yesAlways ?? BASE_FLAGS.yesAlways;
         const taskBasePrompt = TASK_PROMPTS[params.taskType];
         const fullPrompt = `${taskBasePrompt} ${params.message}`;
-        const args = [];
-        args.push('--model', architectModel);
-        args.push('--editor-model', editorModel);
+        const aiderArgs = []; // Arguments for the aider command itself
+        aiderArgs.push('--model', architectModel);
+        aiderArgs.push('--editor-model', editorModel);
         if (useArchitect)
-            args.push('--architect');
+            aiderArgs.push('--architect');
         if (useNoDetectUrls)
-            args.push('--no-detect-urls');
+            aiderArgs.push('--no-detect-urls');
         if (useNoAutoCommit)
-            args.push('--no-auto-commit');
+            aiderArgs.push('--no-auto-commit');
         if (useYesAlways)
-            args.push('--yes-always');
+            aiderArgs.push('--yes-always');
         if (params.files && params.files.length > 0) {
-            args.push(...params.files);
+            // Ensure file paths are absolute or correctly relative to where aider will run
+            aiderArgs.push(...params.files.map(f => path.resolve(f)));
         }
         if (params.extraArgs) {
-            args.splice(2, 0, ...params.extraArgs);
+            // Note: Inserting extra args early might interfere with model args, place carefully or append
+            aiderArgs.push(...params.extraArgs);
         }
-        args.push('--message', fullPrompt);
-        const executedCommand = `${aiderCmdPath} ${args.join(' ')}`;
-        log(`Executing aider via helper: ${executedCommand}`);
-        let stdoutData = '';
-        let stderrData = '';
-        let exitCode = null;
+        // IMPORTANT: Pass the message *last*
+        aiderArgs.push('--message', fullPrompt);
+        const tempScriptName = `aider_runner_${crypto.randomBytes(8).toString('hex')}.py`;
+        const tempScriptPath = path.join(os.tmpdir(), tempScriptName);
+        // --- Construct Python Script ---
+        // Passes aider path, API key, and all other aider args as JSON string via command line
+        const pythonScriptContent = `
+import os
+import sys
+import subprocess
+import json
+import shlex
+
+def main():
+    if len(sys.argv) != 4:
+        print(json.dumps({"error": "Script requires 3 arguments: aider_path, api_key, aider_args_json"}), file=sys.stderr)
+        sys.exit(1)
+
+    aider_path = sys.argv[1]
+    api_key = sys.argv[2]
+    aider_args_json = sys.argv[3]
+
+    try:
+        aider_args = json.loads(aider_args_json)
+        if not isinstance(aider_args, list):
+            raise ValueError("Aider args must be a list")
+    except Exception as e:
+        print(json.dumps({"error": f"Failed to parse aider_args_json: {e}"}), file=sys.stderr)
+        sys.exit(1)
+
+    # Set environment variable for the aider subprocess
+    script_env = os.environ.copy()
+    script_env["OPENROUTER_API_KEY"] = api_key
+    # Add other necessary env vars here if needed
+
+    command = [aider_path] + aider_args
+
+    try:
+        # Execute aider
+        process = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            env=script_env,
+            check=False # Don't throw exception on non-zero exit code
+        )
+
+        # Output structured result as JSON to stdout
+        result = {
+            "stdout": process.stdout,
+            "stderr": process.stderr,
+            "exitCode": process.returncode,
+            "executedCommand": " ".join(shlex.quote(c) for c in command) # For debugging
+        }
+        print(json.dumps(result))
+        sys.exit(process.returncode) # Exit Python script with aider's exit code
+
+    except FileNotFoundError:
+        print(json.dumps({"error": f"Aider executable not found at '{aider_path}'"}), file=sys.stderr)
+        sys.exit(127) # Standard exit code for command not found
+    except Exception as e:
+        print(json.dumps({"error": f"Error running aider: {e}"}), file=sys.stderr)
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
+`;
+        // --- Execute via uv run ---
+        let uvStdout = '';
+        let uvStderr = '';
+        let uvExitCode = null;
+        const uvCommand = 'uv';
+        const uvArgs = ['run', '--no-project', '--quiet', tempScriptPath, aiderCmdPath, openRouterApiKey, JSON.stringify(aiderArgs)];
+        // Safer string joining for logging complex arguments
+        const executedUvCommand = [uvCommand, ...uvArgs].map(arg => (arg ?? '').includes(' ') || (arg ?? '').includes('\"') || (arg ?? '').includes("'")
+            ? JSON.stringify(arg) // Use JSON.stringify for robust quoting
+            : (arg ?? '')).join(' ');
+        log(`Executing uv run: ${executedUvCommand}`);
         try {
-            const aiderProcess = spawn(aiderCmdPath, args, {
+            // Write the temporary script
+            await fsPromises.writeFile(tempScriptPath, pythonScriptContent);
+            log(`Temporary Python script written to ${tempScriptPath}`);
+            // Spawn uv run
+            const uvProcess = spawn(uvCommand, uvArgs, {
                 stdio: ['pipe', 'pipe', 'pipe'],
-                cwd: process.cwd(),
-                env: process.env
+                cwd: process.cwd(), // Run uv from the server's CWD
+                env: process.env // Inherit server env for uv itself
             });
-            aiderProcess.stdout.on('data', (data) => {
-                const chunk = data.toString();
-                stdoutData += chunk;
-                log(`Aider stdout: ${chunk.substring(0, 100)}...`);
-            });
-            aiderProcess.stderr.on('data', (data) => {
-                const chunk = data.toString();
-                stderrData += chunk;
-                log(`Aider stderr: ${chunk.substring(0, 100)}...`);
-            });
-            aiderProcess.on('error', (error) => {
-                log(`Failed to start aider process: ${error.message}`);
-                stderrData += `\nFailed to start process: ${error.message}`;
-                // Ensure content objects use literal type 'text'
-                resolve({
-                    content: [{ type: "text", text: `Failed to start aider: ${error.message}` }],
-                    isError: true,
-                    _meta: { success: false, exitCode: null, stdout: stdoutData, stderr: stderrData, executedCommand: executedCommand, errorType: 'SpawnError' }
+            uvProcess.stdout.on('data', (data) => uvStdout += data.toString());
+            uvProcess.stderr.on('data', (data) => uvStderr += data.toString());
+            uvExitCode = await new Promise((resolve) => {
+                uvProcess.on('close', resolve);
+                uvProcess.on('error', (err) => {
+                    log(`Failed to start uv process: ${err.message}`);
+                    uvStderr += `\nFailed to start uv process: ${err.message}`;
+                    resolve(null); // Indicate failure to start
                 });
             });
-            aiderProcess.on('close', (code) => {
-                exitCode = code;
-                const success = code === 0;
-                log(`Aider process exited with code ${code}`);
-                // Ensure content objects use literal type 'text'
-                resolve({
-                    content: [{ type: "text", text: `Aider process finished with exit code ${code}.` }],
-                    isError: !success,
-                    _meta: { success: success, exitCode: exitCode, stdout: stdoutData, stderr: stderrData, executedCommand: executedCommand }
-                });
+            log(`uv run process finished with exit code ${uvExitCode}`);
+            // --- Process Results ---
+            let aiderResult;
+            try {
+                // uv's stdout should contain the JSON from our Python script
+                const parsedJson = JSON.parse(uvStdout.trim());
+                if (typeof parsedJson !== 'object' || parsedJson === null) {
+                    throw new Error('Parsed JSON is not an object');
+                }
+                aiderResult = {
+                    stdout: parsedJson.stdout ?? '',
+                    stderr: parsedJson.stderr ?? '',
+                    exitCode: typeof parsedJson.exitCode === 'number' ? parsedJson.exitCode : null,
+                    error: parsedJson.error,
+                    executedCommand: parsedJson.executedCommand
+                };
+                if (aiderResult.error) {
+                    log(`Error reported by Python script: ${aiderResult.error}`);
+                    log(`Python stderr: ${uvStderr.trim()}`);
+                    // Prepend script error to stderr
+                    aiderResult.stderr = `${aiderResult.error}\n${uvStderr ? `UV/Python Stderr:\n${uvStderr}\n` : ''}${aiderResult.stderr}`;
+                    aiderResult.exitCode = aiderResult.exitCode ?? 1; // Assume error if exit code missing
+                }
+            }
+            catch (parseError) {
+                log(`Failed to parse JSON output from Python script: ${parseError.message}`);
+                log(`uv stdout: ${uvStdout}`);
+                log(`uv stderr: ${uvStderr}`);
+                // Initialize fields correctly for the error case
+                aiderResult = {
+                    stdout: uvStdout,
+                    stderr: `Failed to parse Python script output: ${parseError.message}\nUV Stderr:\n${uvStderr}`,
+                    exitCode: uvExitCode ?? 1,
+                    error: 'JSON Parse Error',
+                    executedCommand: 'N/A' // Command execution details lost if parse fails
+                };
+            }
+            // Resolve the promise with the structured result from Aider
+            const success = aiderResult.exitCode === 0;
+            resolve({
+                content: [{ type: "text", text: `Aider process finished via uv run. Exit Code: ${aiderResult.exitCode}` }], // Placeholder content, will be replaced by caller
+                isError: !success,
+                _meta: {
+                    success: success,
+                    exitCode: aiderResult.exitCode,
+                    // Return the captured stdout/stderr *from aider*
+                    stdout: aiderResult.stdout,
+                    stderr: aiderResult.stderr,
+                    executedCommand: aiderResult.executedCommand ?? 'N/A',
+                    uvExitCode: uvExitCode, // Include uv's exit code for debugging
+                    uvStderr: uvStderr // Include uv's stderr for debugging
+                }
             });
         }
         catch (error) {
-            log(`Error spawning aider process: ${error.message}`);
-            // Ensure content objects use literal type 'text'
+            log(`Error during uv run execution or script writing: ${error.message}`);
             resolve({
-                content: [{ type: "text", text: `Error spawning aider: ${error.message}` }],
+                content: [{ type: "text", text: `Error setting up or running aider via uv: ${error.message}` }],
                 isError: true,
-                _meta: { success: false, exitCode: null, stdout: stdoutData, stderr: `Spawn error: ${error.message}`, executedCommand: executedCommand, errorType: 'CatchError' }
+                _meta: { success: false, exitCode: null, stdout: '', stderr: `Setup/Exec error: ${error.message}\nUV Stderr:\n${uvStderr}`, executedCommand: 'N/A', errorType: 'SetupError' }
             });
+        }
+        finally {
+            // --- Cleanup ---
+            try {
+                await fsPromises.unlink(tempScriptPath);
+                log(`Temporary Python script deleted: ${tempScriptPath}`);
+            }
+            catch (unlinkError) {
+                log(`Warning: Failed to delete temporary script ${tempScriptPath}: ${unlinkError.message}`);
+            }
         }
     });
 }
@@ -727,16 +859,33 @@ const runAiderDirectlyOutputSchema = z.object({
 });
 // Register the 'run_aider_directly' tool
 server.tool("run_aider_directly", "Executes an aider task directly, providing full control over arguments.", runAiderDirectlyParamsSchema.shape, async (params) => {
-    log(`Received run_aider_directly call.`);
+    log(`Received run_aider_directly call (using uv run).`);
     try {
-        // The helper function now returns the exact type needed
         const result = await executeAiderViaSpawn(params);
-        log(`run_aider_directly call finished. Exit code: ${result._meta?.exitCode}`);
-        return result;
+        log(`run_aider_directly call finished. Aider Exit code: ${result._meta?.exitCode}`);
+        // Format response to show aider output prominently
+        const aiderStdout = result._meta?.stdout ?? '(No stdout captured)';
+        const aiderStderr = result._meta?.stderr ?? '';
+        const aiderExitCode = result._meta?.exitCode ?? 'N/A';
+        const success = result._meta?.success ?? false;
+        return {
+            content: [
+                { type: 'text', text: `Aider Stdout:\n---\n${aiderStdout}\n---` },
+                ...(aiderStderr ? [{ type: 'text', text: `Aider Stderr:\n---\n${aiderStderr}\n---` }] : []),
+                { type: 'text', text: `Aider Exit Code: ${aiderExitCode}` }
+            ],
+            isError: !success,
+            _meta: {
+                success: success,
+                exitCode: result._meta?.exitCode,
+                executedCommand: result._meta?.executedCommand,
+                uvExitCode: result._meta?.uvExitCode, // Pass through for debugging if needed
+                // Avoid duplicating large stdout/stderr in _meta if already in content
+            }
+        };
     }
     catch (error) {
         log(`Unexpected error in run_aider_directly wrapper: ${error.message}`);
-        // Return MCP-compatible error structure
         return {
             content: [{ type: 'text', text: `Unexpected error processing run_aider_directly: ${error.message}` }],
             isError: true,

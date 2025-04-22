@@ -1,0 +1,6 @@
+---
+description: 
+globs: project_PRD.md
+alwaysApply: false
+---
+Use [PRD.mdc](mdc:.cursor/rules/PRD.mdc) to manage our [project_PRD.md](mdc:project_PRD.md) and iterate with each step worth noting (small and big).
