@@ -13,7 +13,7 @@ BASE_CONFIG="aider \\
 # Check if prompt and tag are provided
 if [ -z "$1" ] || [ -z "$2" ]; then
   echo "Usage: $0 \"<prompt>\" --<tag>"
-  echo "Available tags: --research, --docs, --security, --code, --verify, --progress"
+  echo "Available tags: --research, --docs, --security, --code, --verify, --general"
   exit 1
 fi
 
@@ -54,16 +54,19 @@ case "$TAG" in
     ;;
   --progress)
     echo "Running Progress-Tracked Task..."
-    # Note: --show-progress is not a standard aider flag.
-    # You might need a custom implementation or separate script to track progress.
     $BASE_CONFIG \
       --background \
-      # --show-progress # This flag doesn't exist in aider options provided
       --message "Provide a status update or progress report based on the following request: $PROMPT"
+    ;;
+  --general)
+    echo "Running General Task..."
+    $BASE_CONFIG \
+      --background \
+      --message "$PROMPT"
     ;;
   *)
     echo "Error: Unknown tag '$TAG'"
-    echo "Available tags: --research, --docs, --security, --code, --verify, --progress"
+    echo "Available tags: --research, --docs, --security, --code, --verify, --general"
     exit 1
     ;;
 esac

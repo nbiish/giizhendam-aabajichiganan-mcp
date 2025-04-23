@@ -1,51 +1,103 @@
-# Giizhendam Aabajichiganan MCP Server - Project Tracker
+# LLM-Optimized Agile MVP PRD for Aider-Integrated MCP Server
 
-## Goal
-Implement and verify the functionality of all tools provided by the `giizhendam-aabajichiganan-mcp` server.
+## Purpose
+*   Provide a lean, standardized PRD template for LLM-driven requirement definition and iteration for the Aider-Integrated MCP Server project.
 
-## Current Status & Plan (as of latest update)
+## Vision & Goals
+*   **Vision:** An easily deployable MCP server that empowers LLMs to leverage the `aider` tool for various specialized tasks (research, coding, analysis) via clearly defined tools.
+*   **Primary Goal:** Enable LLMs interacting with this MCP server to effectively utilize the capabilities defined in `aider-cli-commands.sh` through dedicated server tools, facilitating complex task execution and information synthesis.
 
-| Tool                          | Status                     | Notes / Next Steps                                                                                    |
-| :---------------------------- | :------------------------- | :---------------------------------------------------------------------------------------------------- |
-| `run_aider_directly`          | Implemented (v1 - TS Fixed) | Executes aider via `spawn`. Uses default models from env/constants. Needs verification testing.        |
-| `run_aider_task`              | Removed                    | Replaced by `run_aider_directly` which executes within the server process.                           |
-| `prompt`                      | Implemented (v1)         | Uses OpenRouter API via `fetch` with default model from env. Needs testing.                     |
-| `prompt_from_file`            | Implemented (v1)         | Reads file, uses OpenRouter via `fetch` with default model from env. Needs testing.            |
-| `prompt_from_file_to_file`  | Placeholder              | **TODO:** Implement file writing logic for results. Uses default model.                           |
-| `ceo_and_board`               | Placeholder              | **TODO:** Implement multi-model logic (placeholder). Uses default model.                            |
-| `finance_experts`             | Implemented (v1)         | Reads persona prompts, constructs combined prompts. Needs verification testing. (LLM calls TODO) |
+## Core MVP Definition
+*   **Definition:** Minimal MCP server exposing core `aider` functionalities (single prompt, double compute, board simulation, financial expert simulation) as distinct tools, publishable to npm.
+*   **Scope:**
+    *   **Must have:**
+        *   npm-publishable Node.js/TypeScript project structure.
+        *   MCP Server implementation using `@modelcontextprotocol/sdk`.
+        *   `prompt_aider` tool: Implemented (v1). Executes a single prompt via `aider-cli-commands.sh` with task tagging. Needs testing.
+        *   `double_compute` tool: Implemented. Executes a single prompt twice via `aider-cli-commands.sh`. Needs testing.
+        *   `ceo_and_board` tool: Implemented. Simulates a board discussion using `aider` for specified roles, attempts saving outputs to `ceo-and-board/`. Needs testing.
+        *   `finance_experts` tool: Implemented and refined. Simulates financial expert deliberation using `aider` with adapted prompts from `finance-agents.md`, attempts saving outputs to `financial-experts/`. Needs testing.
+        *   Clear tool descriptions guiding LLM usage based on `aider-cli-commands.sh` task types.
+        *   Basic error handling for script execution.
+    *   **Out of scope:**
+        *   Advanced error handling beyond script execution failures.
+        *   User authentication/authorization.
+        *   Sophisticated state management between tool calls.
+        *   Direct integration with Context7, Brave Search, or Fetch MCPs (these are meta-instructions for the assistant, not server features).
+        *   UI/Frontend.
 
-## Key Dependencies / Configuration
+## Guiding Principles
+*   Build–Measure–Learn (applied to tool usability for LLMs).
+*   Problem-focused: Enable LLM access to `aider` tasks.
+*   Minimalism: Implement only the specified tools initially.
+*   Viability: Ensure the tools function correctly and interface with the `aider` script.
 
-*   **Aider CLI:** Must be installed and available in the system PATH where the server runs.
-*   **OpenRouter API Key:** Required via `OPENROUTER_API_KEY` environment variable.
-*   **Default Models:** `DEFAULT_ARCHITECT_MODEL`, `DEFAULT_EDITOR_MODEL` environment variables or internal constants used.
-*   **Node.js Features:** Relies on built-in `fetch`, `fs/promises`, `child_process`.
-*   **MCP SDK:** `@modelcontextprotocol/sdk`
+## Success Metrics
+*   **Quantitative:**
+    *   Successful publication to npm.
+    *   LLM successfully calls each of the 4 tools via the MCP.
+    *   Output files are correctly generated in `ceo-and-board/` and `financial-experts/` directories upon tool execution.
+*   **Qualitative:**
+    *   Tool descriptions are clear and sufficient for an LLM to use them correctly.
+    *   Feedback indicates the server reliably facilitates `aider` tasks.
 
-## Next Steps
+## Feedback & Iteration
+*   Initial feedback based on testing interactions with an LLM.
+*   Future iterations could include: adding more tools, improving error handling, enhancing prompt structures based on usage.
 
-1.  **Build:** Run `npm run build` (or equivalent) to compile TypeScript.
-2.  **(Optional) Publish:** If desired, publish the new version to npm.
-3.  **Restart Server:** Ensure the MCP client reloads the server configuration/gets the new version.
-4.  **Test Implemented Tools:**
-    *   Test `run_aider_directly` (e.g., create a test file). **Verify functionality.**
-    *   Test `prompt` with text input.
-    *   Test `prompt_from_file` with a test file.
-    *   Test `finance_experts` with a sample query.
-5.  **Implement Remaining Tools:** Address the TODO items for the placeholder tools (`prompt_from_file_to_file`, `ceo_and_board`).
-6.  **Enhance `finance_experts`:** Add actual LLM calls based on the generated prompts.
+## Terminology
+*   **MCP:** Model Context Protocol
+*   **Aider:** The underlying CLI tool being interfaced with.
+*   **LLM:** Large Language Model (the consumer of the MCP server).
 
-## Iteration 3: Aider Configuration & Refactoring (YYYY-MM-DD)
+## Prompt Engineering Guide (for users of this PRD)
+*   Reference sections by header (e.g., "## Core MVP Definition") to scope LLM responses about this project.
+*   Example prompt: "Based on the ## Core MVP Definition, detail the implementation steps for the `prompt_aider` tool."
 
-*   **Goal:** Ensure MCP server tools reliably use configuration specified in `~/.cursor/mcp.json` when invoking `aider`.
-*   **Problem:** Observed `aider` using models different from those specified in `mcp.json`.
-*   **Investigation:**
-    *   Confirmed server code correctly reads environment variables (`AIDER_MODEL`, `AIDER_EDITOR_MODEL`, `OPENROUTER_API_KEY`) set by Cursor from `mcp.json`.
-    *   Confirmed server code passes models via command-line arguments (`--model`, `--editor-model`) to `aider`, which should override config files.
-    *   Identified potential conflict with global `~/.aider.conf.yml`.
-*   **Solution:**
-    *   Clarified that environment variables and command-line args are the correct integration method and take precedence for MCP-launched `aider` instances.
-    *   Recommended removing/commenting conflicting settings in `~/.aider.conf.yml`.
-    *   Refactored `src/index.ts`: removed legacy `run_aider_task` tool definition, commented-out code (`dotenv`), and added logging to verify environment variable loading on server start.
-*   **Status:** Code refactored. Awaiting user confirmation of `~/.aider.conf.yml` adjustment and testing via rebuild/publish. 
+## Document Types Overview
+*   This document follows the Agile MVP PRD format.
+
+## Prompting Tips (for users of this PRD)
+*   **Target headers:** Scope LLM queries by section (e.g., "## Success Metrics").
+*   **Feature generation:** "Suggest one additional 'Must-have' feature based on the ## Vision & Goals."
+*   **Refinement prompts:** "Based on potential LLM usage patterns, suggest improvements to the `ceo_and_board` tool's output format."
+
+## Agile MVP Framework for Project Goal Setting
+*   **Define Problem & Target Audience:** LLMs lack direct access to execute specialized `aider` tasks defined in a local script. Target audience is developers integrating LLMs that need this capability.
+*   **Identify Core Value & Essential Features:** Provide MCP tools mapping directly to `aider` script functions (`prompt_aider`, `double_compute`, `ceo_and_board`, `finance_experts`). Exclude direct web/Context7 integration in the server itself.
+*   **Prioritize & Scope:** Implement the four specified tools as the minimal viable increment.
+*   **Define Success Metrics:** Focus on successful tool execution by an LLM and correct output generation.
+*   **Plan Feedback & Iteration:** Initial testing by developers/LLMs, future enhancements based on identified needs.
+
+## Key Considerations
+*   **Benefits:** Enables LLMs to perform complex, structured tasks via `aider`, promotes modularity, allows specialized task execution.
+*   **Challenges:** Ensuring robust interaction with the shell script (`aider-cli-commands.sh`), crafting effective tool descriptions for LLMs, managing dependencies for npm publication, adapting specific prompts (finance) for general use. 
+
+## Codebase Structure Example (Conceptual Mapping)
+
+This structure provides a conceptual hierarchy inspired by principles like Domain-Driven Design (DDD) and Atomic Design for organizing codebase elements.
+
+*   **Matter:** Represents the largest boundaries, akin to DDD Bounded Contexts or major application domains/services.
+    *   *Example Directory:* `/src/matter/user-management/`
+    *   *Example Directory:* `/src/matter/order-processing/`
+    *   *Focus:* High-level domain logic, coordination between molecules.
+
+*   **Molecules:** Represents composite features, use cases, or larger components formed by combining Atoms within a specific Matter. Analogous to complex components or feature slices.
+    *   *Example Directory:* `/src/matter/user-management/molecules/registration-flow/`
+    *   *Example Directory:* `/src/matter/order-processing/molecules/checkout-process/`
+    *   *Example Component:* `UserProfileCard` (combining Atom components like `Avatar`, `UserName`, `EditButton`)
+    *   *Focus:* Orchestrating Atoms to fulfill a specific feature or user interaction.
+
+*   **Atoms:** Represents the smallest reusable building blocks, similar to Atomic Design's atoms or core domain entities/functions.
+    *   *Example Directory:* `/src/atoms/ui/` (for UI components)
+    *   *Example Directory:* `/src/atoms/domain/` (for core domain objects/logic)
+    *   *Example UI Component:* `Button.tsx`, `Input.tsx`, `Label.tsx`
+    *   *Example Domain Atom:* `class UserId { ... }`, `function calculateDiscount(...)`
+    *   *Focus:* Single responsibility, reusability, minimal dependencies.
+
+*   **Quanta:** Represents the most fundamental, indivisible units – often cross-cutting concerns or foundational elements.
+    *   *Example Directory:* `/src/quanta/utils/`
+    *   *Example Directory:* `/src/quanta/constants/`
+    *   *Example Directory:* `/src/quanta/design-tokens/`
+    *   *Example File:* `dateTimeUtils.ts`, `apiEndpoints.ts`, `colors.ts`, `spacing.ts`
+    *   *Focus:* Pure functions, configuration values, fundamental definitions used across Atoms and Molecules. 

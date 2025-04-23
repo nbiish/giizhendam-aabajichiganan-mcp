@@ -1,56 +1,37 @@
 {
-  "name": "@nbiish/giizhendam-aabajichiganan-mcp",
-  "version": "0.2.37",
-  "description": "ᑮᔐᓐᑕᒻ ᐋᐸᒋᒋᑲᓇᓐ (Giizhendam Aabajichiganan) - Meta-Cognitive Programming (MCP) CLI Tool using Generative AI, inspired by Aider and incorporating concepts from the Nbiish Waabanimikii-Kinawaabakizi (my) development philosophy.",
-  "keywords": [
-    "mcp",
-    "aider",
-    "ai",
-    "llm",
-    "giizhendam",
-    "aabajichiganan",
-    "ᑮᔐᓐᑕᒻ",
-    "ᐋᐸᒋᒋᑲᓇᓐ",
-    "cursor",
-    "ai-tool"
-  ],
-  "type": "module",
+  "name": "aider-mcp-server",
+  "version": "0.1.0",
+  "description": "MCP Server to interface with aider CLI for specialized tasks",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "bin": {
-    "giizhendam-aabajichiganan-mcp": "dist/index.js"
+    "aider-mcp-server": "dist/index.js"
   },
   "scripts": {
-    "build": "tsc && node scripts/add-shebang.js && chmod +x dist/index.js",
-    "prepublishOnly": "npm run build",
+    "build": "tsc && chmod +x dist/index.js",
     "start": "node dist/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "ts-node src/index.ts",
+    "prepublishOnly": "npm run build"
   },
-  "author": "Nbiish Waabanimikii-Kinawaabakizi (https://github.com/nbiish)",
-  "license": "SEE LICENSE IN LICENSE",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/nbiish/giizhendam-aabajichiganan-mcp.git"
-  },
-  "bugs": {
-    "url": "https://github.com/nbiish/giizhendam-aabajichiganan-mcp/issues"
-  },
-  "homepage": "https://github.com/nbiish/giizhendam-aabajichiganan-mcp#readme",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "aider",
+    "llm",
+    "ai",
+    "tools"
+  ],
+  "author": "AI Assistant",
+  "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.9.0",
-    "dotenv": "^16.4.5",
-    "zod": "^3.23.8"
+    "@modelcontextprotocol/sdk": "^1.10.2"
   },
-  "publishConfig": {
-    "access": "public"
+  "devDependencies": {
+    "@types/node": "^20.17.30",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
   },
   "files": [
-    "dist",
-    "scripts",
-    "qr-stripe-donation.png",
-    "LICENSE"
-  ],
-  "devDependencies": {
-    "@types/node": "^22.14.1",
-    "typescript": "^5.0.0"
-  }
+    "dist"
+  ]
 }

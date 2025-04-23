@@ -1,898 +1,522 @@
-#!/usr/bin/env node
+"use strict";
 /**
- * ᑮᔐᓐᑕᒻ ᐋᐸᒋᒋᑲᓇᓐ (Giizhendam Aabajichiganan) MCP Server
- * A Meta-Cognitive Programming server implementing the MCP protocol.
- * Traditional Anishinaabe'mowin Name: ᑮᔐᓐᑕᒻ ᐋᐸᒋᒋᑲᓇᓐ
- * Romanized: Giizhendam Aabajichiganan
- *
- * Registered MCP Tools (Most delegate to aider):
- * - run_aider_directly: Executes an aider task directly, providing full control over arguments.
- * - prompt: Sends a text prompt to aider (taskType='code').
- * - prompt_from_file: Sends a prompt read from a file to aider (taskType='code').
- * - prompt_from_file_to_file: Runs the same prompt from a file through aider TWICE for verification, saving both responses to a file.
- * - ceo_and_board: Simulates a board discussion by querying an LLM (via aider) for each specified board member role based on a topic, appending results to a file (e.g., ceo_board_report.md).
- * - finance_experts: Simulates querying multiple financial experts (LLM via aider) for each specified role based on a query, appending results to a file (e.g., finance_experts_analysis.md).
+ * ᑮᔐᓐᑕᒻ ᐋᐸᒋᒋᑲᓇᓐ (Giizhendam Aabajichiganan) MCP Server v2
+ * Interface to aider-cli-commands.sh script based on revised PRD.
  */
-// import dotenv from 'dotenv'; // Remove dotenv import
-// dotenv.config(); // Remove dotenv configuration call
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { z } from "zod";
-import { spawn } from "child_process"; // Import spawn
-import fs from 'fs';
-import path from 'path';
-import fsPromises from 'fs/promises'; // Use promises version of fs
-import crypto from 'crypto'; // For generating unique filenames
-import os from 'os'; // For temporary directory path
-// Setting up logging
-const LOG_FILE = '/tmp/giizhendam_mcp_log.txt';
-try {
-    fs.appendFileSync(LOG_FILE, `--- Starting server at ${new Date().toISOString()} ---\n`);
-}
-catch (error) {
-    console.error(`Unable to write to log file: ${error.message}`);
-}
-// Aider Task Types and Configuration
-const TASK_TYPES = ['research', 'docs', 'security', 'code', 'verify', 'progress'];
-// Use environment variables for defaults, allowing override via params
-// Prioritized OpenRouter Models (Update these IDs if necessary based on exact OpenRouter availability)
-const PREFERRED_OPENROUTER_MODELS = [
-    'openrouter/google/gemini-2.5-pro-exp-03-25:free',
-    'openrouter/anthropic/claude-3.5-sonnet' // Assumed mapping for Claude 3.7 Sonnet
-];
-// Use ?? for safer default handling (only overrides null/undefined)
-const DEFAULT_ARCHITECT_MODEL = process.env.DEFAULT_ARCHITECT_MODEL ?? PREFERRED_OPENROUTER_MODELS[0];
-const DEFAULT_EDITOR_MODEL = process.env.DEFAULT_EDITOR_MODEL ?? PREFERRED_OPENROUTER_MODELS[0];
-// Log the effective models and API key presence
-log(`MCP Server: Effective Architect Model = ${DEFAULT_ARCHITECT_MODEL}`);
-log(`MCP Server: Effective Editor Model = ${DEFAULT_EDITOR_MODEL}`);
-log(`MCP Server: OPENROUTER_API_KEY is ${process.env.OPENROUTER_API_KEY ? 'set' : 'NOT set'}`);
-const BASE_FLAGS = {
-    architect: true,
-    noDetectUrls: true,
-    noAutoCommit: true,
-    yesAlways: true
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
 };
-const TASK_PROMPTS = {
-    research: "Act as a research analyst. Synthesize the key findings, evidence, and implications related to the following topic. Provide a concise summary suitable for a technical team.",
-    docs: "Act as a technical writer. Generate clear and concise documentation (e.g., explanation, usage guide, API reference) for the following subject, targeting an audience of developers.",
-    security: "Act as an expert security analyst. Review the provided context/code for potential security vulnerabilities (e.g., OWASP Top 10, injection flaws, insecure configurations, logic errors). Clearly identify any findings, explain the risks, and suggest mitigations.",
-    code: "Act as an expert software developer. Implement the following code generation or modification request, ensuring code is efficient, readable, and adheres to best practices.",
-    verify: "Act as a meticulous code reviewer. Verify the following code or implementation against the requirements or criteria specified. Identify any discrepancies, potential bugs, logical errors, or areas for improvement (e.g., clarity, performance).",
-    progress: "Provide a status update or progress report based on the following request:"
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
 };
-/**
- * Input schema for the run_aider_task tool
- * (Previously generate_aider_commands)
- * Executes an aider command directly.
- */
-// REMOVE START
-const runAiderTaskParamsSchema = z.object({
-    files: z.array(z.string()).optional()
-        .describe('List of files for aider to operate on. Add only files needing modification.'),
-    message: z.string()
-        .describe('The specific task or request for aider. This will be combined with task-specific prompting.'),
-    taskType: z.enum(TASK_TYPES)
-        .describe('The type of task to perform, determining the agent\'s role and behavior.'),
-    model: z.string().optional()
-        .describe(`Override the default architect model. See README for recommended models.`),
-    editorModel: z.string().optional()
-        .describe(`Override the default editor model. See README for recommended models.`),
-    architect: z.boolean().optional()
-        .describe('Enable/disable architect mode. Default: true'),
-    noDetectUrls: z.boolean().optional()
-        .describe('Disable URL detection in messages. Default: true'),
-    noAutoCommit: z.boolean().optional()
-        .describe('Disable automatic git commits. Default: true'),
-    yesAlways: z.boolean().optional().default(true)
-        .describe('Automatically confirm all prompts. Default: true'),
-    aiderPath: z.string().optional().default('aider')
-        .describe('Path to the aider executable. Defaults to "aider" in PATH.'),
-    extraArgs: z.array(z.string()).optional()
-        .describe('Additional command-line arguments to pass to aider.')
-});
-/**
- * Output schema for the run_aider_task tool
- */
-const runAiderTaskOutputSchema = z.object({
-    stdout: z.string().describe('Standard output from the aider command execution.'),
-    stderr: z.string().describe('Standard error output from the aider command execution.'),
-    exitCode: z.number().nullable().describe('The exit code of the aider process (null if killed).')
-});
-// Helper to escape shell arguments (basic version, might need refinement)
-function escapeShellArg(arg) {
-    // Simple escaping for demonstration; robust escaping is complex.
-    // This handles spaces and basic special characters for common shells.
-    if (/[^A-Za-z0-9_\/:=-]/.test(arg)) {
-        return "'" + arg.replace(/'/g, "'\''") + "'";
-    }
-    return arg;
-}
-// REMOVE END
-// Create server instance
-const server = new McpServer({
-    name: "giizhendam-aabajichiganan-mcp",
-    version: "0.2.33", // Increment version to match package.json
-    capabilities: { resources: {}, tools: {} },
-});
-// Register the 'run_aider_task' tool (Replaces generate_aider_commands)
-// REMOVE START
-server.tool("run_aider_task", // Renamed tool
-"Executes an aider task directly based on the provided parameters.", // Updated description
-runAiderTaskParamsSchema.shape, // Use new schema
-async (params) => {
-    let stdoutData = '';
-    let stderrData = '';
-    try {
-        const aiderCmdPath = params.aiderPath || 'aider';
-        const architectModel = params.model ?? DEFAULT_ARCHITECT_MODEL;
-        const editorModel = params.editorModel ?? DEFAULT_EDITOR_MODEL;
-        if (!architectModel) {
-            throw new Error('Architect model is not configured (check DEFAULT_ARCHITECT_MODEL env var or provide \'model\' param).');
-        }
-        if (!editorModel) {
-            throw new Error('Editor model is not configured (check DEFAULT_EDITOR_MODEL env var or provide \'editorModel\' param).');
-        }
-        const useArchitect = params.architect ?? BASE_FLAGS.architect;
-        const useNoDetectUrls = params.noDetectUrls ?? BASE_FLAGS.noDetectUrls;
-        const useNoAutoCommit = params.noAutoCommit ?? BASE_FLAGS.noAutoCommit;
-        const useYesAlways = params.yesAlways ?? BASE_FLAGS.yesAlways;
-        const taskBasePrompt = TASK_PROMPTS[params.taskType];
-        const fullPrompt = `${taskBasePrompt} ${params.message}`;
-        const aiderArgs = []; // Just the arguments, not the command itself
-        aiderArgs.push('--model', architectModel); // Use non-escaped model names for spawn
-        aiderArgs.push('--editor-model', editorModel);
-        if (useArchitect)
-            aiderArgs.push('--architect');
-        if (useNoDetectUrls)
-            aiderArgs.push('--no-detect-urls');
-        if (useNoAutoCommit)
-            aiderArgs.push('--no-auto-commit');
-        if (useYesAlways)
-            aiderArgs.push('--yes-always');
-        if (params.files && params.files.length > 0) {
-            aiderArgs.push(...params.files);
-        }
-        if (params.extraArgs) {
-            aiderArgs.push(...params.extraArgs);
-        }
-        aiderArgs.push('--message', fullPrompt); // Pass the full prompt directly
-        log(`Executing aider: ${aiderCmdPath} ${aiderArgs.join(' ')}`);
-        // Execute using spawn
-        const aiderProcess = spawn(aiderCmdPath, aiderArgs, {
-            stdio: ['pipe', 'pipe', 'pipe'] // Pipe stdin, stdout, stderr
-            // Consider adding cwd if necessary, but usually inherits from server process
-        });
-        // Capture stdout
-        aiderProcess.stdout.on('data', (data) => {
-            const chunk = data.toString();
-            stdoutData += chunk;
-            log(`Aider stdout: ${chunk.substring(0, 100)}...`); // Log snippets
-        });
-        // Capture stderr
-        aiderProcess.stderr.on('data', (data) => {
-            const chunk = data.toString();
-            stderrData += chunk;
-            log(`Aider stderr: ${chunk.substring(0, 100)}...`); // Log snippets
-        });
-        // Wait for the process to exit
-        const exitCode = await new Promise((resolve, reject) => {
-            aiderProcess.on('close', (code) => {
-                log(`Aider process exited with code: ${code}`);
-                resolve(code);
-            });
-            aiderProcess.on('error', (err) => {
-                log(`Failed to start aider process: ${err.message}`);
-                reject(err);
-            });
-        });
-        // Return captured output according to the new schema
-        return {
-            content: [], // Base content required by MCP
-            stdout: stdoutData,
-            stderr: stderrData,
-            exitCode: exitCode,
-            _meta: { success: exitCode === 0 } // Indicate success based on exit code
-        };
-    }
-    catch (error) {
-        log(`Error in run_aider_task: ${error.message}`);
-        // Return a structured error response matching the *tool output schema*
-        return {
-            content: [],
-            stdout: stdoutData, // Include any stdout captured before error
-            stderr: `${stderrData}
---- Tool Error ---
-${error.message}`,
-            exitCode: null, // Indicate error state
-            isError: true, // Standard MCP error flag
-            _meta: {
-                success: false,
-                errorType: error.name || 'ToolExecutionError'
-            }
-        };
-    }
-});
-// REMOVE END
-// --- NEW TOOL DEFINITIONS START ---
-// Placeholder helper function for simple text responses
-function createPlaceholderResponse(toolName, params) {
-    return { results: [`Tool: ${toolName}, Result: Placeholder response for tool '${toolName}'. Received params: ${JSON.stringify(params)}. Full implementation pending.`] };
-}
-// --- Tool: prompt ---
-const promptParamsSchema = z.object({
-    text: z.string().describe('The prompt text')
-});
-server.tool("prompt", "Sends a text prompt to aider (taskType='code').", // Updated description
-promptParamsSchema.shape, async (params) => {
-    log(`Received prompt tool call with text: ${params.text.substring(0, 50)}...`);
-    try {
-        const result = await executeAiderViaSpawn({
-            message: params.text,
-            taskType: 'code' // Use 'code' task type for general prompts
-        });
-        log(`Prompt tool call via aider successful. Exit code: ${result._meta?.exitCode}`);
-        // Return aider's stdout/stderr in the MCP response
-        return {
-            content: [
-                { type: 'text', text: `Aider Stdout:\n${result._meta?.stdout ?? ''}` },
-                ...(result._meta?.stderr ? [{ type: 'text', text: `Aider Stderr:\n${result._meta.stderr}` }] : [])
-            ],
-            isError: result.isError,
-            _meta: result._meta
-        };
-    }
-    catch (error) {
-        log(`Error in prompt tool (via aider): ${error.message}`);
-        return {
-            content: [{ type: 'text', text: `Failed to process prompt via aider: ${error.message}` }],
-            isError: true,
-            _meta: { success: false, errorType: 'ToolExecutionError', stdout: '', stderr: error.message, exitCode: null, executedCommand: 'N/A' } // Add required _meta fields
-        };
-    }
-});
-// --- Tool: prompt_from_file ---
-const promptFromFileParamsSchema = z.object({
-    file: z.string().describe('Path to the file containing the prompt')
-});
-server.tool("prompt_from_file", "Sends a prompt read from a file to aider (taskType='code').", // Updated description
-promptFromFileParamsSchema.shape, async (params) => {
-    log(`Received prompt_from_file tool call for file: ${params.file}`);
-    try {
-        const filePath = path.resolve(params.file);
-        log(`Reading file content from: ${filePath}`);
-        const fileContent = await fsPromises.readFile(filePath, 'utf-8');
-        log(`File content read successfully. Length: ${fileContent.length}`);
-        const result = await executeAiderViaSpawn({
-            message: fileContent,
-            taskType: 'code' // Use 'code' task type for general prompts
-        });
-        log(`Prompt_from_file tool call via aider successful. Exit code: ${result._meta?.exitCode}`);
-        return {
-            content: [
-                { type: 'text', text: `Aider Stdout (from file ${params.file}):\n${result._meta?.stdout ?? ''}` },
-                ...(result._meta?.stderr ? [{ type: 'text', text: `Aider Stderr:\n${result._meta.stderr}` }] : [])
-            ],
-            isError: result.isError,
-            _meta: result._meta
-        };
-    }
-    catch (error) {
-        const isFileNotFound = error.code === 'ENOENT';
-        const errorMessage = isFileNotFound
-            ? `Failed to read prompt file: File not found at ${params.file}`
-            : `Failed to process prompt from file via aider: ${error.message}`;
-        log(`Error in prompt_from_file tool (via aider): ${errorMessage}`);
-        return {
-            content: [{ type: 'text', text: errorMessage }],
-            isError: true,
-            _meta: { success: false, errorType: isFileNotFound ? 'FileNotFound' : 'ToolExecutionError', stdout: '', stderr: errorMessage, exitCode: null, executedCommand: 'N/A' }
-        };
-    }
-});
-// --- Tool: prompt_from_file_to_file ---
-const promptFromFileToFileParamsSchema = z.object({
-    file: z.string().describe('Path to the file containing the prompt'),
-    output_dir: z.string().optional().describe('Directory to save the response markdown file to. Defaults to current directory.'),
-    // Add optional taskType override for flexibility
-    taskType: z.enum(TASK_TYPES).optional().default('code').describe('Optional: Task type for aider (e.g., code, verify). Defaults to code.')
-});
-server.tool("prompt_from_file_to_file", "Runs the same prompt from a file through aider TWICE for verification, saving both responses to a file.", // Updated description
-promptFromFileToFileParamsSchema.shape, async (params) => {
-    log(`Received prompt_from_file_to_file (verification run) tool call for file: ${params.file}`);
-    let fileContent = '';
-    let inputFilePath = '';
-    try {
-        inputFilePath = path.resolve(params.file);
-        log(`Reading file content from: ${inputFilePath}`);
-        fileContent = await fsPromises.readFile(inputFilePath, 'utf-8');
-        log(`File content read successfully. Length: ${fileContent.length}`);
-        // --- Run 1 ---
-        log(`Starting first aider run for ${params.file}`);
-        const aiderResult1 = await executeAiderViaSpawn({
-            message: fileContent,
-            taskType: params.taskType ?? 'code' // Use provided or default taskType
-        });
-        log(`Aider run 1 finished. Exit code: ${aiderResult1._meta?.exitCode}`);
-        // --- Run 2 ---
-        log(`Starting second aider run for ${params.file}`);
-        const aiderResult2 = await executeAiderViaSpawn({
-            message: fileContent,
-            taskType: params.taskType ?? 'code' // Use same taskType
-        });
-        log(`Aider run 2 finished. Exit code: ${aiderResult2._meta?.exitCode}`);
-        // Determine output path
-        const outputDir = params.output_dir ? path.resolve(params.output_dir) : process.cwd();
-        const inputFilename = path.basename(inputFilePath);
-        const outputFilename = `${inputFilename}.response.md`;
-        const outputFilePath = path.join(outputDir, outputFilename);
-        log(`Attempting to write both aider responses to: ${outputFilePath}`);
-        await fsPromises.mkdir(outputDir, { recursive: true });
-        // Combine outputs
-        const outputContent = `# Verification Runs for Prompt: ${inputFilename}\n\n` +
-            `--- Run 1 (Exit Code: ${aiderResult1._meta?.exitCode ?? 'N/A'}) ---\n` +
-            `${aiderResult1._meta?.stdout || '(No stdout for run 1)'}\n` +
-            `${aiderResult1._meta?.stderr ? `\n**Stderr Run 1:**\n${aiderResult1._meta.stderr}\n` : ''}` +
-            `\n--- Run 2 (Exit Code: ${aiderResult2._meta?.exitCode ?? 'N/A'}) ---\n` +
-            `${aiderResult2._meta?.stdout || '(No stdout for run 2)'}\n` +
-            `${aiderResult2._meta?.stderr ? `\n**Stderr Run 2:**\n${aiderResult2._meta.stderr}\n` : ''}`;
-        await fsPromises.writeFile(outputFilePath, outputContent);
-        log(`Successfully wrote both aider responses to ${outputFilePath}`);
-        // Determine overall success (both runs must succeed)
-        const overallSuccess = (aiderResult1._meta?.success ?? false) && (aiderResult2._meta?.success ?? false);
-        if (overallSuccess) {
-            return {
-                content: [
-                    { type: 'text', text: `Successfully processed prompt from ${params.file} via aider twice and saved combined response to ${outputFilePath}.` }
-                ],
-                isError: false,
-                _meta: { success: true, outputFilePath: outputFilePath, run1_exitCode: aiderResult1._meta?.exitCode, run2_exitCode: aiderResult2._meta?.exitCode }
-            };
-        }
-        else {
-            return {
-                content: [
-                    { type: 'text', text: `One or both aider verification runs failed for prompt from ${params.file}. Combined response saved to ${outputFilePath}.` },
-                    { type: 'text', text: `Run 1 Exit Code: ${aiderResult1._meta?.exitCode ?? 'N/A'}, Run 2 Exit Code: ${aiderResult2._meta?.exitCode ?? 'N/A'}` }
-                ],
-                isError: true,
-                _meta: { success: false, outputFilePath: outputFilePath, run1_exitCode: aiderResult1._meta?.exitCode, run2_exitCode: aiderResult2._meta?.exitCode, run1_stderr: aiderResult1._meta?.stderr, run2_stderr: aiderResult2._meta?.stderr }
-            };
-        }
-    }
-    catch (error) {
-        // Handle file reading errors or other unexpected issues
-        let errorMessage = `Failed to process prompt from file to file (verification run): ${error.message}`;
-        let errorType = 'ToolExecutionError';
-        const isFileNotFound = error.code === 'ENOENT' && error.path === inputFilePath;
-        const isFileWriteError = error.syscall === 'open' || error.syscall === 'write';
-        if (isFileNotFound) {
-            errorMessage = `Failed to read prompt file: File not found at ${params.file}`;
-            errorType = 'FileNotFound';
-        }
-        else if (isFileWriteError) {
-            errorMessage = `Failed to write response file: ${error.message}`;
-            errorType = 'FileWriteError';
-        }
-        log(`Error in prompt_from_file_to_file tool: ${errorMessage}`);
-        return {
-            content: [{ type: 'text', text: errorMessage }],
-            isError: true,
-            _meta: { success: false, errorType: errorType, stderr: errorMessage }
-        };
-    }
-});
-// --- Tool: ceo_and_board ---
-// Updated Schema for multi-agent simulation
-const ceoAndBoardParamsSchema = z.object({
-    topic: z.string().describe('The central topic or question for the board to discuss.'),
-    board_members: z.array(z.string()).min(1).describe('A list of board member roles (e.g., ["CTO", "CFO", "Legal Counsel"]).'),
-    output_file: z.string().optional().describe('Optional path for the output report file. Defaults to ./ceo_board_report.md')
-});
-server.tool("ceo_and_board", "Simulates a board discussion by querying an LLM (via aider) for each specified board member role based on a topic, appending results to a file.", // Updated description
-ceoAndBoardParamsSchema.shape, async (params) => {
-    log(`Received ceo_and_board simulation call for topic: ${params.topic}`);
-    const { topic, board_members, output_file } = params;
-    const defaultFilename = 'ceo_board_report.md';
-    const reportFilePath = path.resolve(output_file || defaultFilename);
-    log(`Report will be saved to: ${reportFilePath}`);
-    try {
-        // Clear or create the report file initially
-        await fsPromises.writeFile(reportFilePath, `# CEO Board Report: ${topic}\n\n`);
-        log(`Initialized report file: ${reportFilePath}`);
-        let allSucceeded = true;
-        const errors = [];
-        for (const memberRole of board_members) {
-            log(`Querying board member: ${memberRole}`);
-            // Construct a prompt specific to the role
-            const memberPrompt = `Acting as the ${memberRole} of the board, provide your perspective, key considerations, and recommendations regarding the following topic: ${topic}`;
-            // Call aider for this member's perspective
-            const result = await executeAiderViaSpawn({
-                message: memberPrompt,
-                taskType: 'research' // Research seems appropriate for synthesizing a perspective
-            });
-            if (result.isError || !result._meta?.success) {
-                allSucceeded = false;
-                const errorMsg = `Failed to get perspective from ${memberRole}. Error: ${result._meta?.stderr || 'Unknown aider error'}`;
-                log(errorMsg);
-                errors.push(errorMsg);
-                // Append error marker to report
-                await fsPromises.appendFile(reportFilePath, `\n---\n## Perspective from ${memberRole}\n\n**ERROR:** Failed to retrieve perspective. Aider stderr: ${result._meta?.stderr || 'N/A'}\n`);
-            }
-            else {
-                // Append successful response to the report file
-                const responseContent = result._meta?.stdout || '(No response content)';
-                await fsPromises.appendFile(reportFilePath, `\n---\n## Perspective from ${memberRole}\n\n${responseContent}\n`);
-                log(`Successfully appended perspective from ${memberRole} to report.`);
-            }
-        }
-        // Construct final response
-        if (allSucceeded) {
-            return {
-                content: [{ type: 'text', text: `Board simulation complete. Report saved to: ${reportFilePath}` }],
-                isError: false,
-                _meta: { success: true, outputFilePath: reportFilePath }
-            };
-        }
-        else {
-            return {
-                content: [
-                    { type: 'text', text: `Board simulation completed with errors. Report saved to: ${reportFilePath}` },
-                    { type: 'text', text: `Errors encountered:\n${errors.join('\n')}` }
-                ],
-                isError: true,
-                _meta: { success: false, outputFilePath: reportFilePath, errors: errors }
-            };
-        }
-    }
-    catch (error) {
-        log(`Fatal error during ceo_and_board simulation: ${error.message}`);
-        return {
-            content: [{ type: 'text', text: `Fatal error during simulation: ${error.message}` }],
-            isError: true,
-            _meta: { success: false, errorType: 'SimulationError', stderr: error.message }
-        };
-    }
-});
-const FINANCIAL_EXPERT_PERSONAS = [
-    {
-        role: "Risk Analyst",
-        promptTemplate: (query) => `You are a meticulous Risk Analyst AI. Analyze the following query focusing *exclusively* on identifying potential risks (financial, operational, market, regulatory, reputational), quantifying them where possible, and suggesting mitigation strategies. Avoid discussing potential upsides. Be objective and data-driven. Query: ${query}`
-    },
-    {
-        role: "Market Strategist",
-        promptTemplate: (query) => `You are a forward-looking Market Strategist AI. Analyze the following query focusing on market trends, competitive landscape, potential growth opportunities, and strategic positioning. Provide actionable insights and potential strategic moves. Query: ${query}`
-    },
-    {
-        role: "Economist",
-        promptTemplate: (query) => `You are an Economist AI. Analyze the following query from a macroeconomic perspective. Consider relevant economic indicators, potential impacts of fiscal/monetary policy, and broader economic factors. Explain the underlying economic principles. Query: ${query}`
-    },
-    {
-        role: "Accountant",
-        promptTemplate: (query) => `You are a detail-oriented Accountant AI. Analyze the following query strictly from a financial accounting and reporting perspective. Focus on the accuracy of financial statements, compliance with standards (e.g., GAAP/IFRS if applicable), key financial ratios derived directly from standard statements, and potential red flags in financial reporting. Do not speculate on market strategy or future growth. Query: ${query}`
-    }
-];
-// --- End Predefined Personas ---
-// --- Tool: finance_experts ---
-// Updated Schema: Takes query, uses predefined internal experts
-const financeExpertsParamsSchema = z.object({
-    query: z.string().describe('The central financial query or topic for the experts to deliberate on.'),
-    output_file: z.string().optional().describe('Optional path for the output analysis file. Defaults to ./finance_experts_analysis.md')
-    // REMOVED: expert_roles parameter
-});
-server.tool("finance_experts", "Simulates deliberation by querying predefined financial expert personas (via aider) based on a user query, appending results to a file.", // Updated description
-financeExpertsParamsSchema.shape, async (params) => {
-    log(`Received finance_experts deliberation call for query: ${params.query}`);
-    const { query, output_file } = params;
-    const defaultFilename = 'finance_experts_analysis.md';
-    const analysisFilePath = path.resolve(output_file || defaultFilename);
-    log(`Analysis will be saved to: ${analysisFilePath}`);
-    try {
-        // Initialize the analysis file
-        await fsPromises.writeFile(analysisFilePath, `# Financial Experts Analysis: ${query}\n\n`);
-        log(`Initialized analysis file: ${analysisFilePath}`);
-        let allSucceeded = true;
-        const errors = [];
-        // Iterate through the PREDEFINED personas
-        for (const expert of FINANCIAL_EXPERT_PERSONAS) {
-            log(`Querying financial expert persona: ${expert.role}`);
-            // Construct the prompt using the persona's template
-            const expertPrompt = expert.promptTemplate(query);
-            // Call aider for this expert's analysis
-            const result = await executeAiderViaSpawn({
-                message: expertPrompt,
-                taskType: 'research' // Research seems appropriate for deliberation
-            });
-            if (result.isError || !result._meta?.success) {
-                allSucceeded = false;
-                const errorMsg = `Failed to get analysis from ${expert.role}. Error: ${result._meta?.stderr || 'Unknown aider error'}`;
-                log(errorMsg);
-                errors.push(errorMsg);
-                // Append error marker to report
-                await fsPromises.appendFile(analysisFilePath, `\n---\n## Analysis from ${expert.role}\n\n**ERROR:** Failed to retrieve analysis. Aider stderr: ${result._meta?.stderr || 'N/A'}\n`);
-            }
-            else {
-                // Append successful response to the analysis file
-                const responseContent = result._meta?.stdout || '(No response content)';
-                await fsPromises.appendFile(analysisFilePath, `\n---\n## Analysis from ${expert.role}\n\n${responseContent}\n`);
-                log(`Successfully appended analysis from ${expert.role} to report.`);
-            }
-        }
-        // Construct final response
-        if (allSucceeded) {
-            return {
-                content: [{ type: 'text', text: `Financial experts deliberation complete. Analysis saved to: ${analysisFilePath}` }],
-                isError: false,
-                _meta: { success: true, outputFilePath: analysisFilePath }
-            };
-        }
-        else {
-            return {
-                content: [
-                    { type: 'text', text: `Financial experts deliberation completed with errors. Analysis saved to: ${analysisFilePath}` },
-                    { type: 'text', text: `Errors encountered:\n${errors.join('\n')}` }
-                ],
-                isError: true,
-                _meta: { success: false, outputFilePath: analysisFilePath, errors: errors }
-            };
-        }
-    }
-    catch (error) {
-        log(`Fatal error during finance_experts deliberation: ${error.message}`);
-        return {
-            content: [{ type: 'text', text: `Fatal error during deliberation: ${error.message}` }],
-            isError: true,
-            _meta: { success: false, errorType: 'DeliberationError', stderr: error.message }
-        };
-    }
-});
-// --- NEW TOOL DEFINITIONS END ---
-// Ensure default models have fallbacks if env vars are not set
-if (!DEFAULT_ARCHITECT_MODEL) {
-    console.warn('Warning: DEFAULT_ARCHITECT_MODEL environment variable not set. Aider commands might fail if not overridden.');
-}
-if (!DEFAULT_EDITOR_MODEL) {
-    console.warn('Warning: DEFAULT_EDITOR_MODEL environment variable not set. Aider commands will likely fail.');
-}
-// Logging function
+Object.defineProperty(exports, "__esModule", { value: true });
+const mcp_js_1 = require("@modelcontextprotocol/sdk/server/mcp.js");
+const stdio_js_1 = require("@modelcontextprotocol/sdk/server/stdio.js");
+const zod_1 = require("zod");
+const child_process_1 = require("child_process");
+const fs_1 = __importDefault(require("fs"));
+const path_1 = __importDefault(require("path"));
+const promises_1 = __importDefault(require("fs/promises"));
+// Setting up logging (Optional but recommended)
+const LOG_FILE = '/tmp/giizhendam_mcp_v2_log.txt';
 function log(message) {
     try {
-        fs.appendFileSync(LOG_FILE, `[${new Date().toISOString()}] ${message}\\n`);
+        fs_1.default.appendFileSync(LOG_FILE, `[${new Date().toISOString()}] ${message}\n`);
     }
     catch (error) {
         console.error(`Unable to write to log file: ${error.message}`);
     }
 }
-// Update helper function to use uv run with a temporary Python script
-async function executeAiderViaSpawn(params) {
-    return new Promise(async (resolve) => {
-        const aiderCmdPath = params.aiderPath ?? 'aider';
-        const architectModel = params.model ?? DEFAULT_ARCHITECT_MODEL;
-        const editorModel = params.editorModel ?? DEFAULT_EDITOR_MODEL;
-        const openRouterApiKey = process.env.OPENROUTER_API_KEY; // Get API key from server env
-        // --- Configuration Check ---
-        if (!architectModel || !editorModel) {
-            const errorMsg = !architectModel
-                ? "Architect model is not configured (check AIDER_MODEL env var or provide 'model' param)."
-                : "Editor model is not configured (check AIDER_EDITOR_MODEL env var or provide 'editorModel' param).";
-            log(`Configuration Error: ${errorMsg}`);
-            resolve({
-                content: [{ type: "text", text: `Configuration Error: ${errorMsg}` }],
-                isError: true,
-                _meta: { success: false, exitCode: null, stdout: '', stderr: errorMsg, executedCommand: 'N/A', errorType: 'ConfigurationError' }
-            });
-            return;
-        }
-        if (!openRouterApiKey) {
-            const errorMsg = "OPENROUTER_API_KEY environment variable is not set for the server process.";
-            log(`Configuration Error: ${errorMsg}`);
-            resolve({
-                content: [{ type: "text", text: `Configuration Error: ${errorMsg}` }],
-                isError: true,
-                _meta: { success: false, exitCode: null, stdout: '', stderr: errorMsg, executedCommand: 'N/A', errorType: 'ConfigurationError' }
-            });
-            return;
-        }
-        // --- Prepare Aider Arguments ---
-        const useArchitect = params.architect ?? BASE_FLAGS.architect;
-        const useNoDetectUrls = params.noDetectUrls ?? BASE_FLAGS.noDetectUrls;
-        const useNoAutoCommit = params.noAutoCommit ?? BASE_FLAGS.noAutoCommit;
-        const useYesAlways = params.yesAlways ?? BASE_FLAGS.yesAlways;
-        const taskBasePrompt = TASK_PROMPTS[params.taskType];
-        const fullPrompt = `${taskBasePrompt} ${params.message}`;
-        const aiderArgs = []; // Arguments for the aider command itself
-        aiderArgs.push('--model', architectModel);
-        aiderArgs.push('--editor-model', editorModel);
-        if (useArchitect)
-            aiderArgs.push('--architect');
-        if (useNoDetectUrls)
-            aiderArgs.push('--no-detect-urls');
-        if (useNoAutoCommit)
-            aiderArgs.push('--no-auto-commit');
-        if (useYesAlways)
-            aiderArgs.push('--yes-always');
-        if (params.files && params.files.length > 0) {
-            // Ensure file paths are absolute or correctly relative to where aider will run
-            aiderArgs.push(...params.files.map(f => path.resolve(f)));
-        }
-        if (params.extraArgs) {
-            // Note: Inserting extra args early might interfere with model args, place carefully or append
-            aiderArgs.push(...params.extraArgs);
-        }
-        // IMPORTANT: Pass the message *last*
-        aiderArgs.push('--message', fullPrompt);
-        const tempScriptName = `aider_runner_${crypto.randomBytes(8).toString('hex')}.py`;
-        const tempScriptPath = path.join(os.tmpdir(), tempScriptName);
-        // --- Construct Python Script ---
-        // Passes aider path, API key, and all other aider args as JSON string via command line
-        const pythonScriptContent = `
-import os
-import sys
-import subprocess
-import json
-import shlex
-
-def main():
-    if len(sys.argv) != 4:
-        print(json.dumps({"error": "Script requires 3 arguments: aider_path, api_key, aider_args_json"}), file=sys.stderr)
-        sys.exit(1)
-
-    aider_path = sys.argv[1]
-    api_key = sys.argv[2]
-    aider_args_json = sys.argv[3]
-
-    try:
-        aider_args = json.loads(aider_args_json)
-        if not isinstance(aider_args, list):
-            raise ValueError("Aider args must be a list")
-    except Exception as e:
-        print(json.dumps({"error": f"Failed to parse aider_args_json: {e}"}), file=sys.stderr)
-        sys.exit(1)
-
-    # Set environment variable for the aider subprocess
-    script_env = os.environ.copy()
-    script_env["OPENROUTER_API_KEY"] = api_key
-    # Add other necessary env vars here if needed
-
-    command = [aider_path] + aider_args
-
-    try:
-        # Execute aider
-        process = subprocess.run(
-            command,
-            capture_output=True,
-            text=True,
-            env=script_env,
-            check=False # Don't throw exception on non-zero exit code
-        )
-
-        # Output structured result as JSON to stdout
-        result = {
-            "stdout": process.stdout,
-            "stderr": process.stderr,
-            "exitCode": process.returncode,
-            "executedCommand": " ".join(shlex.quote(c) for c in command) # For debugging
-        }
-        print(json.dumps(result))
-        sys.exit(process.returncode) # Exit Python script with aider's exit code
-
-    except FileNotFoundError:
-        print(json.dumps({"error": f"Aider executable not found at '{aider_path}'"}), file=sys.stderr)
-        sys.exit(127) # Standard exit code for command not found
-    except Exception as e:
-        print(json.dumps({"error": f"Error running aider: {e}"}), file=sys.stderr)
-        sys.exit(1)
-
-if __name__ == "__main__":
-    main()
-`;
-        // --- Execute via uv run ---
-        let uvStdout = '';
-        let uvStderr = '';
-        let uvExitCode = null;
-        const uvCommand = 'uv';
-        const uvArgs = ['run', '--no-project', '--quiet', tempScriptPath, aiderCmdPath, openRouterApiKey, JSON.stringify(aiderArgs)];
-        // Safer string joining for logging complex arguments
-        const executedUvCommand = [uvCommand, ...uvArgs].map(arg => (arg ?? '').includes(' ') || (arg ?? '').includes('\"') || (arg ?? '').includes("'")
-            ? JSON.stringify(arg) // Use JSON.stringify for robust quoting
-            : (arg ?? '')).join(' ');
-        log(`Executing uv run: ${executedUvCommand}`);
+log(`--- Starting server v2 ---`);
+// --- Configuration ---
+// Path to the script we will be calling
+const AIDER_SCRIPT_PATH = './aider-cli-commands.sh'; // Assuming it's in the root
+// --- Server Setup ---
+const serverName = "giizhendam-aabajichiganan-mcp-script-interface";
+const serverVersion = "0.3.0"; // New version for the new architecture
+const server = new mcp_js_1.McpServer({
+    name: serverName,
+    version: serverVersion,
+    capabilities: { resources: {}, tools: {} },
+});
+// Aider Task Types and Configuration
+const TASK_TYPES = ['research', 'docs', 'security', 'code', 'verify', 'progress'];
+// Use environment variables for defaults, allowing override via params
+// Helper to escape shell arguments (basic version, might need refinement)
+function escapeShellArg(arg) {
+    // Simple escaping for demonstration; robust escaping is complex.
+    // This handles spaces and basic special characters for common shells.
+    if (/[^A-Za-z0-9_\/:=-]/.test(arg)) {
+        return "'" + arg.replace(/'/g, "'\\''") + "'";
+    }
+    return arg;
+}
+// --- Tool Implementations (To be added based on PRD) ---
+// Helper function to execute the aider script
+function executeAiderScript(subCommand, args) {
+    return new Promise((resolve, reject) => {
+        const fullArgs = [subCommand, ...args];
+        const commandString = `${AIDER_SCRIPT_PATH} ${fullArgs.join(' ')}`;
+        log(`Executing script: ${commandString}`);
+        let stdoutData = '';
+        let stderrData = '';
         try {
-            // Write the temporary script
-            await fsPromises.writeFile(tempScriptPath, pythonScriptContent);
-            log(`Temporary Python script written to ${tempScriptPath}`);
-            // Spawn uv run
-            const uvProcess = spawn(uvCommand, uvArgs, {
+            const scriptProcess = (0, child_process_1.spawn)(AIDER_SCRIPT_PATH, fullArgs, {
                 stdio: ['pipe', 'pipe', 'pipe'],
-                cwd: process.cwd(), // Run uv from the server's CWD
-                env: process.env // Inherit server env for uv itself
+                cwd: process.cwd(), // Run script from the project root
+                env: process.env
             });
-            uvProcess.stdout.on('data', (data) => uvStdout += data.toString());
-            uvProcess.stderr.on('data', (data) => uvStderr += data.toString());
-            uvExitCode = await new Promise((resolve) => {
-                uvProcess.on('close', resolve);
-                uvProcess.on('error', (err) => {
-                    log(`Failed to start uv process: ${err.message}`);
-                    uvStderr += `\nFailed to start uv process: ${err.message}`;
-                    resolve(null); // Indicate failure to start
-                });
+            scriptProcess.stdout.on('data', (data) => {
+                stdoutData += data.toString();
+                log(`Script stdout: ${data.toString().substring(0, 100)}...`);
             });
-            log(`uv run process finished with exit code ${uvExitCode}`);
-            // --- Process Results ---
-            let aiderResult;
-            try {
-                // uv's stdout should contain the JSON from our Python script
-                const parsedJson = JSON.parse(uvStdout.trim());
-                if (typeof parsedJson !== 'object' || parsedJson === null) {
-                    throw new Error('Parsed JSON is not an object');
-                }
-                aiderResult = {
-                    stdout: parsedJson.stdout ?? '',
-                    stderr: parsedJson.stderr ?? '',
-                    exitCode: typeof parsedJson.exitCode === 'number' ? parsedJson.exitCode : null,
-                    error: parsedJson.error,
-                    executedCommand: parsedJson.executedCommand
-                };
-                if (aiderResult.error) {
-                    log(`Error reported by Python script: ${aiderResult.error}`);
-                    log(`Python stderr: ${uvStderr.trim()}`);
-                    // Prepend script error to stderr
-                    aiderResult.stderr = `${aiderResult.error}\n${uvStderr ? `UV/Python Stderr:\n${uvStderr}\n` : ''}${aiderResult.stderr}`;
-                    aiderResult.exitCode = aiderResult.exitCode ?? 1; // Assume error if exit code missing
-                }
-            }
-            catch (parseError) {
-                log(`Failed to parse JSON output from Python script: ${parseError.message}`);
-                log(`uv stdout: ${uvStdout}`);
-                log(`uv stderr: ${uvStderr}`);
-                // Initialize fields correctly for the error case
-                aiderResult = {
-                    stdout: uvStdout,
-                    stderr: `Failed to parse Python script output: ${parseError.message}\nUV Stderr:\n${uvStderr}`,
-                    exitCode: uvExitCode ?? 1,
-                    error: 'JSON Parse Error',
-                    executedCommand: 'N/A' // Command execution details lost if parse fails
-                };
-            }
-            // Resolve the promise with the structured result from Aider
-            const success = aiderResult.exitCode === 0;
-            resolve({
-                content: [{ type: "text", text: `Aider process finished via uv run. Exit Code: ${aiderResult.exitCode}` }], // Placeholder content, will be replaced by caller
-                isError: !success,
-                _meta: {
-                    success: success,
-                    exitCode: aiderResult.exitCode,
-                    // Return the captured stdout/stderr *from aider*
-                    stdout: aiderResult.stdout,
-                    stderr: aiderResult.stderr,
-                    executedCommand: aiderResult.executedCommand ?? 'N/A',
-                    uvExitCode: uvExitCode, // Include uv's exit code for debugging
-                    uvStderr: uvStderr // Include uv's stderr for debugging
-                }
+            scriptProcess.stderr.on('data', (data) => {
+                stderrData += data.toString();
+                log(`Script stderr: ${data.toString().substring(0, 100)}...`);
+            });
+            scriptProcess.on('error', (error) => {
+                log(`Failed to start script process: ${error.message}`);
+                stderrData += `\nFailed to start script: ${error.message}`;
+                // Reject on spawn error so the tool handler can catch it
+                reject(new Error(`Failed to start script: ${error.message}`));
+            });
+            scriptProcess.on('close', (code) => {
+                log(`Script process exited with code ${code}`);
+                resolve({ stdout: stdoutData, stderr: stderrData, exitCode: code });
             });
         }
         catch (error) {
-            log(`Error during uv run execution or script writing: ${error.message}`);
-            resolve({
-                content: [{ type: "text", text: `Error setting up or running aider via uv: ${error.message}` }],
-                isError: true,
-                _meta: { success: false, exitCode: null, stdout: '', stderr: `Setup/Exec error: ${error.message}\nUV Stderr:\n${uvStderr}`, executedCommand: 'N/A', errorType: 'SetupError' }
-            });
-        }
-        finally {
-            // --- Cleanup ---
-            try {
-                await fsPromises.unlink(tempScriptPath);
-                log(`Temporary Python script deleted: ${tempScriptPath}`);
-            }
-            catch (unlinkError) {
-                log(`Warning: Failed to delete temporary script ${tempScriptPath}: ${unlinkError.message}`);
-            }
+            log(`Error spawning script process: ${error.message}`);
+            // Reject on catch error
+            reject(new Error(`Error spawning script: ${error.message}`));
         }
     });
 }
-// --- End Aider Execution Helper ---
-async function main() {
-    try {
-        const transport = new StdioServerTransport();
-        await server.connect(transport);
-        // Revert to using the originally passed config for logging - Removed as properties aren't accessible
-        // console.error(`${server.config.name} MCP Server v${server.config.version} running on stdio`);
-        console.error("Giizhendam Aabajichiganan MCP Server running on stdio"); // Generic log message
-        // Get registered tools if needed - Removed as properties aren't accessible
-        // const registeredTools = Object.keys(server.config.capabilities.tools);
-        // console.error(`Registered Tools: ${registeredTools.join(', ')}`);
+// --- Tool: prompt_aider ---
+const promptAiderParamsSchema = zod_1.z.object({
+    prompt_text: zod_1.z.string().describe("The main prompt/instruction for aider."),
+    task_type: zod_1.z.enum(TASK_TYPES).optional().describe("Optional task type hint (research, docs, security, code, verify, progress)."),
+    files: zod_1.z.array(zod_1.z.string()).optional().describe("Optional list of files for aider to consider or modify.")
+    // Add other potential aider script params here if needed (e.g., model overrides)
+});
+// Output Schema (shared part for script execution tools)
+const scriptExecutionOutputSchema = zod_1.z.object({
+    success: zod_1.z.boolean().describe('True if the script process exited with code 0.'),
+    exitCode: zod_1.z.number().nullable().describe('The exit code of the script process.'),
+    stdout: zod_1.z.string().describe('The captured standard output from the script.'),
+    stderr: zod_1.z.string().describe('The captured standard error from the script.'),
+    executedCommand: zod_1.z.string().describe('The full command string executed.')
+});
+// Extend the meta schema to include output file path and saving status
+const simulationOutputMetaSchema = scriptExecutionOutputSchema.extend({
+    errorType: zod_1.z.string().optional().describe("Indicates error source: 'ExecutionError', 'ScriptError', 'FileSystemError'."),
+    outputFilePath: zod_1.z.string().optional().describe("Path to the generated output file (if successful)."),
+    fileSaveSuccess: zod_1.z.boolean().optional().describe("True if the output was successfully saved to the file.")
+});
+server.tool("prompt_aider", "Executes the 'prompt_aider' command from aider-cli-commands.sh with the given prompt and optional files/task type.", promptAiderParamsSchema.shape, (params) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b, _c, _d, _e;
+    // Ensure scriptArgs are explicitly typed as string[]
+    const scriptArgs = [];
+    // Safely push prompt_text
+    scriptArgs.push((_a = params.prompt_text) !== null && _a !== void 0 ? _a : ''); // Ensure it's always a string
+    if (params.task_type) {
+        scriptArgs.push(params.task_type);
     }
-    catch (error) {
-        console.error("Fatal error in main():", error);
-        process.exit(1);
+    if (params.files && params.files.length > 0) {
+        scriptArgs.push(...params.files);
     }
-}
-main().catch((error) => {
-    console.error("Fatal error outside main():", error);
-    process.exit(1);
-});
-// Add graceful shutdown
-process.on('SIGTERM', () => {
-    log('SIGTERM signal received: closing HTTP server');
-    // Add cleanup logic if needed, e.g., closing database connections
-    process.exit(0);
-});
-process.on('SIGINT', () => {
-    log('SIGINT signal received: closing HTTP server');
-    // Add cleanup logic if needed
-    process.exit(0);
-});
-// --- NEW TOOL: Run Aider Directly ---
-// Input schema similar to generate_aider_commands
-const runAiderDirectlyParamsSchema = z.object({
-    files: z.array(z.string()).optional()
-        .describe('List of files for aider to operate on. Add ONLY files needing modification or creation.'),
-    message: z.string()
-        .describe('The specific task or request for aider. This will be combined with task-specific prompting.'),
-    taskType: z.enum(TASK_TYPES)
-        .describe("The type of task to perform, determining the agent's role and behavior."),
-    model: z.string().optional()
-        .describe(`Override the default architect model (Default: ${DEFAULT_ARCHITECT_MODEL}).`),
-    editorModel: z.string().optional()
-        .describe(`Override the default editor model (Default: ${DEFAULT_EDITOR_MODEL}).`),
-    architect: z.boolean().optional()
-        .describe('Enable/disable architect mode. Default: true'),
-    noDetectUrls: z.boolean().optional()
-        .describe('Disable URL detection in messages. Default: true'),
-    noAutoCommit: z.boolean().optional()
-        .describe('Disable automatic git commits. Default: true'),
-    yesAlways: z.boolean().optional().default(true)
-        .describe('Automatically confirm all prompts. Default: true'),
-    aiderPath: z.string().optional().default('aider')
-        .describe('Path to the aider executable. Defaults to "aider" in PATH.'),
-    extraArgs: z.array(z.string()).optional()
-        .describe('Additional command-line arguments to pass to aider.')
-});
-// Output schema for the run_aider_directly tool - Describes fields within _meta
-const runAiderDirectlyOutputSchema = z.object({
-    success: z.boolean().describe('True if the aider process exited with code 0, false otherwise.'),
-    exitCode: z.number().nullable().describe('The exit code of the aider process, or null if it terminated abnormally.'),
-    stdout: z.string().describe('The captured standard output from the aider process.'),
-    stderr: z.string().describe('The captured standard error from the aider process.'),
-    executedCommand: z.string().describe('The command and arguments that were executed.')
-});
-// Register the 'run_aider_directly' tool
-server.tool("run_aider_directly", "Executes an aider task directly, providing full control over arguments.", runAiderDirectlyParamsSchema.shape, async (params) => {
-    log(`Received run_aider_directly call (using uv run).`);
+    // Use the correctly typed scriptArgs for mapping
+    const executedCommand = `${AIDER_SCRIPT_PATH} prompt_aider ${scriptArgs.map(escapeShellArg).join(' ')}`;
+    let result = null;
+    let error = null;
     try {
-        const result = await executeAiderViaSpawn(params);
-        log(`run_aider_directly call finished. Aider Exit code: ${result._meta?.exitCode}`);
-        // Format response to show aider output prominently
-        const aiderStdout = result._meta?.stdout ?? '(No stdout captured)';
-        const aiderStderr = result._meta?.stderr ?? '';
-        const aiderExitCode = result._meta?.exitCode ?? 'N/A';
-        const success = result._meta?.success ?? false;
+        result = yield executeAiderScript("prompt_aider", scriptArgs);
+    }
+    catch (e) {
+        error = e;
+    }
+    const success = (result === null || result === void 0 ? void 0 : result.exitCode) === 0 && !error;
+    const stdout = (_b = result === null || result === void 0 ? void 0 : result.stdout) !== null && _b !== void 0 ? _b : '';
+    const stderr = `${(_c = result === null || result === void 0 ? void 0 : result.stderr) !== null && _c !== void 0 ? _c : ''}${error ? `\nTool Error: ${error.message}` : ''}`;
+    const exitCode = (_d = result === null || result === void 0 ? void 0 : result.exitCode) !== null && _d !== void 0 ? _d : null;
+    return {
+        content: [
+            {
+                type: "text",
+                text: success
+                    ? `prompt_aider script executed successfully (Exit Code: ${exitCode}). See stdout/stderr in _meta.`
+                    : `prompt_aider script failed (Exit Code: ${exitCode}). Error: ${(_e = error === null || error === void 0 ? void 0 : error.message) !== null && _e !== void 0 ? _e : 'Script execution failed.'} See stdout/stderr in _meta.`
+            }
+        ],
+        isError: !success,
+        _meta: {
+            success: success,
+            exitCode: exitCode,
+            stdout: stdout,
+            stderr: stderr,
+            executedCommand: executedCommand,
+            errorType: error ? 'ExecutionError' : undefined
+        }
+    };
+}));
+// --- Tool: double_compute ---
+const doubleComputeParamsSchema = zod_1.z.object({
+    prompt_text: zod_1.z.string().describe("The main prompt/instruction for aider."),
+    files: zod_1.z.array(zod_1.z.string()).optional().describe("Optional list of files for aider to consider or modify.")
+});
+const doubleComputeOutputMetaSchema = zod_1.z.object({
+    overallSuccess: zod_1.z.boolean().describe("True if both script executions succeeded (Exit Code 0)."),
+    run1: scriptExecutionOutputSchema.describe("Results of the first execution."),
+    run2: scriptExecutionOutputSchema.describe("Results of the second execution."),
+    errorType: zod_1.z.string().optional().describe("Indicates if there was an execution error ('ExecutionError') or script error ('ScriptError').")
+});
+server.tool("double_compute", "Executes the 'prompt_aider' command from aider-cli-commands.sh TWICE with the same prompt and optional files. Useful for tasks requiring redundant computation or comparison.", doubleComputeParamsSchema.shape, (params) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b, _c, _d, _e, _f, _g;
+    const scriptArgs = [];
+    scriptArgs.push((_a = params.prompt_text) !== null && _a !== void 0 ? _a : '');
+    if (params.files && params.files.length > 0) {
+        scriptArgs.push(...params.files);
+    }
+    const baseCommand = `${AIDER_SCRIPT_PATH} prompt_aider ${scriptArgs.map(escapeShellArg).join(' ')}`;
+    log(`Preparing double_compute: ${baseCommand}`);
+    let result1 = null;
+    let error1 = null;
+    let result2 = null;
+    let error2 = null;
+    // Run 1
+    try {
+        log("Executing double_compute Run 1...");
+        result1 = yield executeAiderScript("prompt_aider", scriptArgs);
+    }
+    catch (e) {
+        error1 = e;
+    }
+    const success1 = (result1 === null || result1 === void 0 ? void 0 : result1.exitCode) === 0 && !error1;
+    const stdout1 = (_b = result1 === null || result1 === void 0 ? void 0 : result1.stdout) !== null && _b !== void 0 ? _b : '';
+    const stderr1 = `${(_c = result1 === null || result1 === void 0 ? void 0 : result1.stderr) !== null && _c !== void 0 ? _c : ''}${error1 ? `\nTool Error (Run 1): ${error1.message}` : ''}`;
+    const exitCode1 = (_d = result1 === null || result1 === void 0 ? void 0 : result1.exitCode) !== null && _d !== void 0 ? _d : null;
+    const executedCommand1 = baseCommand; // Command is the same
+    // Run 2
+    try {
+        log("Executing double_compute Run 2...");
+        result2 = yield executeAiderScript("prompt_aider", scriptArgs);
+    }
+    catch (e) {
+        error2 = e;
+    }
+    const success2 = (result2 === null || result2 === void 0 ? void 0 : result2.exitCode) === 0 && !error2;
+    const stdout2 = (_e = result2 === null || result2 === void 0 ? void 0 : result2.stdout) !== null && _e !== void 0 ? _e : '';
+    const stderr2 = `${(_f = result2 === null || result2 === void 0 ? void 0 : result2.stderr) !== null && _f !== void 0 ? _f : ''}${error2 ? `\nTool Error (Run 2): ${error2.message}` : ''}`;
+    const exitCode2 = (_g = result2 === null || result2 === void 0 ? void 0 : result2.exitCode) !== null && _g !== void 0 ? _g : null;
+    const executedCommand2 = baseCommand; // Command is the same
+    const overallSuccess = success1 && success2;
+    const combinedStderr = `${stderr1}${stderr1 && stderr2 ? '\n---\n' : ''}${stderr2}`;
+    let errorType = undefined;
+    if (error1 || error2)
+        errorType = 'ExecutionError';
+    else if (!overallSuccess)
+        errorType = 'ScriptError';
+    return {
+        content: [
+            {
+                type: "text",
+                text: overallSuccess
+                    ? `double_compute script executed successfully twice (Exit Codes: ${exitCode1}, ${exitCode2}). See stdout/stderr for each run in _meta.`
+                    : `double_compute script execution failed. Run 1 Success: ${success1} (Exit Code: ${exitCode1}), Run 2 Success: ${success2} (Exit Code: ${exitCode2}). See errors and stdout/stderr in _meta.`
+            }
+        ],
+        isError: !overallSuccess,
+        _meta: {
+            overallSuccess: overallSuccess,
+            run1: {
+                success: success1,
+                exitCode: exitCode1,
+                stdout: stdout1,
+                stderr: stderr1,
+                executedCommand: executedCommand1
+            },
+            run2: {
+                success: success2,
+                exitCode: exitCode2,
+                stdout: stdout2,
+                stderr: stderr2,
+                executedCommand: executedCommand2
+            },
+            errorType: errorType
+        }
+    };
+}));
+// --- Tool: finance_experts ---
+// Define available expert personas based on finance-agents.md
+const FINANCIAL_EXPERT_PERSONAS = ['Graham', 'Ackman', 'Wood', 'Munger', 'Burry', 'Lynch', 'Fisher'];
+const financeExpertsParamsSchema = zod_1.z.object({
+    topic: zod_1.z.string().describe("The central financial topic for the expert deliberation (e.g., 'Investment case for AAPL', 'Outlook for semiconductor industry')."),
+    experts: zod_1.z.array(zod_1.z.enum(FINANCIAL_EXPERT_PERSONAS)).min(1).describe("List of financial expert personas to simulate (e.g., ['Graham', 'Wood', 'Munger']). Choose from: " + FINANCIAL_EXPERT_PERSONAS.join(', ')),
+    output_filename: zod_1.z.string().optional().describe("Optional filename (without extension) for the output markdown file. Defaults to a sanitized version of the topic.")
+});
+const OUTPUT_DIR_FINANCE = path_1.default.join(process.cwd(), 'financial-experts');
+server.tool("finance_experts", "Simulates a deliberation between specified financial expert personas on a given topic using aider. Constructs a prompt referencing their core principles (based on finance-agents.md), executes it via aider-cli-commands.sh (--research tag), and aims to save output to './financial-experts/'.", financeExpertsParamsSchema.shape, (params) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b, _c, _d, _e;
+    // 1. Construct the detailed prompt for aider
+    const expertsString = params.experts.join(', ');
+    // Basic prompt structure - Ideally, pull detailed principles for *each* selected expert from finance-agents.md
+    // For simplicity here, we'll just list them. A more advanced version could inject specific rules per expert.
+    const prompt_text = `
+Simulate a concise deliberation transcript among financial experts.
+Topic: ${params.topic}
+Participants: ${expertsString}
+Instructions:
+- Generate realistic perspectives, arguments, and potential disagreements for each expert based on their known investment philosophies (e.g., Graham=Value/Margin of Safety, Wood=Disruptive Growth, Munger=Quality/Moat, Ackman=Activism/Quality, Burry=Deep Value/Contrarian, Lynch=GARP/Understandable, Fisher=Long-Term Growth/R&D).
+- Focus on key analysis points, risks, and investment conclusions (buy/sell/hold rationale) for the topic.
+- Keep the discussion focused and representative of each expert's style.
+- Output should be in markdown format.
+- Start with a brief introduction setting the context.
+- Conclude with a summary of viewpoints or key takeaways.
+        `.trim();
+    // 2. Determine output file path
+    const safeFilenameBase = ((_a = params.output_filename) === null || _a === void 0 ? void 0 : _a.replace(/[^a-z0-9_-]/gi, '_').toLowerCase()) || params.topic.replace(/[^a-z0-9_-]/gi, '_').toLowerCase().substring(0, 50);
+    const outputFilename = `${safeFilenameBase}_${Date.now()}.md`;
+    const outputFilePath = path_1.default.join(OUTPUT_DIR_FINANCE, outputFilename);
+    // 3. Ensure output directory exists
+    try {
+        yield promises_1.default.mkdir(OUTPUT_DIR_FINANCE, { recursive: true });
+        log(`Ensured output directory exists: ${OUTPUT_DIR_FINANCE}`);
+    }
+    catch (dirError) {
+        log(`Error creating directory ${OUTPUT_DIR_FINANCE}: ${dirError.message}`);
         return {
-            content: [
-                { type: 'text', text: `Aider Stdout:\n---\n${aiderStdout}\n---` },
-                ...(aiderStderr ? [{ type: 'text', text: `Aider Stderr:\n---\n${aiderStderr}\n---` }] : []),
-                { type: 'text', text: `Aider Exit Code: ${aiderExitCode}` }
-            ],
-            isError: !success,
+            content: [{ type: 'text', text: `Failed to create output directory: ${OUTPUT_DIR_FINANCE}` }],
+            isError: true,
             _meta: {
-                success: success,
-                exitCode: result._meta?.exitCode,
-                executedCommand: result._meta?.executedCommand,
-                uvExitCode: result._meta?.uvExitCode, // Pass through for debugging if needed
-                // Avoid duplicating large stdout/stderr in _meta if already in content
+                success: false, exitCode: null, stdout: '', stderr: `Directory creation error: ${dirError.message}`, executedCommand: 'N/A', errorType: 'FileSystemError'
             }
         };
     }
-    catch (error) {
-        log(`Unexpected error in run_aider_directly wrapper: ${error.message}`);
+    // 4. Prepare script arguments (using --research tag)
+    const scriptArgs = [
+        prompt_text,
+        '--research' // Using research tag for complex text generation/simulation
+    ];
+    const executedCommand = `${AIDER_SCRIPT_PATH} ${scriptArgs.map(escapeShellArg).join(' ')}`;
+    // 5. Execute the script (Acknowledging background limitation)
+    let result = null;
+    let error = null;
+    let success = false;
+    let stdout = '';
+    let stderr = '';
+    let exitCode = null;
+    let fileSaveSuccess = false;
+    let fileSaveError = '';
+    try {
+        log(`Executing aider for finance_experts simulation: ${params.topic}`);
+        result = yield executeAiderScript("prompt_aider", scriptArgs);
+        success = (result === null || result === void 0 ? void 0 : result.exitCode) === 0 && !error;
+        stdout = (_b = result === null || result === void 0 ? void 0 : result.stdout) !== null && _b !== void 0 ? _b : '';
+        stderr = (_c = result === null || result === void 0 ? void 0 : result.stderr) !== null && _c !== void 0 ? _c : '';
+        exitCode = (_d = result === null || result === void 0 ? void 0 : result.exitCode) !== null && _d !== void 0 ? _d : null;
+        // 6. Attempt to save output if script succeeded (Added similar logic to ceo_and_board)
+        if (success && stdout) {
+            try {
+                yield promises_1.default.writeFile(outputFilePath, stdout);
+                log(`Successfully saved finance_experts output to ${outputFilePath}`);
+                fileSaveSuccess = true;
+            }
+            catch (writeError) {
+                log(`Error writing output file ${outputFilePath}: ${writeError.message}`);
+                fileSaveError = `\nFile Save Error: ${writeError.message}`;
+                // Treat file save error as a partial failure
+                success = false;
+            }
+        }
+        else if (success && !stdout) {
+            log(`Script succeeded but produced no stdout for finance_experts: ${params.topic}`);
+            fileSaveError = "\nFile Save Info: Script succeeded but produced no output to save.";
+        }
+    }
+    catch (e) {
+        error = e;
+        stderr += `\nTool Error: ${(_e = error === null || error === void 0 ? void 0 : error.message) !== null && _e !== void 0 ? _e : 'Unknown execution error'}`;
+    }
+    const finalStderr = `${stderr}${fileSaveError}`;
+    let errorType = undefined;
+    if (error)
+        errorType = 'ExecutionError';
+    else if (fileSaveError && !stderr)
+        errorType = 'FileSystemError';
+    else if (!success)
+        errorType = 'ScriptError';
+    return {
+        content: [
+            {
+                type: "text",
+                text: success && fileSaveSuccess
+                    ? `Financial Experts simulation (Topic: ${params.topic}) completed and saved to '${outputFilePath}'. (Exit Code: ${exitCode})`
+                    : `Financial Experts simulation (Topic: ${params.topic}) failed or could not save output. Success: ${success}, Saved: ${fileSaveSuccess}. See errors/details in _meta. (Exit Code: ${exitCode})`
+            }
+        ],
+        isError: !success || !fileSaveSuccess, // Mark as error if script failed OR saving failed
+        _meta: {
+            success: success && fileSaveSuccess, // Overall success requires script success AND file save
+            exitCode: exitCode,
+            stdout: "[stdout omitted in response, check saved file if successful]", // Avoid large output
+            stderr: finalStderr,
+            executedCommand: executedCommand,
+            outputFilePath: outputFilePath,
+            fileSaveSuccess: fileSaveSuccess,
+            errorType: errorType
+        }
+    };
+}));
+// --- Tool: ceo_and_board ---
+const ceoBoardParamsSchema = zod_1.z.object({
+    topic: zod_1.z.string().describe("The central topic for the board discussion (e.g., 'Q3 Strategy Review', 'Acquisition Proposal X')."),
+    roles: zod_1.z.array(zod_1.z.string()).min(1).describe("List of board member roles to simulate (e.g., ['CEO', 'CTO', 'Lead Investor', 'Independent Director'])."),
+    output_filename: zod_1.z.string().optional().describe("Optional filename (without extension) for the output markdown file. Defaults to a sanitized version of the topic.")
+});
+const OUTPUT_DIR_BOARD = path_1.default.join(process.cwd(), 'ceo-and-board');
+server.tool("ceo_and_board", "Simulates a board discussion on a given topic with specified roles using aider. Constructs a prompt, executes it via aider-cli-commands.sh, and saves the output markdown to './ceo-and-board/'.", ceoBoardParamsSchema.shape, (params) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b, _c, _d, _e;
+    // 1. Construct the detailed prompt for aider
+    const rolesString = params.roles.join(', ');
+    const prompt_text = `
+Simulate a concise board meeting transcript.
+Topic: ${params.topic}
+Participants (Roles): ${rolesString}
+Instructions:
+- Generate realistic perspectives, questions, and decisions for each specified role based on typical board dynamics and the topic.
+- Ensure the discussion flows logically towards action items or conclusions.
+- Keep the simulation focused and representative of a professional board meeting.
+- Include brief moments of agreement, disagreement, and clarification.
+- Output should be in markdown format, suitable for meeting minutes.
+- Start with the Chair opening the discussion on the topic.
+- Conclude with a summary of key decisions or next steps.
+        `.trim();
+    // 2. Determine output file path
+    const safeFilenameBase = ((_a = params.output_filename) === null || _a === void 0 ? void 0 : _a.replace(/[^a-z0-9_-]/gi, '')) || params.topic.replace(/[^a-z0-9_-]/gi, '').toLowerCase().substring(0, 50);
+    const outputFilename = `${safeFilenameBase}_${Date.now()}.md`;
+    const outputFilePath = path_1.default.join(OUTPUT_DIR_BOARD, outputFilename);
+    // 3. Ensure output directory exists
+    try {
+        yield promises_1.default.mkdir(OUTPUT_DIR_BOARD, { recursive: true });
+        log(`Ensured output directory exists: ${OUTPUT_DIR_BOARD}`);
+    }
+    catch (dirError) {
+        log(`Error creating directory ${OUTPUT_DIR_BOARD}: ${dirError.message}`);
         return {
-            content: [{ type: 'text', text: `Unexpected error processing run_aider_directly: ${error.message}` }],
+            content: [{ type: 'text', text: `Failed to create output directory: ${OUTPUT_DIR_BOARD}` }],
             isError: true,
-            _meta: { success: false, exitCode: null, stdout: '', stderr: `Wrapper error: ${error.message}`, executedCommand: 'N/A', errorType: 'WrapperError' }
+            _meta: {
+                success: false, exitCode: null, stdout: '', stderr: `Directory creation error: ${dirError.message}`, executedCommand: 'N/A', errorType: 'FileSystemError',
+                outputFilePath: outputFilePath // Still provide path even on failure
+            }
         };
     }
+    // 4. Prepare script arguments
+    const scriptArgs = [prompt_text];
+    // Maybe add a specific tag later if needed, e.g., '--simulation'
+    const executedCommand = `${AIDER_SCRIPT_PATH} prompt_aider ${scriptArgs.map(escapeShellArg).join(' ')}`;
+    // 5. Execute the script
+    let result = null;
+    let error = null;
+    let success = false;
+    let stdout = '';
+    let stderr = '';
+    let exitCode = null;
+    let fileSaveSuccess = false;
+    let fileSaveError = '';
+    try {
+        log(`Executing aider for ceo_and_board simulation: ${params.topic}`);
+        result = yield executeAiderScript("prompt_aider", scriptArgs);
+        success = (result === null || result === void 0 ? void 0 : result.exitCode) === 0 && !error;
+        stdout = (_b = result === null || result === void 0 ? void 0 : result.stdout) !== null && _b !== void 0 ? _b : '';
+        stderr = (_c = result === null || result === void 0 ? void 0 : result.stderr) !== null && _c !== void 0 ? _c : '';
+        exitCode = (_d = result === null || result === void 0 ? void 0 : result.exitCode) !== null && _d !== void 0 ? _d : null;
+        // 6. Attempt to save output if script succeeded
+        if (success && stdout) {
+            try {
+                yield promises_1.default.writeFile(outputFilePath, stdout);
+                log(`Successfully saved ceo_and_board output to ${outputFilePath}`);
+                fileSaveSuccess = true;
+            }
+            catch (writeError) {
+                log(`Error writing output file ${outputFilePath}: ${writeError.message}`);
+                fileSaveError = `\nFile Save Error: ${writeError.message}`;
+                // Treat file save error as a partial failure for the tool's purpose
+                success = false;
+            }
+        }
+        else if (success && !stdout) {
+            log(`Script succeeded but produced no stdout for ceo_and_board: ${params.topic}`);
+            fileSaveError = "\nFile Save Info: Script succeeded but produced no output to save.";
+        }
+    }
+    catch (e) {
+        error = e;
+        stderr += `\nTool Error: ${(_e = error === null || error === void 0 ? void 0 : error.message) !== null && _e !== void 0 ? _e : 'Unknown execution error'}`;
+    }
+    const finalStderr = `${stderr}${fileSaveError}`;
+    let errorType = undefined;
+    if (error)
+        errorType = 'ExecutionError';
+    else if (fileSaveError && !stderr)
+        errorType = 'FileSystemError'; // Prioritize execution/script errors
+    else if (!success)
+        errorType = 'ScriptError';
+    return {
+        content: [
+            {
+                type: "text",
+                text: success && fileSaveSuccess
+                    ? `CEO & Board simulation (Topic: ${params.topic}) completed and saved to '${outputFilePath}'. (Exit Code: ${exitCode})`
+                    : `CEO & Board simulation (Topic: ${params.topic}) failed or could not save output. Success: ${success}, Saved: ${fileSaveSuccess}. See errors/details in _meta. (Exit Code: ${exitCode})`
+            }
+        ],
+        isError: !success || !fileSaveSuccess, // Mark as error if script failed OR saving failed
+        _meta: {
+            success: success && fileSaveSuccess, // Overall success requires script success AND file save
+            exitCode: exitCode,
+            stdout: "[stdout omitted in response, check saved file if successful]", // Avoid large output here
+            stderr: finalStderr,
+            executedCommand: executedCommand,
+            outputFilePath: outputFilePath,
+            fileSaveSuccess: fileSaveSuccess,
+            errorType: errorType
+        }
+    };
+}));
+// --- Main Execution ---
+function main() {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            const transport = new stdio_js_1.StdioServerTransport();
+            yield server.connect(transport);
+            console.error(`${serverName} v${serverVersion} running on stdio`);
+            log(`Server connected via stdio.`);
+        }
+        catch (error) {
+            console.error("Fatal error in main():", error);
+            log(`Fatal error in main(): ${error.message}`);
+            process.exit(1);
+        }
+    });
+}
+main().catch((error) => {
+    console.error("Fatal error outside main():", error);
+    log(`Fatal error outside main(): ${error.message}`);
+    process.exit(1);
 });
-// --- Finance Experts Tool --- (This section seems misplaced, should be removed as it's defined earlier)
-// ... existing code ...
-//# sourceMappingURL=index.js.map
+// Graceful shutdown handlers
+process.on('SIGTERM', () => {
+    log('SIGTERM signal received: closing.');
+    process.exit(0);
+});
+process.on('SIGINT', () => {
+    log('SIGINT signal received: closing.');
+    process.exit(0);
+});
