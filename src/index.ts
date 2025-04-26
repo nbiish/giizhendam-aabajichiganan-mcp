@@ -153,12 +153,10 @@ async function executeAider(
         // Add model and common args
         // Check if editor model is specified to use architect mode
         if (aiderEditorModel) {
-            log(`Using architect mode with Model: ${aiderModel}, Editor Model: ${aiderEditorModel}`);
             baseAiderArgs.push('--architect');
             baseAiderArgs.push('--model', aiderModel);
             baseAiderArgs.push('--editor-model', aiderEditorModel);
         } else {
-            log(`Using standard mode with Model: ${aiderModel}`);
             baseAiderArgs.push('--model', aiderModel);
         }
 
