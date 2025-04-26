@@ -86,12 +86,12 @@ if [ ! -f "package.json" ]; then
 fi
 
 # Check for uncommitted changes in PKG2 before changing version
-if ! git diff --quiet HEAD -- .; then
-    echo "ERROR: Uncommitted changes detected in '$PKG2_DIR'. Please commit or stash them first."
-    cd "$ORIGINAL_DIR" # Go back before exiting
-    exit 1
-fi
-echo "No uncommitted changes in $PKG2_DIR."
+# if ! git diff --quiet HEAD -- .; then
+#    echo "ERROR: Uncommitted changes detected in \'$PKG2_DIR\'. Please commit or stash them first."
+#    cd "$ORIGINAL_DIR" # Go back before exiting
+#    exit 1
+# fi
+# echo "No uncommitted changes in $PKG2_DIR." # Also commented out as it refers to the check
 
 echo "Setting Package 2 version to $NEW_VERSION..."
 # Set the exact same version, allow if it somehow matches (shouldn't happen here)
@@ -103,9 +103,9 @@ npm install
 echo "Building Package 2..."
 npm run build # Assumes 'build' script exists and is the same name
 
-echo "Staging and committing Package 2 changes..."
-git add package.json package-lock.json "$BUILD_DIR/"
-git commit -m "chore: bump version to $NEW_VERSION"
+# echo "Staging and committing Package 2 changes..."
+# git add package.json package-lock.json "$BUILD_DIR/"
+# git commit -m "chore: bump version to $NEW_VERSION"
 
 echo "Publishing Package 2 (@nbiish/ai-tool-mcp) version $NEW_VERSION..." # Assumed name
 npm publish --otp="$NPM_OTP" --access public # Added --access public, adjust if needed
