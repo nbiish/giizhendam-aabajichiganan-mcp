@@ -11,6 +11,7 @@ import fs from 'fs';
 import path from 'path';
 import fsPromises from 'fs/promises';
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import net from 'net';
 
 // Setting up logging (Optional but recommended)
 const LOG_FILE = '/tmp/giizhendam_mcp_v2_log.txt';
@@ -29,7 +30,7 @@ log(`--- Starting server v2 ---`);
 
 // --- Server Setup ---
 const serverName = "giizhendam-aabajichiganan-mcp-script-interface";
-const serverVersion = "0.3.0"; // New version for the new architecture
+const serverVersion = "0.3.1"; // Incremented version
 
 const server = new McpServer({
     name: serverName,
@@ -54,6 +55,81 @@ function escapeShellArg(arg: string): string {
   return arg;
 }
 */
+
+// --- Security Utility Functions ---
+
+/**
+ * Scrub stack traces and internal paths from errors returned to clients.
+ * Only return safe error messages. Log full error server-side.
+ */
+function safeErrorReport(error: any): string {
+    // Security: Prevent leaking sensitive error details to the client.
+    log(`Internal Error: ${error?.stack || error}`); // Log full error server-side
+    if (!error) return 'Unknown error.';
+    if (typeof error === 'string') return error.split('\n')[0];
+    // Return only the first line of the message to avoid stack traces
+    if (error.message) return error.message.split('\n')[0];
+    return 'An error occurred.';
+}
+
+/**
+ * Validate file paths to restrict to project directory and allow only certain extensions.
+ * Prevents path traversal and unsafe file access.
+ * Security: Ensure file operations stay within the intended project scope.
+ */
+function validateFilePath(filePath: string): boolean {
+    const allowedExtensions = ['.md', '.ts', '.json', '.txt']; // Allowlist safe extensions
+    try {
+        const absPath = path.resolve(process.cwd(), filePath);
+        // Check 1: Is the resolved path still within the current working directory?
+        if (!absPath.startsWith(process.cwd())) {
+            log(`Security Violation: Attempt to access file outside project directory: ${filePath}`);
+            return false;
+        }
+        // Check 2: Does the file have an allowed extension?
+        if (!allowedExtensions.some(ext => absPath.endsWith(ext))) {
+             log(`Security Violation: Attempt to access file with disallowed extension: ${filePath}`);
+            return false;
+        }
+        return true;
+    } catch (error) {
+        log(`Error validating file path ${filePath}: ${error}`);
+        return false;
+    }
+}
+
+/**
+ * Validate URLs to allow only HTTPS and block localhost/private IPs.
+ * Prevents SSRF and cleartext transmission.
+ * Security: Enforce secure HTTPS connections and prevent requests to internal network resources.
+ */
+function validateUrl(urlStr: string): boolean {
+    try {
+        const url = new URL(urlStr);
+        // Check 1: Only allow HTTPS protocol
+        if (url.protocol !== 'https:') {
+            log(`Security Violation: Non-HTTPS URL rejected: ${urlStr}`);
+            return false;
+        }
+        const hostname = url.hostname;
+        // Check 2: Block localhost variants
+        if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') {
+             log(`Security Violation: Localhost URL rejected: ${urlStr}`);
+            return false;
+        }
+        // Check 3: Block private IP ranges (RFC 1918 and loopback)
+        if (/^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/.test(hostname) || net.isIPv6(hostname) && hostname.startsWith('fd')) {
+            log(`Security Violation: Private IP URL rejected: ${urlStr}`);
+            return false;
+        }
+        // Note: This doesn't prevent DNS rebinding attacks where a public hostname resolves to a private IP later.
+        // More robust SSRF prevention might involve an explicit allowlist or a network proxy.
+        return true;
+    } catch (error){
+         log(`Error validating URL ${urlStr}: ${error}`);
+        return false;
+    }
+}
 
 // --- Tool Implementations (To be added based on PRD) ---
 
@@ -139,7 +215,7 @@ async function executeAider(
 
 // --- Tool: prompt_aider ---
 const promptAiderParamsSchema = z.object({
-    prompt_text: z.string().describe("The main prompt/instruction for aider."),
+    prompt_text: z.string().max(10000, "Prompt text exceeds maximum length of 10000 characters.").describe("The main prompt/instruction for aider."),
     task_type: z.enum(TASK_TYPES).optional().describe("Optional task type hint (research, docs, security, code, verify, progress) - currently informational."),
     files: z.array(z.string()).optional().describe("Optional list of files for aider to consider or modify.")
 });
@@ -196,9 +272,10 @@ server.tool(
 
         const success = result?.exitCode === 0 && !error;
         const stdout = result?.stdout ?? '';
-        const stderr = `${result?.stderr ?? ''}${error ? `\nTool Error: ${error.message}` : ''}`;
+        // Use safeErrorReport to scrub sensitive error details before returning to client
+        const stderr = `${result?.stderr ?? ''}${error ? `\nTool Error: ${safeErrorReport(error)}` : ''}`;
         const exitCode = result?.exitCode ?? null;
-        const executedCommand = result?.executedCommand ?? `aider [error constructing command - ${error?.message}]`; // Provide fallback
+        const executedCommand = result?.executedCommand ?? `aider [error constructing command - ${safeErrorReport(error)}]`; // Provide fallback
 
         if (!errorType && !success && exitCode !== 0) { // If no execution error but script failed
             errorType = 'AiderError';
@@ -210,7 +287,7 @@ server.tool(
                 type: "text",
                 text: success 
                     ? `Aider command executed successfully (Exit Code: ${exitCode}). See _meta for full logs.` 
-                    : `Aider command failed (Exit Code: ${exitCode}). Error: ${error?.message ?? 'Aider execution failed.'} See _meta for full logs.`
+                    : `Aider command failed (Exit Code: ${exitCode}). Error: ${safeErrorReport(error) ?? 'Aider execution failed.'} See _meta for full logs.`
             }
         ];
 
@@ -238,7 +315,7 @@ server.tool(
 
 // --- Tool: double_compute ---
 const doubleComputeParamsSchema = z.object({
-    prompt_text: z.string().describe("The main prompt/instruction for aider."),
+    prompt_text: z.string().max(10000, "Prompt text exceeds maximum length of 10000 characters.").describe("The main prompt/instruction for aider."),
     files: z.array(z.string()).optional().describe("Optional list of files for aider to consider or modify.")
 });
 
@@ -283,9 +360,9 @@ server.tool(
         }
         const success1 = result1?.exitCode === 0 && !error1;
         const stdout1 = result1?.stdout ?? '';
-        const stderr1 = `${result1?.stderr ?? ''}${error1 ? `\nTool Error (Run 1): ${error1.message}` : ''}`;
+        const stderr1 = `${result1?.stderr ?? ''}${error1 ? `\nTool Error (Run 1): ${safeErrorReport(error1)}` : ''}`;
         const exitCode1 = result1?.exitCode ?? null;
-        const executedCommand1 = result1?.executedCommand ?? `aider [error constructing command (run 1) - ${error1?.message}]`; 
+        const executedCommand1 = result1?.executedCommand ?? `aider [error constructing command (run 1) - ${safeErrorReport(error1)}]`; 
         if (!errorType1 && !success1 && exitCode1 !== 0) errorType1 = 'AiderError';
 
         // Run 2
@@ -298,9 +375,9 @@ server.tool(
         }
         const success2 = result2?.exitCode === 0 && !error2;
         const stdout2 = result2?.stdout ?? '';
-        const stderr2 = `${result2?.stderr ?? ''}${error2 ? `\nTool Error (Run 2): ${error2.message}` : ''}`;
+        const stderr2 = `${result2?.stderr ?? ''}${error2 ? `\nTool Error (Run 2): ${safeErrorReport(error2)}` : ''}`;
         const exitCode2 = result2?.exitCode ?? null;
-        const executedCommand2 = result2?.executedCommand ?? `aider [error constructing command (run 2) - ${error2?.message}]`; 
+        const executedCommand2 = result2?.executedCommand ?? `aider [error constructing command (run 2) - ${safeErrorReport(error2)}]`; 
         if (!errorType2 && !success2 && exitCode2 !== 0) errorType2 = 'AiderError';
 
 
@@ -467,7 +544,7 @@ When responding to the user's query:
 // ^^^ No longer needed as we process all defined experts ^^^
 
 const financeExpertsParamsSchema = z.object({
-    topic: z.string().describe("The central financial topic or query related to a project or business situation for the experts to analyze (e.g., 'Financial risks of Project X', 'Funding strategy for new initiative Y')."),
+    topic: z.string().max(2000, "Topic exceeds maximum length of 2000 characters.").describe("The central financial topic or query related to a project or business situation for the experts to analyze (e.g., 'Financial risks of Project X', 'Funding strategy for new initiative Y')."),
     // experts field removed - all experts are processed now.
     output_filename: z.string().optional().describe("Optional filename (without extension) for the output markdown file. Defaults to a sanitized version of the topic.")
 });
@@ -680,8 +757,8 @@ ${response}
 
 // --- Tool: ceo_and_board ---
 const ceoBoardParamsSchema = z.object({
-    topic: z.string().describe("The central topic for the board discussion (e.g., 'Q3 Strategy Review', 'Acquisition Proposal X')."),
-    roles: z.array(z.string()).min(1).describe("List of board member roles to simulate (e.g., ['CEO', 'CTO', 'Lead Investor', 'Independent Director'])."),
+    topic: z.string().max(2000, "Topic exceeds maximum length of 2000 characters.").describe("The central topic for the board discussion (e.g., 'Q3 Strategy Review', 'Acquisition Proposal X')."),
+    roles: z.array(z.string().max(100, "Role exceeds maximum length of 100 characters.")).min(1).describe("List of board member roles to simulate (e.g., ['CEO', 'CTO', 'Lead Investor', 'Independent Director'])."),
     output_filename: z.string().optional().describe("Optional filename (without extension) for the output markdown file. Defaults to a sanitized version of the topic.")
 });
 
@@ -823,15 +900,13 @@ Instructions:
                 type: "text",
                 text: overallSuccess
                     ? `CEO & Board simulation (Topic: ${params.topic}) using Gemini API completed and saved to '${outputFilePath}'.`
-                    : `CEO & Board simulation (Topic: ${params.topic}) using Gemini API failed. API Success: ${apiSuccess}, Saved: ${fileSaveSuccess}. Error: ${finalApiError || 'See _meta'}.`
+                    : `CEO & Board simulation (Topic: ${params.topic}) using Gemini API failed. API Success: ${apiSuccess}, Saved: ${fileSaveSuccess}. Error: ${safeErrorReport(finalApiError) || 'See _meta'}.`
             }
         ];
 
-         // Add error snippet conditionally
+        // Add error snippet conditionally
         if (!overallSuccess && finalApiError) {
-             contentResponse.push({ type: 'text', text: `
---- Error Snippet ---
-...${finalApiError.slice(-300)}` });
+            contentResponse.push({ type: 'text', text: `\n--- Error Snippet ---\n...${safeErrorReport(finalApiError).slice(-300)}` });
         }
 
         return {
@@ -841,7 +916,7 @@ Instructions:
                 success: overallSuccess,
                 outputFilePath: outputFilePath,
                 fileSaveSuccess: fileSaveSuccess,
-                apiError: finalApiError, // Report specific API or related error
+                apiError: safeErrorReport(finalApiError), // Report specific API or related error
                 errorType: finalErrorType
             }
         };
@@ -857,14 +932,14 @@ async function main() {
     log(`Server connected via stdio.`);
   } catch (error: any) {
     console.error("Fatal error in main():", error);
-    log(`Fatal error in main(): ${error.message}`);
+    log(`Fatal error in main(): ${safeErrorReport(error)}`);
     process.exit(1);
   }
 }
 
 main().catch((error: any) => {
   console.error("Fatal error outside main():", error);
-  log(`Fatal error outside main(): ${error.message}`);
+  log(`Fatal error outside main(): ${safeErrorReport(error)}`);
   process.exit(1);
 });
 
@@ -876,4 +951,4 @@ process.on('SIGTERM', () => {
 process.on('SIGINT', () => {
   log('SIGINT signal received: closing.');
   process.exit(0);
-}); 
+});
