@@ -10,6 +10,6 @@ publish to:
 - 'giizhendam-aabajichiganan-mcp' -> https://www.npmjs.com/package/@nbiish/giizhendam-aabajichiganan-mcp
 - 'ai-tool-mcp' -> https://www.npmjs.com/package/@nbiish/ai-tool-mcp
 
-# ALWAYS RUN THE FOLLOWING IN THIS ORDER:
+# ALWAYS GO OVER THE FOLLOWING IN THIS ORDER:
 - [critical.mdc](mdc:.cursor/rules/critical.mdc)
-- [publish_all.sh](mdc:publish_all.sh)
+- [dual-publish.mdc](mdc:.cursor/rules/dual-publish.mdc)

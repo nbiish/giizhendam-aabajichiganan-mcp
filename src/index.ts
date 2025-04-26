@@ -10,6 +10,7 @@ import { spawn } from "child_process";
 import fs from 'fs';
 import path from 'path';
 import fsPromises from 'fs/promises';
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // Setting up logging (Optional but recommended)
 const LOG_FILE = '/tmp/giizhendam_mcp_v2_log.txt';
@@ -24,7 +25,7 @@ log(`--- Starting server v2 ---`);
 
 // --- Configuration ---
 // Path to the script we will be calling
-const AIDER_SCRIPT_PATH = './aider-cli-commands.sh'; // Assuming it's in the root
+// const AIDER_SCRIPT_PATH = './aider-cli-commands.sh'; // Assuming it's in the root
 
 // --- Server Setup ---
 const serverName = "giizhendam-aabajichiganan-mcp-script-interface";
@@ -43,6 +44,7 @@ type TaskType = typeof TASK_TYPES[number];
 // Use environment variables for defaults, allowing override via params
 
 // Helper to escape shell arguments (basic version, might need refinement)
+/*
 function escapeShellArg(arg: string): string {
   // Simple escaping for demonstration; robust escaping is complex.
   // This handles spaces and basic special characters for common shells.
@@ -51,54 +53,86 @@ function escapeShellArg(arg: string): string {
   }
   return arg;
 }
+*/
 
 // --- Tool Implementations (To be added based on PRD) ---
 
-// Helper function to execute the aider script
-function executeAiderScript(
-    subCommand: string,
-    args: string[]
-): Promise<{ stdout: string; stderr: string; exitCode: number | null }> {
+// Helper function to execute the aider command directly
+async function executeAider(
+    toolArgs: string[] // Args specific to the tool, e.g., ['--message', 'prompt', 'file1.ts']
+): Promise<{ stdout: string; stderr: string; exitCode: number | null; executedCommand: string }> {
     return new Promise((resolve, reject) => {
-        const fullArgs = [subCommand, ...args];
-        const commandString = `${AIDER_SCRIPT_PATH} ${fullArgs.join(' ')}`;
-        log(`Executing script: ${commandString}`);
+        const aiderModel = process.env.AIDER_MODEL;
+        const aiderEditorModel = process.env.AIDER_EDITOR_MODEL;
+
+        if (!aiderModel) {
+            const errorMsg = "Environment variable AIDER_MODEL is not set.";
+            log(`Error: ${errorMsg}`);
+            // Reject the promise immediately for configuration errors
+            return reject(new Error(errorMsg)); 
+        }
+
+        const baseAiderArgs: string[] = [];
+
+        // Add model and common args
+        // Check if editor model is specified to use architect mode
+        if (aiderEditorModel) {
+            log(`Using architect mode with Model: ${aiderModel}, Editor Model: ${aiderEditorModel}`);
+            baseAiderArgs.push('--architect');
+            baseAiderArgs.push('--model', aiderModel);
+            baseAiderArgs.push('--editor-model', aiderEditorModel);
+        } else {
+            log(`Using standard mode with Model: ${aiderModel}`);
+            baseAiderArgs.push('--model', aiderModel);
+        }
+
+        // Add common flags needed for programmatic execution
+        baseAiderArgs.push('--no-auto-commit');
+        baseAiderArgs.push('--yes-always');
+        // baseAiderArgs.push('--no-detect-urls'); // Add if needed
+
+        // Combine base args with tool-specific args
+        const finalArgs = [...baseAiderArgs, ...toolArgs];
+        const executedCommand = `aider ${finalArgs.join(' ')}`;
+
+        log(`Executing aider: ${executedCommand}`);
 
         let stdoutData = '';
         let stderrData = '';
 
         try {
-            const scriptProcess = spawn(AIDER_SCRIPT_PATH, fullArgs, {
+            // Spawn 'aider' directly
+            const aiderProcess = spawn('aider', finalArgs, {
                 stdio: ['pipe', 'pipe', 'pipe'],
-                cwd: process.cwd(), // Run script from the project root
+                cwd: process.cwd(), // Run aider from the project root
                 env: process.env
             });
 
-            scriptProcess.stdout.on('data', (data) => {
+            aiderProcess.stdout.on('data', (data) => {
                 stdoutData += data.toString();
-                log(`Script stdout: ${data.toString().substring(0, 100)}...`);
+                log(`Aider stdout: ${data.toString().substring(0, 100)}...`);
             });
 
-            scriptProcess.stderr.on('data', (data) => {
+            aiderProcess.stderr.on('data', (data) => {
                 stderrData += data.toString();
-                log(`Script stderr: ${data.toString().substring(0, 100)}...`);
+                log(`Aider stderr: ${data.toString().substring(0, 100)}...`);
             });
 
-            scriptProcess.on('error', (error) => {
-                log(`Failed to start script process: ${error.message}`);
-                stderrData += `\nFailed to start script: ${error.message}`;
-                // Reject on spawn error so the tool handler can catch it
-                reject(new Error(`Failed to start script: ${error.message}`)); 
+            aiderProcess.on('error', (error) => {
+                log(`Failed to start aider process: ${error.message}`);
+                stderrData += `\nFailed to start aider: ${error.message}`;
+                // Reject on spawn error
+                reject(new Error(`Failed to start aider: ${error.message}`));
             });
 
-            scriptProcess.on('close', (code) => {
-                log(`Script process exited with code ${code}`);
-                resolve({ stdout: stdoutData, stderr: stderrData, exitCode: code });
+            aiderProcess.on('close', (code) => {
+                log(`Aider process exited with code ${code}`);
+                resolve({ stdout: stdoutData, stderr: stderrData, exitCode: code, executedCommand });
             });
         } catch (error: any) {
-            log(`Error spawning script process: ${error.message}`);
+            log(`Error spawning aider process: ${error.message}`);
             // Reject on catch error
-            reject(new Error(`Error spawning script: ${error.message}`));
+            reject(new Error(`Error spawning aider: ${error.message}`));
         }
     });
 }
@@ -106,30 +140,29 @@ function executeAiderScript(
 // --- Tool: prompt_aider ---
 const promptAiderParamsSchema = z.object({
     prompt_text: z.string().describe("The main prompt/instruction for aider."),
-    task_type: z.enum(TASK_TYPES).optional().describe("Optional task type hint (research, docs, security, code, verify, progress)."),
+    task_type: z.enum(TASK_TYPES).optional().describe("Optional task type hint (research, docs, security, code, verify, progress) - currently informational."),
     files: z.array(z.string()).optional().describe("Optional list of files for aider to consider or modify.")
-    // Add other potential aider script params here if needed (e.g., model overrides)
 });
 
 // Output Schema (shared part for script execution tools)
 const scriptExecutionOutputSchema = z.object({
-    success: z.boolean().describe('True if the script process exited with code 0.'),
-    exitCode: z.number().nullable().describe('The exit code of the script process.'),
-    stdout: z.string().describe('The captured standard output from the script.'),
-    stderr: z.string().describe('The captured standard error from the script.'),
-    executedCommand: z.string().describe('The full command string executed.')
+    success: z.boolean().describe('True if the aider process exited with code 0.'),
+    exitCode: z.number().nullable().describe('The exit code of the aider process.'),
+    stdout: z.string().describe('The captured standard output from aider.'),
+    stderr: z.string().describe('The captured standard error from aider.'),
+    executedCommand: z.string().describe('The full aider command string executed.')
 });
 
 // Extend the meta schema to include output file path and saving status
 const simulationOutputMetaSchema = scriptExecutionOutputSchema.extend({
-    errorType: z.string().optional().describe("Indicates error source: 'ExecutionError', 'ScriptError', 'FileSystemError'."),
-    outputFilePath: z.string().optional().describe("Path to the generated output file (if successful)."),
-    fileSaveSuccess: z.boolean().optional().describe("True if the output was successfully saved to the file.")
+    errorType: z.string().optional().describe("Indicates error source: 'ExecutionError', 'AiderError', 'FileSystemError', 'ConfigurationError'."), // Added ConfigurationError
+    outputFilePath: z.string().optional().describe("Path to the generated output file (if applicable)."),
+    fileSaveSuccess: z.boolean().optional().describe("True if the output was successfully saved to the file (if applicable).")
 });
 
 server.tool(
     "prompt_aider",
-    "Executes the 'prompt_aider' command from aider-cli-commands.sh with the given prompt and optional files/task type.",
+    "Executes the aider command directly with the given prompt and optional files, using models defined in environment variables (AIDER_MODEL, optional AIDER_EDITOR_MODEL).",
     promptAiderParamsSchema.shape,
     async (params): Promise<{ 
         content: { type: 'text'; text: string }[]; 
@@ -137,43 +170,59 @@ server.tool(
         isError?: boolean;
       }> => {
         
-        // Ensure scriptArgs are explicitly typed as string[]
-        const scriptArgs: string[] = [];
-        // Safely push prompt_text
-        scriptArgs.push(params.prompt_text ?? ''); // Ensure it's always a string
-
-        if (params.task_type) {
-            scriptArgs.push(params.task_type);
-        }
+        // Construct tool-specific arguments for aider
+        const toolArgs: string[] = ['--message', params.prompt_text ?? '']; 
         if (params.files && params.files.length > 0) {
-            scriptArgs.push(...params.files); 
+            toolArgs.push(...params.files); 
         }
+        // task_type is not passed directly to aider in this setup, but could be added to the prompt if needed.
 
-        // Use the correctly typed scriptArgs for mapping
-        const executedCommand = `${AIDER_SCRIPT_PATH} prompt_aider ${scriptArgs.map(escapeShellArg).join(' ')}`;
-        let result: { stdout: string; stderr: string; exitCode: number | null } | null = null;
+        let result: { stdout: string; stderr: string; exitCode: number | null; executedCommand: string } | null = null;
         let error: Error | null = null;
+        let errorType: string | undefined = undefined;
 
         try {
-            result = await executeAiderScript("prompt_aider", scriptArgs);
+            // Execute aider directly with tool args
+            result = await executeAider(toolArgs);
         } catch (e: any) {
             error = e;
+            // Check if it's the configuration error we threw
+            if (e.message.includes("AIDER_MODEL is not set")) {
+                errorType = 'ConfigurationError';
+            } else {
+                 errorType = 'ExecutionError';
+            }
         }
 
         const success = result?.exitCode === 0 && !error;
         const stdout = result?.stdout ?? '';
         const stderr = `${result?.stderr ?? ''}${error ? `\nTool Error: ${error.message}` : ''}`;
         const exitCode = result?.exitCode ?? null;
+        const executedCommand = result?.executedCommand ?? `aider [error constructing command - ${error?.message}]`; // Provide fallback
+
+        if (!errorType && !success && exitCode !== 0) { // If no execution error but script failed
+            errorType = 'AiderError';
+        }
+
+        // Prepare content array
+        const contentResponse: { type: 'text'; text: string }[] = [
+            {
+                type: "text",
+                text: success 
+                    ? `Aider command executed successfully (Exit Code: ${exitCode}). See _meta for full logs.` 
+                    : `Aider command failed (Exit Code: ${exitCode}). Error: ${error?.message ?? 'Aider execution failed.'} See _meta for full logs.`
+            }
+        ];
+
+        // Add snippet conditionally
+        if (success && stdout.trim()) {
+            contentResponse.push({ type: 'text', text: `\n--- Aider Output Snippet ---\n...${stdout.trim().slice(-300)}` });
+        } else if (!success && stderr.trim()) {
+            contentResponse.push({ type: 'text', text: `\n--- Aider Error Snippet ---\n...${stderr.trim().slice(-300)}` });
+        }
 
         return {
-            content: [
-                {
-                    type: "text",
-                    text: success 
-                        ? `prompt_aider script executed successfully (Exit Code: ${exitCode}). See stdout/stderr in _meta.` 
-                        : `prompt_aider script failed (Exit Code: ${exitCode}). Error: ${error?.message ?? 'Script execution failed.'} See stdout/stderr in _meta.`
-                }
-            ],
+            content: contentResponse,
             isError: !success,
             _meta: {
                 success: success,
@@ -181,7 +230,7 @@ server.tool(
                 stdout: stdout,
                 stderr: stderr,
                 executedCommand: executedCommand,
-                errorType: error ? 'ExecutionError' : undefined
+                errorType: errorType
             }
         };
     }
@@ -194,77 +243,100 @@ const doubleComputeParamsSchema = z.object({
 });
 
 const doubleComputeOutputMetaSchema = z.object({
-    overallSuccess: z.boolean().describe("True if both script executions succeeded (Exit Code 0)."),
+    overallSuccess: z.boolean().describe("True if both aider executions succeeded (Exit Code 0)."),
     run1: scriptExecutionOutputSchema.describe("Results of the first execution."),
     run2: scriptExecutionOutputSchema.describe("Results of the second execution."),
-    errorType: z.string().optional().describe("Indicates if there was an execution error ('ExecutionError') or script error ('ScriptError').")
+    errorType: z.string().optional().describe("Indicates if there was an execution error ('ExecutionError'), aider error ('AiderError'), or config error ('ConfigurationError').") // Added ConfigurationError
 });
 
 
 server.tool(
     "double_compute",
-    "Executes the 'prompt_aider' command from aider-cli-commands.sh TWICE with the same prompt and optional files. Useful for tasks requiring redundant computation or comparison.",
+    "Executes the aider command TWICE directly with the same prompt and optional files, using models defined in environment variables. Useful for tasks requiring redundant computation or comparison.",
     doubleComputeParamsSchema.shape,
     async (params): Promise<{
         content: { type: 'text'; text: string }[];
         _meta: z.infer<typeof doubleComputeOutputMetaSchema>;
         isError?: boolean;
       }> => {
-        const scriptArgs: string[] = [];
-        scriptArgs.push(params.prompt_text ?? '');
+        // Construct tool-specific arguments once
+        const toolArgs: string[] = ['--message', params.prompt_text ?? ''];
         if (params.files && params.files.length > 0) {
-            scriptArgs.push(...params.files);
+            toolArgs.push(...params.files);
         }
-        const baseCommand = `${AIDER_SCRIPT_PATH} prompt_aider ${scriptArgs.map(escapeShellArg).join(' ')}`;
-        log(`Preparing double_compute: ${baseCommand}`);
+        log(`Preparing double_compute with tool args: ${toolArgs.join(' ')}`);
 
-        let result1: { stdout: string; stderr: string; exitCode: number | null } | null = null;
+        let result1: { stdout: string; stderr: string; exitCode: number | null; executedCommand: string } | null = null;
         let error1: Error | null = null;
-        let result2: { stdout: string; stderr: string; exitCode: number | null } | null = null;
+        let errorType1: string | undefined = undefined;
+        let result2: { stdout: string; stderr: string; exitCode: number | null; executedCommand: string } | null = null;
         let error2: Error | null = null;
+        let errorType2: string | undefined = undefined;
 
         // Run 1
         try {
             log("Executing double_compute Run 1...");
-            result1 = await executeAiderScript("prompt_aider", scriptArgs);
+            result1 = await executeAider(toolArgs);
         } catch (e: any) {
             error1 = e;
+            errorType1 = e.message.includes("AIDER_MODEL is not set") ? 'ConfigurationError' : 'ExecutionError';
         }
         const success1 = result1?.exitCode === 0 && !error1;
         const stdout1 = result1?.stdout ?? '';
         const stderr1 = `${result1?.stderr ?? ''}${error1 ? `\nTool Error (Run 1): ${error1.message}` : ''}`;
         const exitCode1 = result1?.exitCode ?? null;
-        const executedCommand1 = baseCommand; // Command is the same
+        const executedCommand1 = result1?.executedCommand ?? `aider [error constructing command (run 1) - ${error1?.message}]`; 
+        if (!errorType1 && !success1 && exitCode1 !== 0) errorType1 = 'AiderError';
 
         // Run 2
         try {
             log("Executing double_compute Run 2...");
-            result2 = await executeAiderScript("prompt_aider", scriptArgs);
+            result2 = await executeAider(toolArgs);
         } catch (e: any) {
             error2 = e;
+             errorType2 = e.message.includes("AIDER_MODEL is not set") ? 'ConfigurationError' : 'ExecutionError';
         }
         const success2 = result2?.exitCode === 0 && !error2;
         const stdout2 = result2?.stdout ?? '';
         const stderr2 = `${result2?.stderr ?? ''}${error2 ? `\nTool Error (Run 2): ${error2.message}` : ''}`;
         const exitCode2 = result2?.exitCode ?? null;
-        const executedCommand2 = baseCommand; // Command is the same
+        const executedCommand2 = result2?.executedCommand ?? `aider [error constructing command (run 2) - ${error2?.message}]`; 
+        if (!errorType2 && !success2 && exitCode2 !== 0) errorType2 = 'AiderError';
 
 
         const overallSuccess = success1 && success2;
-        const combinedStderr = `${stderr1}${stderr1 && stderr2 ? '\n---\n' : ''}${stderr2}`;
-        let errorType: string | undefined = undefined;
-        if (error1 || error2) errorType = 'ExecutionError';
-        else if (!overallSuccess) errorType = 'ScriptError';
+        let finalErrorType: string | undefined = undefined;
+        // Prioritize showing config/execution errors over aider errors if they occurred
+        if (errorType1 === 'ConfigurationError' || errorType2 === 'ConfigurationError') finalErrorType = 'ConfigurationError';
+        else if (errorType1 === 'ExecutionError' || errorType2 === 'ExecutionError') finalErrorType = 'ExecutionError';
+        else if (!overallSuccess) finalErrorType = 'AiderError'; // Only if no config/exec errors occurred
+
+        // Prepare content array
+        const contentResponse: { type: 'text'; text: string }[] = [
+            {
+                type: "text",
+                text: overallSuccess
+                    ? `double_compute executed successfully twice (Exit Codes: ${exitCode1}, ${exitCode2}). See _meta for full logs.`
+                    : `double_compute execution failed. Run 1 Success: ${success1} (Exit Code: ${exitCode1}), Run 2 Success: ${success2} (Exit Code: ${exitCode2}). See _meta for full logs.`
+            }
+        ];
+
+        // Add snippets conditionally for Run 1
+        if (success1 && stdout1.trim()) {
+            contentResponse.push({ type: 'text', text: `\n--- Run 1 Output Snippet ---\n...${stdout1.trim().slice(-200)}` });
+        } else if (!success1 && stderr1.trim()) {
+            contentResponse.push({ type: 'text', text: `\n--- Run 1 Error Snippet ---\n...${stderr1.trim().slice(-200)}` });
+        }
+
+         // Add snippets conditionally for Run 2
+         if (success2 && stdout2.trim()) {
+            contentResponse.push({ type: 'text', text: `\n--- Run 2 Output Snippet ---\n...${stdout2.trim().slice(-200)}` });
+        } else if (!success2 && stderr2.trim()) {
+            contentResponse.push({ type: 'text', text: `\n--- Run 2 Error Snippet ---\n...${stderr2.trim().slice(-200)}` });
+        }
 
         return {
-            content: [
-                {
-                    type: "text",
-                    text: overallSuccess
-                        ? `double_compute script executed successfully twice (Exit Codes: ${exitCode1}, ${exitCode2}). See stdout/stderr for each run in _meta.`
-                        : `double_compute script execution failed. Run 1 Success: ${success1} (Exit Code: ${exitCode1}), Run 2 Success: ${success2} (Exit Code: ${exitCode2}). See errors and stdout/stderr in _meta.`
-                }
-            ],
+            content: contentResponse,
             isError: !overallSuccess,
             _meta: {
                 overallSuccess: overallSuccess,
@@ -282,144 +354,325 @@ server.tool(
                     stderr: stderr2,
                     executedCommand: executedCommand2
                 },
-                errorType: errorType
+                errorType: finalErrorType
             }
         };
     }
 );
 
 // --- Tool: finance_experts ---
-// Define available expert personas based on finance-agents.md
-const FINANCIAL_EXPERT_PERSONAS = ['Graham', 'Ackman', 'Wood', 'Munger', 'Burry', 'Lynch', 'Fisher'] as const;
-type FinancialExpertPersona = typeof FINANCIAL_EXPERT_PERSONAS[number];
+
+// Define hardcoded expert prompts focused on project/business financial analysis
+const EXPERT_PROMPTS: Record<string, string> = {
+  "Graham": `You are a Benjamin Graham AI agent. Apply his core principles to analyze the user's financial query regarding a project or business situation:
+1. Emphasize a 'margin of safety': Does the project/idea have buffer against downside? Are assumptions too optimistic? What are the key risks and how can they be mitigated?
+2. Assess Financial Prudence: Does the financial plan demonstrate soundness? Is leverage reasonable? Are resources adequate?
+3. Focus on Understandability and Stability: Is the financial model clear? Are revenue/cost projections grounded and stable?
+4. Avoid Speculation: Focus on realistic, provable aspects rather than high-growth hypotheticals.
+
+When responding to the user's query:
+- Analyze the situation through Graham's conservative lens.
+- Identify potential financial risks and areas needing a 'margin of safety'.
+- Question optimistic assumptions.
+- Provide a reasoned perspective using Graham's analytical voice.
+- Structure your output clearly, addressing the user's query directly.`,
+
+  "Ackman": `You are a Bill Ackman AI agent. Apply his core principles to analyze the user's financial query regarding a project or business situation:
+1. Focus on Quality & Simplicity: Does the project/business have clear, high-quality objectives and a potentially durable advantage? Is it overly complex?
+2. Assess Long-Term Value Creation: What is the potential for long-term free cash flow or value generation? Is the financial strategy sustainable?
+3. Scrutinize Financial Discipline: Is the proposed capital allocation efficient? Is leverage appropriate? Are there operational improvements possible?
+4. Consider Catalysts/Activism Angles: Are there specific actions (cost cuts, strategy shifts, better capital allocation) that could significantly improve the financial outlook?
+5. Valuation Mindset: Even for a project, are the required resources justified by the potential return? Is there a conceptual 'margin of safety'?
+
+When responding to the user's query:
+- Analyze the situation with a focus on quality, long-term value, and potential improvements.
+- Identify key financial levers or potential points of intervention (activist mindset).
+- Provide a confident, analytical perspective, potentially highlighting flaws or opportunities bluntly.
+- Structure your output clearly, addressing the user's query directly.`,
+
+  "Wood": `You are a Cathie Wood AI agent. Apply her core principles to analyze the user's financial query regarding a project or business situation:
+1. Identify Disruptive Innovation: Does the project leverage new technology or innovative models? What is its potential to disrupt existing markets or create new ones?
+2. Emphasize Exponential Growth Potential: What is the scale of the opportunity (Total Addressable Market)? Does the financial plan support rapid, exponential growth?
+3. Focus on Future-Facing Themes: How does the project align with major technological or societal shifts (AI, genomics, blockchain, energy transition, etc.)?
+4. Long-Term Vision (5+ Years): Assess the project's potential impact and financial trajectory over an extended timeframe.
+5. Investment in Innovation: Does the plan prioritize necessary R&D or investment to achieve its breakthrough potential?
+
+When responding to the user's query:
+- Analyze the situation through a lens of disruptive innovation and long-term, exponential growth.
+- Highlight the transformative potential and alignment with future trends.
+- Be comfortable with uncertainty and focus on the scale of the potential upside.
+- Provide an optimistic, future-focused, and conviction-driven perspective using Wood's voice.
+- Structure your output clearly, addressing the user's query directly.`,
+
+  "Munger": `You are a Charlie Munger AI agent. Apply his multidisciplinary principles and mental models to analyze the user's financial query regarding a project or business situation:
+1. Assess Quality & Predictability: Is the project/business model fundamentally sound and understandable? How predictable are its financial outcomes?
+2. Apply Mental Models: Use frameworks from psychology, economics, engineering, etc., to understand the situation (e.g., incentives, feedback loops, scalability constraints).
+3. Look for Durable Advantages ('Moats'): Does the project create or leverage a sustainable competitive advantage?
+4. Emphasize Rationality & Prudence: Avoid folly. Invert the problem – what could cause this project to fail financially? Is management/planning rational?
+5. Focus on Long-Term Economics: Prioritize sustainable financial health over short-term gains. Is the return on invested capital likely to be strong?
+
+When responding to the user's query:
+- Analyze the situation using multiple mental models and a focus on fundamental quality and rationality.
+- "Invert" the problem to identify key risks and potential points of failure.
+- Assess the long-term financial prospects and potential 'moat'.
+- Provide a wise, direct, and pithy perspective using Munger's voice, drawing connections across disciplines.
+- Structure your output clearly, addressing the user's query directly.`,
+
+  "Burry": `You are a Dr. Michael J. Burry AI agent. Apply his core principles to analyze the user's financial query regarding a project or business situation:
+1. Hunt for Unseen Value/Risk: Look beyond the surface. Is there a hidden financial risk or an undervalued aspect the user might be missing?
+2. Be Contrarian: Question conventional wisdom. Is the popular opinion about the project's finances potentially wrong?
+3. Focus on Downside First: What are the most significant financial risks? Is leverage excessive? Where could the project realistically fail?
+4. Data-Driven Analysis: Ground your assessment in concrete numbers and realistic financial projections, avoiding hype.
+5. Look for Catalysts (Internal): Are there internal factors (e.g., specific milestones, cost controls, resource allocation shifts) that could significantly change the financial trajectory?
+
+When responding to the user's query:
+- Analyze the situation with a contrarian, risk-focused, and data-driven perspective.
+- Identify potential hidden risks or flaws in the financial assumptions.
+- Question the consensus view.
+- Provide a terse, direct, and number-focused assessment using Burry's communication style.
+- Structure your output clearly, addressing the user's query directly.`,
+
+  "Lynch": `You are a Peter Lynch AI agent. Apply his core principles to analyze the user's financial query regarding a project or business situation:
+1. Invest in What You Know: Is the project's concept and financial model understandable? Can you explain it simply? Avoid excessive complexity.
+2. Growth at a Reasonable Price (GARP) for Projects: Are the resources required (price) reasonable given the potential growth and financial return? Look for potential 'ten-bagger' project ideas if applicable.
+3. Assess the 'Story': What is the underlying narrative? Is it compelling and realistic, or overly hyped? Does the project have potential for steady, understandable growth?
+4. Check Financial Health: Is the financial plan sound? Is debt manageable? Are the underlying unit economics favorable?
+5. Look for Simplicity & Focus: Favor projects with clear goals and straightforward financial structures.
+
+When responding to the user's query:
+- Analyze the situation using a practical, common-sense approach focused on understandability and reasonable growth prospects.
+- Evaluate the project's 'story' and whether the financials back it up.
+- Apply the GARP concept conceptually – is the investment justified by the potential?
+- Provide a relatable, practical perspective using Lynch's folksy voice.
+- Structure your output clearly, addressing the user's query directly.`,
+
+  "Fisher": `You are a Phil Fisher AI agent. Apply his core principles to analyze the user's financial query regarding a project or business situation:
+1. Focus on Long-Term Growth Potential: What are the project's prospects for sustained growth and impact over 3-5+ years? Is it targeting a growing area?
+2. Quality of Management/Team: Assess the competence, vision, and execution capability of the team driving the project. Is their financial planning sound?
+3. Investment in Future (R&D/Innovation): Does the project plan adequately for necessary innovation, research, or development to maintain its edge and achieve long-term goals?
+4. Profitability & Financial Soundness: Does the project have a path to sustainable financial performance? Are the projected margins reasonable and defensible?
+5. Competitive Advantages & 'Scuttlebutt': What makes this project likely to succeed against alternatives? What insights can be gathered by talking to potential users/stakeholders (conceptual 'scuttlebutt')?
+
+When responding to the user's query:
+- Analyze the situation with a focus on long-term growth, management quality, and innovation potential.
+- Evaluate the sustainability of the financial model and competitive positioning.
+- Emphasize the importance of R&D and forward-looking investment.
+- Provide a methodical, growth-focused, and long-term oriented perspective using Fisher's voice.
+- Structure your output clearly, addressing the user's query directly.`
+};
+
+// Define available expert personas based on the hardcoded prompts
+// const FINANCIAL_EXPERT_PERSONAS = ['Graham', 'Ackman', 'Wood', 'Munger', 'Burry', 'Lynch', 'Fisher'] as const;
+// type FinancialExpertPersona = typeof FINANCIAL_EXPERT_PERSONAS[number];
+// ^^^ No longer needed as we process all defined experts ^^^
 
 const financeExpertsParamsSchema = z.object({
-    topic: z.string().describe("The central financial topic for the expert deliberation (e.g., 'Investment case for AAPL', 'Outlook for semiconductor industry')."),
-    experts: z.array(z.enum(FINANCIAL_EXPERT_PERSONAS)).min(1).describe("List of financial expert personas to simulate (e.g., ['Graham', 'Wood', 'Munger']). Choose from: " + FINANCIAL_EXPERT_PERSONAS.join(', ')),
+    topic: z.string().describe("The central financial topic or query related to a project or business situation for the experts to analyze (e.g., 'Financial risks of Project X', 'Funding strategy for new initiative Y')."),
+    // experts field removed - all experts are processed now.
     output_filename: z.string().optional().describe("Optional filename (without extension) for the output markdown file. Defaults to a sanitized version of the topic.")
 });
 
 const OUTPUT_DIR_FINANCE = path.join(process.cwd(), 'financial-experts');
+// const FINANCE_AGENTS_PATH = path.join(process.cwd(), 'finance-agents.md'); // Removed - prompts are hardcoded
+const GEMINI_MODEL_NAME = "gemini-1.5-flash-latest"; // Or choose another appropriate model
+
+// Helper function to parse expert prompts from finance-agents.md - REMOVED
+/*
+function parseExpertPrompts(fileContent: string): Map<string, string> {
+    // ... implementation removed ...
+}
+*/
+
+// Define a new metadata schema specifically for the finance_experts tool
+const financeExpertsOutputMetaSchema = z.object({
+    success: z.boolean().describe('True if all API calls and file saving succeeded.'),
+    outputFilePath: z.string().optional().describe("Path to the generated output file."),
+    fileSaveSuccess: z.boolean().optional().describe("True if the output was successfully saved to the file."),
+    expertsProcessed: z.array(z.string()).describe("List of all experts whose prompts were processed."),
+    apiErrors: z.array(z.object({ expert: z.string(), error: z.string() })).optional().describe("List of errors encountered during API calls."),
+    errorType: z.string().optional().describe("Indicates error source: 'InitializationError', 'FileSystemError', 'ApiError'.") // Removed 'ParsingError'
+});
+
+// Define a similar schema for the board simulation tool
+const boardSimulationOutputMetaSchema = z.object({
+    success: z.boolean().describe('True if the API call and file saving succeeded.'),
+    outputFilePath: z.string().optional().describe("Path to the generated output file."),
+    fileSaveSuccess: z.boolean().optional().describe("True if the output was successfully saved to the file."),
+    apiError: z.string().optional().describe("Error message encountered during the API call."),
+    errorType: z.string().optional().describe("Indicates error source: 'InitializationError', 'FileSystemError', 'ApiError'.")
+});
 
 server.tool(
     "finance_experts",
-    "Simulates a deliberation between specified financial expert personas on a given topic using aider. Constructs a prompt referencing their core principles (based on finance-agents.md), executes it via aider-cli-commands.sh (--research tag), and aims to save output to './financial-experts/'.",
+    // Updated Description:
+    "Simulates a deliberation between multiple internally-defined financial expert personas (Graham, Ackman, Wood, Munger, Burry, Lynch, Fisher) on a given financial topic/query related to a project or business situation using the Gemini API. Generates responses reflecting each expert's refocused principles and saves the aggregated result to './financial-experts/'. Requires GEMINI_API_KEY environment variable.",
     financeExpertsParamsSchema.shape,
      async (params): Promise<{
         content: { type: 'text'; text: string }[];
-        _meta: z.infer<typeof simulationOutputMetaSchema>;
+        _meta: z.infer<typeof financeExpertsOutputMetaSchema>;
         isError?: boolean;
       }> => {
 
-        // 1. Construct the detailed prompt for aider
-        const expertsString = params.experts.join(', ');
-        // Basic prompt structure - Ideally, pull detailed principles for *each* selected expert from finance-agents.md
-        // For simplicity here, we'll just list them. A more advanced version could inject specific rules per expert.
-        const prompt_text = `
-Simulate a concise deliberation transcript among financial experts.
-Topic: ${params.topic}
-Participants: ${expertsString}
-Instructions:
-- Generate realistic perspectives, arguments, and potential disagreements for each expert based on their known investment philosophies (e.g., Graham=Value/Margin of Safety, Wood=Disruptive Growth, Munger=Quality/Moat, Ackman=Activism/Quality, Burry=Deep Value/Contrarian, Lynch=GARP/Understandable, Fisher=Long-Term Growth/R&D).
-- Focus on key analysis points, risks, and investment conclusions (buy/sell/hold rationale) for the topic.
-- Keep the discussion focused and representative of each expert's style.
-- Output should be in markdown format.
-- Start with a brief introduction setting the context.
-- Conclude with a summary of viewpoints or key takeaways.
-        `.trim();
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) {
+            log("Error: GEMINI_API_KEY environment variable not set.");
+            return {
+                content: [{ type: 'text', text: "Configuration Error: GEMINI_API_KEY is not set." }],
+                isError: true,
+                _meta: { success: false, expertsProcessed: [], errorType: 'InitializationError' }
+            };
+        }
 
-        // 2. Determine output file path
+        let ai: GoogleGenerativeAI;
+        try {
+            ai = new GoogleGenerativeAI(apiKey); // Pass apiKey directly
+        } catch (initError: any) {
+            log(`Error initializing GoogleGenerativeAI: ${initError.message}`);
+             return {
+                 content: [{ type: 'text', text: `Failed to initialize AI client: ${initError.message}` }],
+                 isError: true,
+                 _meta: { success: false, expertsProcessed: [], errorType: 'InitializationError' }
+             };
+        }
+
+        // 1. Read and parse finance-agents.md - REMOVED
+        /*
+        let expertPrompts: Map<string, string>;
+        try {
+            // ... file reading and parsing removed ...
+        } catch (readError: any) {
+            // ... error handling removed ...
+        }
+        */
+
+        // 2. Generate responses for ALL defined experts
+        const apiErrors: { expert: string; error: string }[] = [];
+        const expertResponses: { expert: string; response: string }[] = [];
+        const expertsToProcess = Object.keys(EXPERT_PROMPTS); // Process all experts defined above
+
+        // Removed check for empty expertsToProcess as it's now based on the hardcoded object
+        /*
+        if (expertsToProcess.length === 0) {
+             // ... logic removed ...
+        }
+        */
+
+        log(`Processing topic "${params.topic}" for ALL defined experts: ${expertsToProcess.join(', ')}`);
+
+        await Promise.allSettled(expertsToProcess.map(async (expert) => {
+            const basePrompt = EXPERT_PROMPTS[expert]; // Get prompt from hardcoded object
+            // Combine base prompt with the specific topic/query from the user
+            const fullPrompt = `${basePrompt}
+
+--- USER QUERY ---
+Analyze the following query/topic:
+${params.topic}`;
+
+            try {
+                log(`Generating response for ${expert}...`);
+                const model = ai.getGenerativeModel({ model: GEMINI_MODEL_NAME }); // Get model instance
+                const result = await model.generateContent(fullPrompt); // Pass prompt string directly
+                const response = await result.response; // Await the response accessor
+                const responseText = response.text(); // Call text() method
+
+                 if (responseText) {
+                    expertResponses.push({ expert, response: responseText });
+                    log(`Response received for ${expert}`);
+                 } else {
+                    // Handle cases where response or text is missing
+                    const errorMsg = `No text content received for ${expert}. Response: ${JSON.stringify(response)}`; // Log the response structure
+                    log(`Error: ${errorMsg}`);
+                    apiErrors.push({ expert, error: errorMsg });
+                    expertResponses.push({ expert, response: `*Error: Could not generate response for ${expert}*` });
+                 }
+
+
+            } catch (error: any) {
+                const errorMsg = `API Error for ${expert}: ${error.message}`;
+                log(errorMsg);
+                apiErrors.push({ expert, error: errorMsg });
+                 expertResponses.push({ expert, response: `*Error: API call failed for ${expert}*` });
+            }
+        }));
+
+        // Sort responses to maintain consistent order (matching definition order)
+        expertResponses.sort((a, b) => expertsToProcess.indexOf(a.expert) - expertsToProcess.indexOf(b.expert));
+
+
+        // 3. Format output as Markdown
+        let markdownOutput = `# Financial Expert Perspectives
+
+**Topic/Query:** ${params.topic}
+
+---
+
+`;
+        expertResponses.forEach(({ expert, response }) => {
+            markdownOutput += `## ${expert}'s Perspective
+
+${response}
+
+---
+
+`;
+        });
+
+        if (apiErrors.length > 0) {
+             markdownOutput += `
+**API Errors Encountered:**
+`;
+             apiErrors.forEach(({expert, error}) => {
+                 markdownOutput += `- ${expert}: ${error}
+`;
+             });
+        }
+
+        // 4. Determine output file path
         const safeFilenameBase = params.output_filename?.replace(/[^a-z0-9_-]/gi, '_').toLowerCase() || params.topic.replace(/[^a-z0-9_-]/gi, '_').toLowerCase().substring(0, 50);
         const outputFilename = `${safeFilenameBase}_${Date.now()}.md`;
         const outputFilePath = path.join(OUTPUT_DIR_FINANCE, outputFilename);
 
-        // 3. Ensure output directory exists
+        // 5. Ensure output directory exists and save file
+        let fileSaveSuccess = false;
+        let fileSaveError = '';
+        let fileSystemError = false;
         try {
             await fsPromises.mkdir(OUTPUT_DIR_FINANCE, { recursive: true });
             log(`Ensured output directory exists: ${OUTPUT_DIR_FINANCE}`);
-        } catch (dirError: any) {
-             log(`Error creating directory ${OUTPUT_DIR_FINANCE}: ${dirError.message}`);
-             return {
-                content: [{ type: 'text', text: `Failed to create output directory: ${OUTPUT_DIR_FINANCE}` }],
-                isError: true,
-                _meta: {
-                     success: false, exitCode: null, stdout: '', stderr: `Directory creation error: ${dirError.message}`, executedCommand: 'N/A', errorType: 'FileSystemError'
-                }
-             };
-        }
-
-        // 4. Prepare script arguments (using --research tag)
-        const scriptArgs: string[] = [
-            prompt_text,
-            '--research' // Using research tag for complex text generation/simulation
-        ];
-        const executedCommand = `${AIDER_SCRIPT_PATH} ${scriptArgs.map(escapeShellArg).join(' ')}`;
-
-        // 5. Execute the script (Acknowledging background limitation)
-        let result: { stdout: string; stderr: string; exitCode: number | null } | null = null;
-        let error: Error | null = null;
-        let success = false;
-        let stdout = '';
-        let stderr = '';
-        let exitCode = null;
-        let fileSaveSuccess = false;
-        let fileSaveError = '';
-
-        try {
-            log(`Executing aider for finance_experts simulation: ${params.topic}`);
-            result = await executeAiderScript("prompt_aider", scriptArgs);
-            success = result?.exitCode === 0 && !error;
-            stdout = result?.stdout ?? '';
-            stderr = result?.stderr ?? '';
-            exitCode = result?.exitCode ?? null;
-
-            // 6. Attempt to save output if script succeeded (Added similar logic to ceo_and_board)
-            if (success && stdout) {
-                try {
-                    await fsPromises.writeFile(outputFilePath, stdout);
-                    log(`Successfully saved finance_experts output to ${outputFilePath}`);
+            await fsPromises.writeFile(outputFilePath, markdownOutput);
+            log(`Successfully saved finance_experts perspectives to ${outputFilePath}`);
                     fileSaveSuccess = true;
                 } catch (writeError: any) {
                     log(`Error writing output file ${outputFilePath}: ${writeError.message}`);
-                    fileSaveError = `\nFile Save Error: ${writeError.message}`;
-                    // Treat file save error as a partial failure
-                    success = false;
-                }
-            } else if (success && !stdout) {
-                 log(`Script succeeded but produced no stdout for finance_experts: ${params.topic}`);
-                 fileSaveError = "\nFile Save Info: Script succeeded but produced no output to save.";
-            }
-
-        } catch (e: any) {
-            error = e;
-            stderr += `\nTool Error: ${error?.message ?? 'Unknown execution error'}`;
+            fileSaveError = `File System Error: ${writeError.message}`;
+            fileSystemError = true;
         }
 
-        const finalStderr = `${stderr}${fileSaveError}`;
-        let errorType: string | undefined = undefined;
-        if (error) errorType = 'ExecutionError';
-        else if (fileSaveError && !stderr) errorType = 'FileSystemError';
-        else if (!success) errorType = 'ScriptError';
+        // 6. Determine overall success and return result
+        const overallSuccess = apiErrors.length === 0 && !fileSystemError;
+        let finalErrorType: string | undefined = undefined;
+        if (fileSystemError) finalErrorType = 'FileSystemError';
+        else if (apiErrors.length > 0) finalErrorType = 'ApiError';
+
 
         return {
             content: [
                 {
                     type: "text",
-                    text: success && fileSaveSuccess
-                        ? `Financial Experts simulation (Topic: ${params.topic}) completed and saved to '${outputFilePath}'. (Exit Code: ${exitCode})`
-                        : `Financial Experts simulation (Topic: ${params.topic}) failed or could not save output. Success: ${success}, Saved: ${fileSaveSuccess}. See errors/details in _meta. (Exit Code: ${exitCode})`
+                    // Updated response text
+                    text: overallSuccess
+                        ? `Financial Experts simulation (Topic: ${params.topic}) completed processing perspectives from all defined experts ${fileSaveSuccess ? `and saved to '${outputFilePath}'` : 'but failed to save file'}.`
+                        : `Financial Experts simulation (Topic: ${params.topic}) completed with errors while processing perspectives. Saved: ${fileSaveSuccess}. See details in _meta.`
                 }
             ],
-            isError: !success || !fileSaveSuccess, // Mark as error if script failed OR saving failed
+            isError: !overallSuccess || !fileSaveSuccess,
             _meta: {
-                success: success && fileSaveSuccess, // Overall success requires script success AND file save
-                exitCode: exitCode,
-                stdout: "[stdout omitted in response, check saved file if successful]", // Avoid large output
-                stderr: finalStderr,
-                executedCommand: executedCommand,
+                success: overallSuccess && fileSaveSuccess,
                 outputFilePath: outputFilePath,
                 fileSaveSuccess: fileSaveSuccess,
-                errorType: errorType
+                expertsProcessed: expertsToProcess, // Now always lists all defined experts
+                apiErrors: apiErrors.length > 0 ? apiErrors : undefined,
+                errorType: finalErrorType
             }
         };
     }
@@ -433,17 +686,43 @@ const ceoBoardParamsSchema = z.object({
 });
 
 const OUTPUT_DIR_BOARD = path.join(process.cwd(), 'ceo-and-board');
+// const GEMINI_MODEL_NAME = "gemini-1.5-flash-latest"; // Already defined above
 
 server.tool(
     "ceo_and_board",
-    "Simulates a board discussion on a given topic with specified roles using aider. Constructs a prompt, executes it via aider-cli-commands.sh, and saves the output markdown to './ceo-and-board/'.",
+    // Updated Description:
+    "Simulates a board discussion on a given topic with specified roles using the Gemini API. Constructs a prompt, executes the API call, and saves the output markdown to './ceo-and-board/'. Requires GEMINI_API_KEY environment variable.",
     ceoBoardParamsSchema.shape,
     async (params): Promise<{
         content: { type: 'text'; text: string }[];
-        _meta: z.infer<typeof simulationOutputMetaSchema>;
+        // Use the new metadata schema
+        _meta: z.infer<typeof boardSimulationOutputMetaSchema>;
         isError?: boolean;
       }> => {
-        // 1. Construct the detailed prompt for aider
+
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) {
+            log("Error: GEMINI_API_KEY environment variable not set for ceo_and_board.");
+            return {
+                content: [{ type: 'text', text: "Configuration Error: GEMINI_API_KEY is not set." }],
+                isError: true,
+                _meta: { success: false, errorType: 'InitializationError' }
+            };
+        }
+
+        let ai: GoogleGenerativeAI;
+        try {
+            ai = new GoogleGenerativeAI(apiKey);
+        } catch (initError: any) {
+            log(`Error initializing GoogleGenerativeAI for ceo_and_board: ${initError.message}`);
+             return {
+                 content: [{ type: 'text', text: `Failed to initialize AI client: ${initError.message}` }],
+                 isError: true,
+                 _meta: { success: false, errorType: 'InitializationError' }
+             };
+        }
+
+        // 1. Construct the detailed prompt for the Gemini model
         const rolesString = params.roles.join(', ');
         const prompt_text = `
 Simulate a concise board meeting transcript.
@@ -455,12 +734,12 @@ Instructions:
 - Keep the simulation focused and representative of a professional board meeting.
 - Include brief moments of agreement, disagreement, and clarification.
 - Output should be in markdown format, suitable for meeting minutes.
-- Start with the Chair opening the discussion on the topic.
+- Start with the Chair (or CEO if present, otherwise first role listed) opening the discussion on the topic.
 - Conclude with a summary of key decisions or next steps.
         `.trim();
 
         // 2. Determine output file path
-        const safeFilenameBase = params.output_filename?.replace(/[^a-z0-9_-]/gi, '') || params.topic.replace(/[^a-z0-9_-]/gi, '').toLowerCase().substring(0, 50);
+        const safeFilenameBase = params.output_filename?.replace(/[^a-z0-9_-]/gi, '_').toLowerCase() || params.topic.replace(/[^a-z0-9_-]/gi, '_').toLowerCase().substring(0, 50);
         const outputFilename = `${safeFilenameBase}_${Date.now()}.md`;
         const outputFilePath = path.join(OUTPUT_DIR_BOARD, outputFilename);
 
@@ -474,83 +753,96 @@ Instructions:
                 content: [{ type: 'text', text: `Failed to create output directory: ${OUTPUT_DIR_BOARD}` }],
                 isError: true,
                 _meta: {
-                    success: false, exitCode: null, stdout: '', stderr: `Directory creation error: ${dirError.message}`, executedCommand: 'N/A', errorType: 'FileSystemError',
-                    outputFilePath: outputFilePath // Still provide path even on failure
+                    success: false, apiError: `Directory creation error: ${dirError.message}`, errorType: 'FileSystemError',
+                    outputFilePath: outputFilePath, fileSaveSuccess: false
                 }
             };
         }
 
-        // 4. Prepare script arguments
-        const scriptArgs: string[] = [prompt_text];
-        // Maybe add a specific tag later if needed, e.g., '--simulation'
-        const executedCommand = `${AIDER_SCRIPT_PATH} prompt_aider ${scriptArgs.map(escapeShellArg).join(' ')}`;
-
-        // 5. Execute the script
-        let result: { stdout: string; stderr: string; exitCode: number | null } | null = null;
-        let error: Error | null = null;
-        let success = false;
-        let stdout = '';
-        let stderr = '';
-        let exitCode = null;
-        let fileSaveSuccess = false;
-        let fileSaveError = '';
+        // 4. Execute the Gemini API call
+        let simulationText = '';
+        let apiError: string | undefined = undefined;
+        let apiSuccess = false;
 
         try {
-            log(`Executing aider for ceo_and_board simulation: ${params.topic}`);
-            result = await executeAiderScript("prompt_aider", scriptArgs);
-            success = result?.exitCode === 0 && !error;
-            stdout = result?.stdout ?? '';
-            stderr = result?.stderr ?? '';
-            exitCode = result?.exitCode ?? null;
+            log(`Generating ceo_and_board simulation for topic: ${params.topic}`);
+            const model = ai.getGenerativeModel({ model: GEMINI_MODEL_NAME });
+            const result = await model.generateContent(prompt_text);
+            const response = await result.response;
+            const responseText = response.text();
 
-            // 6. Attempt to save output if script succeeded
-            if (success && stdout) {
-                try {
-                    await fsPromises.writeFile(outputFilePath, stdout);
-                    log(`Successfully saved ceo_and_board output to ${outputFilePath}`);
-                    fileSaveSuccess = true;
-                } catch (writeError: any) {
-                    log(`Error writing output file ${outputFilePath}: ${writeError.message}`);
-                    fileSaveError = `\nFile Save Error: ${writeError.message}`;
-                    // Treat file save error as a partial failure for the tool's purpose
-                    success = false; 
-                }
+            if (responseText) {
+                simulationText = responseText;
+                apiSuccess = true;
+                log(`Successfully received ceo_and_board simulation from API.`);
+            } else {
+                 const errorMsg = `No text content received for ceo_and_board. Response: ${JSON.stringify(response)}`;
+                 log(`Error: ${errorMsg}`);
+                 apiError = errorMsg;
             }
-             else if (success && !stdout) {
-                 log(`Script succeeded but produced no stdout for ceo_and_board: ${params.topic}`);
-                 fileSaveError = "\nFile Save Info: Script succeeded but produced no output to save.";
-             }
-
-        } catch (e: any) {
-            error = e;
-            stderr += `\nTool Error: ${error?.message ?? 'Unknown execution error'}`;
+        } catch (error: any) {
+            const errorMsg = `API Error during ceo_and_board simulation: ${error.message}`;
+            log(errorMsg);
+            apiError = errorMsg;
         }
 
-        const finalStderr = `${stderr}${fileSaveError}`;
-        let errorType: string | undefined = undefined;
-        if (error) errorType = 'ExecutionError';
-        else if (fileSaveError && !stderr) errorType = 'FileSystemError'; // Prioritize execution/script errors
-        else if (!success) errorType = 'ScriptError';
+
+        // 5. Attempt to save output if API call succeeded
+        let fileSaveSuccess = false;
+        let fileSaveError = '';
+        let fileSystemError = false;
+
+        if (apiSuccess && simulationText) {
+            try {
+                await fsPromises.writeFile(outputFilePath, simulationText);
+                log(`Successfully saved ceo_and_board output to ${outputFilePath}`);
+                fileSaveSuccess = true;
+            } catch (writeError: any) {
+                log(`Error writing output file ${outputFilePath}: ${writeError.message}`);
+                fileSaveError = `File System Error: ${writeError.message}`;
+                fileSystemError = true; // Mark as file system error
+            }
+        } else if (apiSuccess && !simulationText) {
+             log(`API succeeded but produced no text for ceo_and_board: ${params.topic}`);
+             fileSaveError = "File Save Info: API succeeded but produced no output to save.";
+             // fileSaveSuccess remains false
+        }
+
+        // 6. Determine overall success and return result
+        const overallSuccess = apiSuccess && fileSaveSuccess;
+        let finalErrorType: string | undefined = undefined;
+        if (fileSystemError) finalErrorType = 'FileSystemError';
+        else if (!apiSuccess) finalErrorType = 'ApiError';
+
+        const finalApiError = apiError ? apiError : (fileSaveError && !fileSystemError ? fileSaveError : undefined);
+
+
+        // Prepare content array
+        const contentResponse: { type: 'text'; text: string }[] = [
+            {
+                type: "text",
+                text: overallSuccess
+                    ? `CEO & Board simulation (Topic: ${params.topic}) using Gemini API completed and saved to '${outputFilePath}'.`
+                    : `CEO & Board simulation (Topic: ${params.topic}) using Gemini API failed. API Success: ${apiSuccess}, Saved: ${fileSaveSuccess}. Error: ${finalApiError || 'See _meta'}.`
+            }
+        ];
+
+         // Add error snippet conditionally
+        if (!overallSuccess && finalApiError) {
+             contentResponse.push({ type: 'text', text: `
+--- Error Snippet ---
+...${finalApiError.slice(-300)}` });
+        }
 
         return {
-            content: [
-                {
-                    type: "text",
-                    text: success && fileSaveSuccess
-                        ? `CEO & Board simulation (Topic: ${params.topic}) completed and saved to '${outputFilePath}'. (Exit Code: ${exitCode})`
-                        : `CEO & Board simulation (Topic: ${params.topic}) failed or could not save output. Success: ${success}, Saved: ${fileSaveSuccess}. See errors/details in _meta. (Exit Code: ${exitCode})`
-                }
-            ],
-            isError: !success || !fileSaveSuccess, // Mark as error if script failed OR saving failed
+            content: contentResponse,
+            isError: !overallSuccess,
             _meta: {
-                success: success && fileSaveSuccess, // Overall success requires script success AND file save
-                exitCode: exitCode,
-                stdout: "[stdout omitted in response, check saved file if successful]", // Avoid large output here
-                stderr: finalStderr,
-                executedCommand: executedCommand,
+                success: overallSuccess,
                 outputFilePath: outputFilePath,
                 fileSaveSuccess: fileSaveSuccess,
-                errorType: errorType
+                apiError: finalApiError, // Report specific API or related error
+                errorType: finalErrorType
             }
         };
     }

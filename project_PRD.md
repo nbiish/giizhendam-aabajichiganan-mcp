@@ -1,103 +1,69 @@
-# LLM-Optimized Agile MVP PRD for Aider-Integrated MCP Server
+# LLM-Optimized Agile MVP PRD: Giizhendam Aabajichiganan MCP Server
 
 ## Purpose
-*   Provide a lean, standardized PRD template for LLM-driven requirement definition and iteration for the Aider-Integrated MCP Server project.
+*   Provide a lean, standardized PRD to guide the development and iteration of the Giizhendam Aabajichiganan MCP server, which interfaces with external AI tools (`aider`, Gemini API) for specialized tasks.
 
 ## Vision & Goals
-*   **Vision:** An easily deployable MCP server that empowers LLMs to leverage the `aider` tool for various specialized tasks (research, coding, analysis) via clearly defined tools.
-*   **Primary Goal:** Enable LLMs interacting with this MCP server to effectively utilize the capabilities defined in `aider-cli-commands.sh` through dedicated server tools, facilitating complex task execution and information synthesis.
+*   **Vision:** To provide a robust and flexible MCP server that acts as an intelligent agent interface, leveraging powerful external tools like `aider` and foundation models (like Gemini) to offer specialized AI assistance directly within the development environment.
+*   **Primary Goal:** Offer developers a suite of MCP tools that enable targeted AI-driven tasks, including financial analysis simulations, board meeting simulations, and general-purpose code/text generation via `aider`, with configurable underlying AI models.
 
-## Core MVP Definition
-*   **Definition:** Minimal MCP server exposing core `aider` functionalities (single prompt, double compute, board simulation, financial expert simulation) as distinct tools, publishable to npm.
+## Core MVP Definition (Current State)
+*   **Definition:** The current feature set allows users to invoke specific AI tasks through MCP tools, leveraging `aider` and the Gemini API, with model configurations driven by environment variables.
 *   **Scope:**
-    *   **Must have:**
-        *   npm-publishable Node.js/TypeScript project structure.
-        *   MCP Server implementation using `@modelcontextprotocol/sdk`.
-        *   `prompt_aider` tool: Implemented (v1). Executes a single prompt via `aider-cli-commands.sh` with task tagging. Needs testing.
-        *   `double_compute` tool: Implemented. Executes a single prompt twice via `aider-cli-commands.sh`. Needs testing.
-        *   `ceo_and_board` tool: Implemented. Simulates a board discussion using `aider` for specified roles, attempts saving outputs to `ceo-and-board/`. Needs testing.
-        *   `finance_experts` tool: Implemented and refined. Simulates financial expert deliberation using `aider` with adapted prompts from `finance-agents.md`, attempts saving outputs to `financial-experts/`. Needs testing.
-        *   Clear tool descriptions guiding LLM usage based on `aider-cli-commands.sh` task types.
-        *   Basic error handling for script execution.
-    *   **Out of scope:**
-        *   Advanced error handling beyond script execution failures.
-        *   User authentication/authorization.
-        *   Sophisticated state management between tool calls.
-        *   Direct integration with Context7, Brave Search, or Fetch MCPs (these are meta-instructions for the assistant, not server features).
-        *   UI/Frontend.
+    *   **Must have (Implemented):**
+        *   **`prompt_aider` tool:** Executes a general prompt using the `aider` command, configured via `AIDER_MODEL` and optional `AIDER_EDITOR_MODEL` env vars. Captures `stdout`/`stderr`.
+        *   **`double_compute` tool:** Executes `prompt_aider` twice for redundant computation or comparison.
+        *   **`finance_experts` tool:** Simulates perspectives from multiple hardcoded financial expert personas (Graham, Ackman, Wood, Munger, Burry, Lynch, Fisher) on a user-provided financial topic/query using the Gemini API. Saves output to `./financial-experts/`. Requires `GEMINI_API_KEY`.
+        *   **`ceo_and_board` tool:** Simulates a board discussion based on a user-provided topic and roles using the **Gemini API**. Saves output to `./ceo-and-board/`. Requires `GEMINI_API_KEY`.
+        *   **Model Configuration:** Reads `AIDER_MODEL` and optional `AIDER_EDITOR_MODEL` from `process.env` (set via `mcp.json`) to control `aider` execution style (for `prompt_aider`, `double_compute` only).
+        *   **Gemini API Integration:** `finance_experts` and `ceo_and_board` use the Gemini API directly (requires `GEMINI_API_KEY` env var).
+        *   **Output Handling:** Tools return execution status, summaries, and include detailed logs (`stdout`/`stderr` from `aider`, API errors from Gemini tools) in the `_meta` field. Output snippets are included in the main response.
+        *   **File Saving:** Simulation tools (`finance_experts`, `ceo_and_board`) save results to dedicated directories.
+    *   **Out of scope (Current):**
+        *   Direct image generation or processing.
+        *   Execution of arbitrary shell scripts (replaced by direct `aider` calls).
+        *   Complex multi-step workflows beyond `double_compute`.
+        *   Reading expert prompts from external files (now embedded).
 
 ## Guiding Principles
-*   Build–Measure–Learn (applied to tool usability for LLMs).
-*   Problem-focused: Enable LLM access to `aider` tasks.
-*   Minimalism: Implement only the specified tools initially.
-*   Viability: Ensure the tools function correctly and interface with the `aider` script.
+*   Leverage powerful external tools (`aider`, Gemini API).
+*   Provide specialized, task-oriented MCP interfaces.
+*   Enable flexible AI model configuration via environment variables.
+*   Ensure detailed execution logs (`stdout`/`stderr`) are captured and returned.
+*   Prioritize direct execution over intermediate scripts where feasible.
 
 ## Success Metrics
 *   **Quantitative:**
-    *   Successful publication to npm.
-    *   LLM successfully calls each of the 4 tools via the MCP.
-    *   Output files are correctly generated in `ceo-and-board/` and `financial-experts/` directories upon tool execution.
+    *   High rate of successful tool executions (exit code 0 for `aider` tools, API success for Gemini tools).
+    *   Successful saving of output files for simulation tools.
+    *   Low rate of configuration errors (e.g., missing API keys/models).
 *   **Qualitative:**
-    *   Tool descriptions are clear and sufficient for an LLM to use them correctly.
-    *   Feedback indicates the server reliably facilitates `aider` tasks.
+    *   User feedback indicates the expert/simulation outputs are relevant and useful.
+    *   The provided `stdout`/`stderr` snippets and full logs in `_meta` are sufficient for debugging and understanding tool execution.
+    *   Ease of configuration via `mcp.json`.
 
 ## Feedback & Iteration
-*   Initial feedback based on testing interactions with an LLM.
-*   Future iterations could include: adding more tools, improving error handling, enhancing prompt structures based on usage.
+*   Collect feedback primarily through user interactions within the Cursor environment.
+*   Monitor tool usage patterns and error rates.
+*   Prioritize future iterations based on user feedback, focusing on improving tool utility, reliability, and potentially expanding the range of specialized tasks.
 
 ## Terminology
-*   **MCP:** Model Context Protocol
-*   **Aider:** The underlying CLI tool being interfaced with.
-*   **LLM:** Large Language Model (the consumer of the MCP server).
+*   **MCP:** Model Context Protocol.
+*   **Aider:** AI pair programming tool used for code/text generation tasks.
+*   **Gemini API:** Google's API for accessing Gemini foundation models.
+*   **MVP:** Minimum Viable Product.
 
-## Prompt Engineering Guide (for users of this PRD)
-*   Reference sections by header (e.g., "## Core MVP Definition") to scope LLM responses about this project.
-*   Example prompt: "Based on the ## Core MVP Definition, detail the implementation steps for the `prompt_aider` tool."
+## Tool Usage & Prompting Guide
+*   **General:** Ensure required environment variables (`AIDER_MODEL`, `GEMINI_API_KEY`, potentially `AIDER_EDITOR_MODEL`) are set correctly in the `mcp.json` configuration for this server.
+*   **`prompt_aider` / `double_compute`:** Use the `prompt_text` parameter for the core instruction to `aider`. Use the `files` parameter (array of strings) to specify files `aider` should be aware of or modify.
+*   **`finance_experts`:** Use the `topic` parameter to pose a specific financial question or describe a situation for the experts to analyze from their unique perspectives (e.g., "Analyze the financial risks and potential ROI for launching a new subscription service based on our current user base."). Requires `GEMINI_API_KEY`.
+*   **`ceo_and_board`:** Use the `topic` parameter for the central discussion point (e.g., "Q3 Marketing Strategy Review"). Use the `roles` parameter (array of strings) to list the participant roles (e.g., `["CEO", "CFO", "Head of Marketing", "Lead Investor"]`). Requires `GEMINI_API_KEY`.
+*   **Output:** Check the main `content` for summaries and output snippets. Always check the `_meta` field in the tool response for full `stdout`, `stderr`, `executedCommand` (for `aider` tools), or `apiError` details (for Gemini tools).
 
-## Document Types Overview
-*   This document follows the Agile MVP PRD format.
-
-## Prompting Tips (for users of this PRD)
-*   **Target headers:** Scope LLM queries by section (e.g., "## Success Metrics").
-*   **Feature generation:** "Suggest one additional 'Must-have' feature based on the ## Vision & Goals."
-*   **Refinement prompts:** "Based on potential LLM usage patterns, suggest improvements to the `ceo_and_board` tool's output format."
-
-## Agile MVP Framework for Project Goal Setting
-*   **Define Problem & Target Audience:** LLMs lack direct access to execute specialized `aider` tasks defined in a local script. Target audience is developers integrating LLMs that need this capability.
-*   **Identify Core Value & Essential Features:** Provide MCP tools mapping directly to `aider` script functions (`prompt_aider`, `double_compute`, `ceo_and_board`, `finance_experts`). Exclude direct web/Context7 integration in the server itself.
-*   **Prioritize & Scope:** Implement the four specified tools as the minimal viable increment.
-*   **Define Success Metrics:** Focus on successful tool execution by an LLM and correct output generation.
-*   **Plan Feedback & Iteration:** Initial testing by developers/LLMs, future enhancements based on identified needs.
-
-## Key Considerations
-*   **Benefits:** Enables LLMs to perform complex, structured tasks via `aider`, promotes modularity, allows specialized task execution.
-*   **Challenges:** Ensuring robust interaction with the shell script (`aider-cli-commands.sh`), crafting effective tool descriptions for LLMs, managing dependencies for npm publication, adapting specific prompts (finance) for general use. 
-
-## Codebase Structure Example (Conceptual Mapping)
-
-This structure provides a conceptual hierarchy inspired by principles like Domain-Driven Design (DDD) and Atomic Design for organizing codebase elements.
-
-*   **Matter:** Represents the largest boundaries, akin to DDD Bounded Contexts or major application domains/services.
-    *   *Example Directory:* `/src/matter/user-management/`
-    *   *Example Directory:* `/src/matter/order-processing/`
-    *   *Focus:* High-level domain logic, coordination between molecules.
-
-*   **Molecules:** Represents composite features, use cases, or larger components formed by combining Atoms within a specific Matter. Analogous to complex components or feature slices.
-    *   *Example Directory:* `/src/matter/user-management/molecules/registration-flow/`
-    *   *Example Directory:* `/src/matter/order-processing/molecules/checkout-process/`
-    *   *Example Component:* `UserProfileCard` (combining Atom components like `Avatar`, `UserName`, `EditButton`)
-    *   *Focus:* Orchestrating Atoms to fulfill a specific feature or user interaction.
-
-*   **Atoms:** Represents the smallest reusable building blocks, similar to Atomic Design's atoms or core domain entities/functions.
-    *   *Example Directory:* `/src/atoms/ui/` (for UI components)
-    *   *Example Directory:* `/src/atoms/domain/` (for core domain objects/logic)
-    *   *Example UI Component:* `Button.tsx`, `Input.tsx`, `Label.tsx`
-    *   *Example Domain Atom:* `class UserId { ... }`, `function calculateDiscount(...)`
-    *   *Focus:* Single responsibility, reusability, minimal dependencies.
-
-*   **Quanta:** Represents the most fundamental, indivisible units – often cross-cutting concerns or foundational elements.
-    *   *Example Directory:* `/src/quanta/utils/`
-    *   *Example Directory:* `/src/quanta/constants/`
-    *   *Example Directory:* `/src/quanta/design-tokens/`
-    *   *Example File:* `dateTimeUtils.ts`, `apiEndpoints.ts`, `colors.ts`, `spacing.ts`
-    *   *Focus:* Pure functions, configuration values, fundamental definitions used across Atoms and Molecules. 
+## Codebase Structure (Current)
+*   **`src/index.ts`:** Contains the main MCP server logic, tool definitions (interfacing with `aider` or Gemini API), and helper functions (`executeAider`, though now only used by `prompt_aider`/`double_compute`).
+*   **`package.json` / `package-lock.json`:** Manage Node.js dependencies (@modelcontextprotocol/sdk, @google/generative-ai, etc.).
+*   **`tsconfig.json`:** TypeScript configuration.
+*   **`dist/`:** Compiled JavaScript output.
+*   **`financial-experts/` / `ceo-and-board/`:** Output directories created dynamically to store simulation results.
+*   **Configuration:** Primarily driven by environment variables passed via the `mcp.json` server definition.
