@@ -24,6 +24,7 @@ const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
 const promises_1 = __importDefault(require("fs/promises"));
 const generative_ai_1 = require("@google/generative-ai");
+const net_1 = __importDefault(require("net"));
 // Setting up logging (Optional but recommended)
 const LOG_FILE = '/tmp/giizhendam_mcp_v2_log.txt';
 function log(message) {
@@ -40,7 +41,7 @@ log(`--- Starting server v2 ---`);
 // const AIDER_SCRIPT_PATH = './aider-cli-commands.sh'; // Assuming it's in the root
 // --- Server Setup ---
 const serverName = "giizhendam-aabajichiganan-mcp-script-interface";
-const serverVersion = "0.3.0"; // New version for the new architecture
+const serverVersion = "0.3.1"; // Incremented version
 const server = new mcp_js_1.McpServer({
     name: serverName,
     version: serverVersion,
@@ -60,6 +61,82 @@ function escapeShellArg(arg: string): string {
   return arg;
 }
 */
+// --- Security Utility Functions ---
+/**
+ * Scrub stack traces and internal paths from errors returned to clients.
+ * Only return safe error messages. Log full error server-side.
+ */
+function safeErrorReport(error) {
+    // Security: Prevent leaking sensitive error details to the client.
+    log(`Internal Error: ${(error === null || error === void 0 ? void 0 : error.stack) || error}`); // Log full error server-side
+    if (!error)
+        return 'Unknown error.';
+    if (typeof error === 'string')
+        return error.split('\n')[0];
+    // Return only the first line of the message to avoid stack traces
+    if (error.message)
+        return error.message.split('\n')[0];
+    return 'An error occurred.';
+}
+/**
+ * Validate file paths to restrict to project directory and allow only certain extensions.
+ * Prevents path traversal and unsafe file access.
+ * Security: Ensure file operations stay within the intended project scope.
+ */
+function validateFilePath(filePath) {
+    const allowedExtensions = ['.md', '.ts', '.json', '.txt']; // Allowlist safe extensions
+    try {
+        const absPath = path_1.default.resolve(process.cwd(), filePath);
+        // Check 1: Is the resolved path still within the current working directory?
+        if (!absPath.startsWith(process.cwd())) {
+            log(`Security Violation: Attempt to access file outside project directory: ${filePath}`);
+            return false;
+        }
+        // Check 2: Does the file have an allowed extension?
+        if (!allowedExtensions.some(ext => absPath.endsWith(ext))) {
+            log(`Security Violation: Attempt to access file with disallowed extension: ${filePath}`);
+            return false;
+        }
+        return true;
+    }
+    catch (error) {
+        log(`Error validating file path ${filePath}: ${error}`);
+        return false;
+    }
+}
+/**
+ * Validate URLs to allow only HTTPS and block localhost/private IPs.
+ * Prevents SSRF and cleartext transmission.
+ * Security: Enforce secure HTTPS connections and prevent requests to internal network resources.
+ */
+function validateUrl(urlStr) {
+    try {
+        const url = new URL(urlStr);
+        // Check 1: Only allow HTTPS protocol
+        if (url.protocol !== 'https:') {
+            log(`Security Violation: Non-HTTPS URL rejected: ${urlStr}`);
+            return false;
+        }
+        const hostname = url.hostname;
+        // Check 2: Block localhost variants
+        if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') {
+            log(`Security Violation: Localhost URL rejected: ${urlStr}`);
+            return false;
+        }
+        // Check 3: Block private IP ranges (RFC 1918 and loopback)
+        if (/^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/.test(hostname) || net_1.default.isIPv6(hostname) && hostname.startsWith('fd')) {
+            log(`Security Violation: Private IP URL rejected: ${urlStr}`);
+            return false;
+        }
+        // Note: This doesn't prevent DNS rebinding attacks where a public hostname resolves to a private IP later.
+        // More robust SSRF prevention might involve an explicit allowlist or a network proxy.
+        return true;
+    }
+    catch (error) {
+        log(`Error validating URL ${urlStr}: ${error}`);
+        return false;
+    }
+}
 // --- Tool Implementations (To be added based on PRD) ---
 // Helper function to execute the aider command directly
 function executeAider(toolArgs // Args specific to the tool, e.g., ['--message', 'prompt', 'file1.ts']
@@ -78,13 +155,11 @@ function executeAider(toolArgs // Args specific to the tool, e.g., ['--message',
             // Add model and common args
             // Check if editor model is specified to use architect mode
             if (aiderEditorModel) {
-                log(`Using architect mode with Model: ${aiderModel}, Editor Model: ${aiderEditorModel}`);
                 baseAiderArgs.push('--architect');
                 baseAiderArgs.push('--model', aiderModel);
                 baseAiderArgs.push('--editor-model', aiderEditorModel);
             }
             else {
-                log(`Using standard mode with Model: ${aiderModel}`);
                 baseAiderArgs.push('--model', aiderModel);
             }
             // Add common flags needed for programmatic execution
@@ -133,7 +208,7 @@ function executeAider(toolArgs // Args specific to the tool, e.g., ['--message',
 }
 // --- Tool: prompt_aider ---
 const promptAiderParamsSchema = zod_1.z.object({
-    prompt_text: zod_1.z.string().describe("The main prompt/instruction for aider."),
+    prompt_text: zod_1.z.string().max(10000, "Prompt text exceeds maximum length of 10000 characters.").describe("The main prompt/instruction for aider."),
     task_type: zod_1.z.enum(TASK_TYPES).optional().describe("Optional task type hint (research, docs, security, code, verify, progress) - currently informational."),
     files: zod_1.z.array(zod_1.z.string()).optional().describe("Optional list of files for aider to consider or modify.")
 });
@@ -178,9 +253,10 @@ server.tool("prompt_aider", "Executes the aider command directly with the given 
     }
     const success = (result === null || result === void 0 ? void 0 : result.exitCode) === 0 && !error;
     const stdout = (_b = result === null || result === void 0 ? void 0 : result.stdout) !== null && _b !== void 0 ? _b : '';
-    const stderr = `${(_c = result === null || result === void 0 ? void 0 : result.stderr) !== null && _c !== void 0 ? _c : ''}${error ? `\nTool Error: ${error.message}` : ''}`;
+    // Use safeErrorReport to scrub sensitive error details before returning to client
+    const stderr = `${(_c = result === null || result === void 0 ? void 0 : result.stderr) !== null && _c !== void 0 ? _c : ''}${error ? `\nTool Error: ${safeErrorReport(error)}` : ''}`;
     const exitCode = (_d = result === null || result === void 0 ? void 0 : result.exitCode) !== null && _d !== void 0 ? _d : null;
-    const executedCommand = (_e = result === null || result === void 0 ? void 0 : result.executedCommand) !== null && _e !== void 0 ? _e : `aider [error constructing command - ${error === null || error === void 0 ? void 0 : error.message}]`; // Provide fallback
+    const executedCommand = (_e = result === null || result === void 0 ? void 0 : result.executedCommand) !== null && _e !== void 0 ? _e : `aider [error constructing command - ${safeErrorReport(error)}]`; // Provide fallback
     if (!errorType && !success && exitCode !== 0) { // If no execution error but script failed
         errorType = 'AiderError';
     }
@@ -190,7 +266,7 @@ server.tool("prompt_aider", "Executes the aider command directly with the given 
             type: "text",
             text: success
                 ? `Aider command executed successfully (Exit Code: ${exitCode}). See _meta for full logs.`
-                : `Aider command failed (Exit Code: ${exitCode}). Error: ${(_f = error === null || error === void 0 ? void 0 : error.message) !== null && _f !== void 0 ? _f : 'Aider execution failed.'} See _meta for full logs.`
+                : `Aider command failed (Exit Code: ${exitCode}). Error: ${(_f = safeErrorReport(error)) !== null && _f !== void 0 ? _f : 'Aider execution failed.'} See _meta for full logs.`
         }
     ];
     // Add snippet conditionally
@@ -215,7 +291,7 @@ server.tool("prompt_aider", "Executes the aider command directly with the given 
 }));
 // --- Tool: double_compute ---
 const doubleComputeParamsSchema = zod_1.z.object({
-    prompt_text: zod_1.z.string().describe("The main prompt/instruction for aider."),
+    prompt_text: zod_1.z.string().max(10000, "Prompt text exceeds maximum length of 10000 characters.").describe("The main prompt/instruction for aider."),
     files: zod_1.z.array(zod_1.z.string()).optional().describe("Optional list of files for aider to consider or modify.")
 });
 const doubleComputeOutputMetaSchema = zod_1.z.object({
@@ -249,9 +325,9 @@ server.tool("double_compute", "Executes the aider command TWICE directly with th
     }
     const success1 = (result1 === null || result1 === void 0 ? void 0 : result1.exitCode) === 0 && !error1;
     const stdout1 = (_b = result1 === null || result1 === void 0 ? void 0 : result1.stdout) !== null && _b !== void 0 ? _b : '';
-    const stderr1 = `${(_c = result1 === null || result1 === void 0 ? void 0 : result1.stderr) !== null && _c !== void 0 ? _c : ''}${error1 ? `\nTool Error (Run 1): ${error1.message}` : ''}`;
+    const stderr1 = `${(_c = result1 === null || result1 === void 0 ? void 0 : result1.stderr) !== null && _c !== void 0 ? _c : ''}${error1 ? `\nTool Error (Run 1): ${safeErrorReport(error1)}` : ''}`;
     const exitCode1 = (_d = result1 === null || result1 === void 0 ? void 0 : result1.exitCode) !== null && _d !== void 0 ? _d : null;
-    const executedCommand1 = (_e = result1 === null || result1 === void 0 ? void 0 : result1.executedCommand) !== null && _e !== void 0 ? _e : `aider [error constructing command (run 1) - ${error1 === null || error1 === void 0 ? void 0 : error1.message}]`;
+    const executedCommand1 = (_e = result1 === null || result1 === void 0 ? void 0 : result1.executedCommand) !== null && _e !== void 0 ? _e : `aider [error constructing command (run 1) - ${safeErrorReport(error1)}]`;
     if (!errorType1 && !success1 && exitCode1 !== 0)
         errorType1 = 'AiderError';
     // Run 2
@@ -265,9 +341,9 @@ server.tool("double_compute", "Executes the aider command TWICE directly with th
     }
     const success2 = (result2 === null || result2 === void 0 ? void 0 : result2.exitCode) === 0 && !error2;
     const stdout2 = (_f = result2 === null || result2 === void 0 ? void 0 : result2.stdout) !== null && _f !== void 0 ? _f : '';
-    const stderr2 = `${(_g = result2 === null || result2 === void 0 ? void 0 : result2.stderr) !== null && _g !== void 0 ? _g : ''}${error2 ? `\nTool Error (Run 2): ${error2.message}` : ''}`;
+    const stderr2 = `${(_g = result2 === null || result2 === void 0 ? void 0 : result2.stderr) !== null && _g !== void 0 ? _g : ''}${error2 ? `\nTool Error (Run 2): ${safeErrorReport(error2)}` : ''}`;
     const exitCode2 = (_h = result2 === null || result2 === void 0 ? void 0 : result2.exitCode) !== null && _h !== void 0 ? _h : null;
-    const executedCommand2 = (_j = result2 === null || result2 === void 0 ? void 0 : result2.executedCommand) !== null && _j !== void 0 ? _j : `aider [error constructing command (run 2) - ${error2 === null || error2 === void 0 ? void 0 : error2.message}]`;
+    const executedCommand2 = (_j = result2 === null || result2 === void 0 ? void 0 : result2.executedCommand) !== null && _j !== void 0 ? _j : `aider [error constructing command (run 2) - ${safeErrorReport(error2)}]`;
     if (!errorType2 && !success2 && exitCode2 !== 0)
         errorType2 = 'AiderError';
     const overallSuccess = success1 && success2;
@@ -423,7 +499,7 @@ When responding to the user's query:
 // type FinancialExpertPersona = typeof FINANCIAL_EXPERT_PERSONAS[number];
 // ^^^ No longer needed as we process all defined experts ^^^
 const financeExpertsParamsSchema = zod_1.z.object({
-    topic: zod_1.z.string().describe("The central financial topic or query related to a project or business situation for the experts to analyze (e.g., 'Financial risks of Project X', 'Funding strategy for new initiative Y')."),
+    topic: zod_1.z.string().max(2000, "Topic exceeds maximum length of 2000 characters.").describe("The central financial topic or query related to a project or business situation for the experts to analyze (e.g., 'Financial risks of Project X', 'Funding strategy for new initiative Y')."),
     // experts field removed - all experts are processed now.
     output_filename: zod_1.z.string().optional().describe("Optional filename (without extension) for the output markdown file. Defaults to a sanitized version of the topic.")
 });
@@ -609,8 +685,8 @@ ${response}
 }));
 // --- Tool: ceo_and_board ---
 const ceoBoardParamsSchema = zod_1.z.object({
-    topic: zod_1.z.string().describe("The central topic for the board discussion (e.g., 'Q3 Strategy Review', 'Acquisition Proposal X')."),
-    roles: zod_1.z.array(zod_1.z.string()).min(1).describe("List of board member roles to simulate (e.g., ['CEO', 'CTO', 'Lead Investor', 'Independent Director'])."),
+    topic: zod_1.z.string().max(2000, "Topic exceeds maximum length of 2000 characters.").describe("The central topic for the board discussion (e.g., 'Q3 Strategy Review', 'Acquisition Proposal X')."),
+    roles: zod_1.z.array(zod_1.z.string().max(100, "Role exceeds maximum length of 100 characters.")).min(1).describe("List of board member roles to simulate (e.g., ['CEO', 'CTO', 'Lead Investor', 'Independent Director'])."),
     output_filename: zod_1.z.string().optional().describe("Optional filename (without extension) for the output markdown file. Defaults to a sanitized version of the topic.")
 });
 const OUTPUT_DIR_BOARD = path_1.default.join(process.cwd(), 'ceo-and-board');
@@ -736,14 +812,12 @@ Instructions:
             type: "text",
             text: overallSuccess
                 ? `CEO & Board simulation (Topic: ${params.topic}) using Gemini API completed and saved to '${outputFilePath}'.`
-                : `CEO & Board simulation (Topic: ${params.topic}) using Gemini API failed. API Success: ${apiSuccess}, Saved: ${fileSaveSuccess}. Error: ${finalApiError || 'See _meta'}.`
+                : `CEO & Board simulation (Topic: ${params.topic}) using Gemini API failed. API Success: ${apiSuccess}, Saved: ${fileSaveSuccess}. Error: ${safeErrorReport(finalApiError) || 'See _meta'}.`
         }
     ];
     // Add error snippet conditionally
     if (!overallSuccess && finalApiError) {
-        contentResponse.push({ type: 'text', text: `
---- Error Snippet ---
-...${finalApiError.slice(-300)}` });
+        contentResponse.push({ type: 'text', text: `\n--- Error Snippet ---\n...${safeErrorReport(finalApiError).slice(-300)}` });
     }
     return {
         content: contentResponse,
@@ -752,7 +826,7 @@ Instructions:
             success: overallSuccess,
             outputFilePath: outputFilePath,
             fileSaveSuccess: fileSaveSuccess,
-            apiError: finalApiError, // Report specific API or related error
+            apiError: safeErrorReport(finalApiError), // Report specific API or related error
             errorType: finalErrorType
         }
     };
@@ -768,14 +842,14 @@ function main() {
         }
         catch (error) {
             console.error("Fatal error in main():", error);
-            log(`Fatal error in main(): ${error.message}`);
+            log(`Fatal error in main(): ${safeErrorReport(error)}`);
             process.exit(1);
         }
     });
 }
 main().catch((error) => {
     console.error("Fatal error outside main():", error);
-    log(`Fatal error outside main(): ${error.message}`);
+    log(`Fatal error outside main(): ${safeErrorReport(error)}`);
     process.exit(1);
 });
 // Graceful shutdown handlers
