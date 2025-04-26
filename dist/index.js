@@ -23,6 +23,7 @@ const child_process_1 = require("child_process");
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
 const promises_1 = __importDefault(require("fs/promises"));
+const genai_1 = require("@google/genai");
 // Setting up logging (Optional but recommended)
 const LOG_FILE = '/tmp/giizhendam_mcp_v2_log.txt';
 function log(message) {
@@ -261,115 +262,186 @@ const financeExpertsParamsSchema = zod_1.z.object({
     output_filename: zod_1.z.string().optional().describe("Optional filename (without extension) for the output markdown file. Defaults to a sanitized version of the topic.")
 });
 const OUTPUT_DIR_FINANCE = path_1.default.join(process.cwd(), 'financial-experts');
-server.tool("finance_experts", "Simulates a deliberation between specified financial expert personas on a given topic using aider. Constructs a prompt referencing their core principles (based on finance-agents.md), executes it via aider-cli-commands.sh (--research tag), and aims to save output to './financial-experts/'.", financeExpertsParamsSchema.shape, (params) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a, _b, _c, _d, _e;
-    // 1. Construct the detailed prompt for aider
-    const expertsString = params.experts.join(', ');
-    // Basic prompt structure - Ideally, pull detailed principles for *each* selected expert from finance-agents.md
-    // For simplicity here, we'll just list them. A more advanced version could inject specific rules per expert.
-    const prompt_text = `
-Simulate a concise deliberation transcript among financial experts.
-Topic: ${params.topic}
-Participants: ${expertsString}
-Instructions:
-- Generate realistic perspectives, arguments, and potential disagreements for each expert based on their known investment philosophies (e.g., Graham=Value/Margin of Safety, Wood=Disruptive Growth, Munger=Quality/Moat, Ackman=Activism/Quality, Burry=Deep Value/Contrarian, Lynch=GARP/Understandable, Fisher=Long-Term Growth/R&D).
-- Focus on key analysis points, risks, and investment conclusions (buy/sell/hold rationale) for the topic.
-- Keep the discussion focused and representative of each expert's style.
-- Output should be in markdown format.
-- Start with a brief introduction setting the context.
-- Conclude with a summary of viewpoints or key takeaways.
-        `.trim();
-    // 2. Determine output file path
+const FINANCE_AGENTS_PATH = path_1.default.join(process.cwd(), 'finance-agents.md');
+const GEMINI_MODEL_NAME = "gemini-1.5-flash-latest"; // Or choose another appropriate model
+// Helper function to parse expert prompts from finance-agents.md
+function parseExpertPrompts(fileContent) {
+    const prompts = new Map();
+    // Regex to find blocks starting with """You are a [Name] AI agent..."""
+    const expertBlocks = fileContent.split(/```\s*```/); // Split by the separator between agents
+    for (const block of expertBlocks) {
+        const match = block.match(/\"\"\"You are a(?:n)?\s+(.+?)\s+AI agent/i);
+        if (match && match[1]) {
+            const expertName = match[1].trim();
+            // Find the main prompt within triple quotes
+            const promptMatch = block.match(/\"\"\"([\s\S]+?)\"\"\"/);
+            if (promptMatch && promptMatch[1]) {
+                // Normalize name for matching against FINANCIAL_EXPERT_PERSONAS
+                const normalizedName = FINANCIAL_EXPERT_PERSONAS.find(p => expertName.toLowerCase().includes(p.toLowerCase()));
+                if (normalizedName) {
+                    prompts.set(normalizedName, promptMatch[1].trim());
+                }
+                else {
+                    log(`Warning: Could not normalize expert name "${expertName}" found in finance-agents.md`);
+                }
+            }
+        }
+    }
+    log(`Parsed prompts for experts: ${Array.from(prompts.keys()).join(', ')}`);
+    return prompts;
+}
+// Define a new metadata schema specifically for the finance_experts tool
+const financeExpertsOutputMetaSchema = zod_1.z.object({
+    success: zod_1.z.boolean().describe('True if all API calls and file saving succeeded.'),
+    outputFilePath: zod_1.z.string().optional().describe("Path to the generated output file."),
+    fileSaveSuccess: zod_1.z.boolean().optional().describe("True if the output was successfully saved to the file."),
+    expertsProcessed: zod_1.z.array(zod_1.z.string()).describe("List of experts whose prompts were processed."),
+    apiErrors: zod_1.z.array(zod_1.z.object({ expert: zod_1.z.string(), error: zod_1.z.string() })).optional().describe("List of errors encountered during API calls."),
+    errorType: zod_1.z.string().optional().describe("Indicates error source: 'InitializationError', 'FileSystemError', 'ApiError', 'ParsingError'.")
+});
+server.tool("finance_experts", "Simulates a deliberation between specified financial expert personas on a given topic using the Gemini API. Reads prompts from finance-agents.md, generates responses for each expert, and saves the aggregated result to './financial-experts/'. Requires GEMINI_API_KEY environment variable.", financeExpertsParamsSchema.shape, (params) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+        log("Error: GEMINI_API_KEY environment variable not set.");
+        return {
+            content: [{ type: 'text', text: "Configuration Error: GEMINI_API_KEY is not set." }],
+            isError: true,
+            _meta: { success: false, expertsProcessed: [], errorType: 'InitializationError' }
+        };
+    }
+    let ai;
+    try {
+        ai = new genai_1.GoogleGenAI({ apiKey });
+    }
+    catch (initError) {
+        log(`Error initializing GoogleGenAI: ${initError.message}`);
+        return {
+            content: [{ type: 'text', text: `Failed to initialize AI client: ${initError.message}` }],
+            isError: true,
+            _meta: { success: false, expertsProcessed: [], errorType: 'InitializationError' }
+        };
+    }
+    // 1. Read and parse finance-agents.md
+    let expertPrompts;
+    try {
+        const fileContent = yield promises_1.default.readFile(FINANCE_AGENTS_PATH, 'utf-8');
+        expertPrompts = parseExpertPrompts(fileContent);
+        if (expertPrompts.size === 0) {
+            throw new Error("No expert prompts could be parsed from finance-agents.md.");
+        }
+    }
+    catch (readError) {
+        log(`Error reading or parsing ${FINANCE_AGENTS_PATH}: ${readError.message}`);
+        return {
+            content: [{ type: 'text', text: `Failed to read or parse expert definitions: ${readError.message}` }],
+            isError: true,
+            _meta: { success: false, expertsProcessed: [], errorType: 'ParsingError' }
+        };
+    }
+    // 2. Generate responses for selected experts
+    const apiErrors = [];
+    const expertResponses = [];
+    const expertsToProcess = params.experts.filter(expert => expertPrompts.has(expert)); // Only process experts found in the file
+    if (expertsToProcess.length === 0) {
+        log(`Warning: None of the requested experts (${params.experts.join(', ')}) were found in the parsed prompts.`);
+        return {
+            content: [{ type: 'text', text: `Warning: None of the requested experts were found in finance-agents.md. No simulation run.` }],
+            isError: false, // Not technically an error, but nothing happened
+            _meta: { success: true, expertsProcessed: [], outputFilePath: undefined, fileSaveSuccess: undefined } // Indicate success=true but nothing done
+        };
+    }
+    log(`Processing topic "${params.topic}" for experts: ${expertsToProcess.join(', ')}`);
+    yield Promise.allSettled(expertsToProcess.map((expert) => __awaiter(void 0, void 0, void 0, function* () {
+        const basePrompt = expertPrompts.get(expert);
+        // Combine base prompt with the specific topic
+        const fullPrompt = `${basePrompt}\n\nNow, specifically analyze the following topic:\n${params.topic}`;
+        try {
+            log(`Generating response for ${expert}...`);
+            const result = yield ai.models.generateContent({
+                model: GEMINI_MODEL_NAME,
+                contents: [{ role: "user", parts: [{ text: fullPrompt }] }],
+                // Add generationConfig if needed (temperature, topK, etc.)
+                // generationConfig: { temperature: 0.7 }
+            });
+            // Access the text response correctly - Updated based on typical SDK structure
+            const responseText = result.text; // Use the .text getter
+            if (responseText) {
+                expertResponses.push({ expert, response: responseText });
+                log(`Response received for ${expert}`);
+            }
+            else {
+                // Handle cases where response or text is missing
+                const errorMsg = `No text content received for ${expert}. Response: ${JSON.stringify(result)}`; // Stringify the whole result object
+                log(`Error: ${errorMsg}`);
+                apiErrors.push({ expert, error: errorMsg });
+                expertResponses.push({ expert, response: `*Error: Could not generate response for ${expert}*` });
+            }
+        }
+        catch (error) {
+            const errorMsg = `API Error for ${expert}: ${error.message}`;
+            log(errorMsg);
+            apiErrors.push({ expert, error: errorMsg });
+            expertResponses.push({ expert, response: `*Error: API call failed for ${expert}*` });
+        }
+    })));
+    // Sort responses to maintain consistent order (matching input order)
+    expertResponses.sort((a, b) => params.experts.indexOf(a.expert) - params.experts.indexOf(b.expert));
+    // 3. Format output as Markdown
+    let markdownOutput = `# Financial Expert Deliberation\n\n**Topic:** ${params.topic}\n\n---\n\n`;
+    expertResponses.forEach(({ expert, response }) => {
+        markdownOutput += `## ${expert}\n\n${response}\n\n---\n\n`;
+    });
+    if (apiErrors.length > 0) {
+        markdownOutput += `\n**API Errors Encountered:**\n`;
+        apiErrors.forEach(({ expert, error }) => {
+            markdownOutput += `- ${expert}: ${error}\n`;
+        });
+    }
+    // 4. Determine output file path
     const safeFilenameBase = ((_a = params.output_filename) === null || _a === void 0 ? void 0 : _a.replace(/[^a-z0-9_-]/gi, '_').toLowerCase()) || params.topic.replace(/[^a-z0-9_-]/gi, '_').toLowerCase().substring(0, 50);
     const outputFilename = `${safeFilenameBase}_${Date.now()}.md`;
     const outputFilePath = path_1.default.join(OUTPUT_DIR_FINANCE, outputFilename);
-    // 3. Ensure output directory exists
+    // 5. Ensure output directory exists and save file
+    let fileSaveSuccess = false;
+    let fileSaveError = '';
+    let fileSystemError = false;
     try {
         yield promises_1.default.mkdir(OUTPUT_DIR_FINANCE, { recursive: true });
         log(`Ensured output directory exists: ${OUTPUT_DIR_FINANCE}`);
+        yield promises_1.default.writeFile(outputFilePath, markdownOutput);
+        log(`Successfully saved finance_experts output to ${outputFilePath}`);
+        fileSaveSuccess = true;
     }
-    catch (dirError) {
-        log(`Error creating directory ${OUTPUT_DIR_FINANCE}: ${dirError.message}`);
-        return {
-            content: [{ type: 'text', text: `Failed to create output directory: ${OUTPUT_DIR_FINANCE}` }],
-            isError: true,
-            _meta: {
-                success: false, exitCode: null, stdout: '', stderr: `Directory creation error: ${dirError.message}`, executedCommand: 'N/A', errorType: 'FileSystemError'
-            }
-        };
+    catch (writeError) {
+        log(`Error writing output file ${outputFilePath}: ${writeError.message}`);
+        fileSaveError = `File System Error: ${writeError.message}`;
+        fileSystemError = true;
     }
-    // 4. Prepare script arguments (using --research tag)
-    const scriptArgs = [
-        prompt_text,
-        '--research' // Using research tag for complex text generation/simulation
-    ];
-    const executedCommand = `${AIDER_SCRIPT_PATH} ${scriptArgs.map(escapeShellArg).join(' ')}`;
-    // 5. Execute the script (Acknowledging background limitation)
-    let result = null;
-    let error = null;
-    let success = false;
-    let stdout = '';
-    let stderr = '';
-    let exitCode = null;
-    let fileSaveSuccess = false;
-    let fileSaveError = '';
-    try {
-        log(`Executing aider for finance_experts simulation: ${params.topic}`);
-        result = yield executeAiderScript("prompt_aider", scriptArgs);
-        success = (result === null || result === void 0 ? void 0 : result.exitCode) === 0 && !error;
-        stdout = (_b = result === null || result === void 0 ? void 0 : result.stdout) !== null && _b !== void 0 ? _b : '';
-        stderr = (_c = result === null || result === void 0 ? void 0 : result.stderr) !== null && _c !== void 0 ? _c : '';
-        exitCode = (_d = result === null || result === void 0 ? void 0 : result.exitCode) !== null && _d !== void 0 ? _d : null;
-        // 6. Attempt to save output if script succeeded (Added similar logic to ceo_and_board)
-        if (success && stdout) {
-            try {
-                yield promises_1.default.writeFile(outputFilePath, stdout);
-                log(`Successfully saved finance_experts output to ${outputFilePath}`);
-                fileSaveSuccess = true;
-            }
-            catch (writeError) {
-                log(`Error writing output file ${outputFilePath}: ${writeError.message}`);
-                fileSaveError = `\nFile Save Error: ${writeError.message}`;
-                // Treat file save error as a partial failure
-                success = false;
-            }
-        }
-        else if (success && !stdout) {
-            log(`Script succeeded but produced no stdout for finance_experts: ${params.topic}`);
-            fileSaveError = "\nFile Save Info: Script succeeded but produced no output to save.";
-        }
-    }
-    catch (e) {
-        error = e;
-        stderr += `\nTool Error: ${(_e = error === null || error === void 0 ? void 0 : error.message) !== null && _e !== void 0 ? _e : 'Unknown execution error'}`;
-    }
-    const finalStderr = `${stderr}${fileSaveError}`;
-    let errorType = undefined;
-    if (error)
-        errorType = 'ExecutionError';
-    else if (fileSaveError && !stderr)
-        errorType = 'FileSystemError';
-    else if (!success)
-        errorType = 'ScriptError';
+    // 6. Determine overall success and return result
+    const overallSuccess = apiErrors.length === 0 && !fileSystemError;
+    let finalErrorType = undefined;
+    if (fileSystemError)
+        finalErrorType = 'FileSystemError';
+    else if (apiErrors.length > 0)
+        finalErrorType = 'ApiError';
     return {
         content: [
             {
                 type: "text",
-                text: success && fileSaveSuccess
-                    ? `Financial Experts simulation (Topic: ${params.topic}) completed and saved to '${outputFilePath}'. (Exit Code: ${exitCode})`
-                    : `Financial Experts simulation (Topic: ${params.topic}) failed or could not save output. Success: ${success}, Saved: ${fileSaveSuccess}. See errors/details in _meta. (Exit Code: ${exitCode})`
+                text: overallSuccess
+                    ? `Financial Experts simulation (Topic: ${params.topic}) completed${fileSaveSuccess ? ` and saved to '${outputFilePath}'` : ' but failed to save file'}. Experts Processed: ${expertsToProcess.join(', ')}.`
+                    : `Financial Experts simulation (Topic: ${params.topic}) completed with errors. Saved: ${fileSaveSuccess}. See details in _meta.`
             }
         ],
-        isError: !success || !fileSaveSuccess, // Mark as error if script failed OR saving failed
+        isError: !overallSuccess || !fileSaveSuccess,
         _meta: {
-            success: success && fileSaveSuccess, // Overall success requires script success AND file save
-            exitCode: exitCode,
-            stdout: "[stdout omitted in response, check saved file if successful]", // Avoid large output
-            stderr: finalStderr,
-            executedCommand: executedCommand,
+            success: overallSuccess && fileSaveSuccess,
             outputFilePath: outputFilePath,
             fileSaveSuccess: fileSaveSuccess,
-            errorType: errorType
+            expertsProcessed: expertsToProcess,
+            apiErrors: apiErrors.length > 0 ? apiErrors : undefined,
+            errorType: finalErrorType
         }
     };
 }));

@@ -1,6 +1,6 @@
 {
   "name": "aider-mcp-server",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "MCP Server to interface with aider CLI for specialized tasks",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -24,6 +24,7 @@
   "author": "AI Assistant",
   "license": "MIT",
   "dependencies": {
+    "@google/genai": "^0.10.0",
     "@modelcontextprotocol/sdk": "^1.10.2"
   },
   "devDependencies": {
