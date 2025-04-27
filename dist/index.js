@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 "use strict";
 /**
  * ᑮᔐᓐᑕᒻ ᐋᐸᒋᒋᑲᓇᓐ (Giizhendam Aabajichiganan) MCP Server v2
