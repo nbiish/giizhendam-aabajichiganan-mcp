@@ -82,6 +82,28 @@ export AIDER_EDITOR_MODEL="your-editor-model-name"  # e.g., "gpt-4o"
 
 # Required for financial expert and board simulations
 export GEMINI_API_KEY="your-gemini-api-key"
+
+# Optional: Configure output directories for simulations
+export FINANCE_EXPERTS_OUTPUT_DIR="/path/to/finance-experts-output"  # Default: ./financial-experts
+export CEO_BOARD_OUTPUT_DIR="/path/to/ceo-board-output"  # Default: ./ceo-and-board
+```
+
+You can also configure these in your mcp.json file:
+
+```json
+"giizhendam-aabajichiganan-mcp": {
+  "command": "node",
+  "args": [
+    "path/to/giizhendam-aabajichiganan-mcp/dist/index.js"
+  ],
+  "env": {
+    "AIDER_MODEL": "your-model-name",
+    "AIDER_EDITOR_MODEL": "your-editor-model-name",
+    "GEMINI_API_KEY": "your-gemini-api-key",
+    "FINANCE_EXPERTS_OUTPUT_DIR": "/path/to/finance-experts-output",
+    "CEO_BOARD_OUTPUT_DIR": "/path/to/ceo-board-output"
+  }
+}
 ```
 
 ## Usage
@@ -138,11 +160,20 @@ Simulate a board discussion on a specific topic:
 ```typescript
 const result = await server.execute("ceo_and_board", {
   topic: "Q3 Strategy Review: Expansion into European Markets",
-  roles: ["CEO", "CFO", "CTO", "Lead Investor", "Independent Director"],
   output_filename: "q3_europe_expansion_board_meeting"  // Optional: custom filename
 });
 
-// Results saved to ./ceo-and-board/q3_europe_expansion_board_meeting_[timestamp].md
+// The tool now uses standard board roles by default, including:
+// Board Chair, CEO, CFO, COO, CTO, Independent Director, Corporate Secretary/General Counsel, etc.
+
+// You can also specify custom roles if needed:
+const result = await server.execute("ceo_and_board", {
+  topic: "Q3 Strategy Review: Expansion into European Markets",
+  roles: ["CEO", "CFO", "CTO", "Lead Investor", "Independent Director"],
+  output_filename: "q3_europe_expansion_board_meeting"
+});
+
+// Results saved to the configured output directory or default ./ceo-and-board/
 ```
 
 ## Tool Reference
@@ -174,7 +205,7 @@ const result = await server.execute("ceo_and_board", {
 | Parameter | Type | Description | Required |
 |-----------|------|-------------|----------|
 | topic | string | The central topic for the board discussion | Yes |
-| roles | string[] | List of board member roles to simulate | Yes |
+| roles | string[] | Optional list of board member roles to simulate. If not provided, standard board roles will be used | No |
 | output_filename | string | Optional filename (without extension) for the output markdown file | No |
 
 ## Project Structure
@@ -184,8 +215,9 @@ giizhendam-aabajichiganan-mcp/
 ├── src/                    # Source code
 │   └── index.ts            # Main server implementation
 ├── dist/                   # Compiled JavaScript output
-├── financial-experts/      # Output directory for financial simulations
-├── ceo-and-board/          # Output directory for board simulations
+├── output/                 # Configurable output directory (example)
+│   ├── finance-experts/    # Financial expert simulation output
+│   └── ceo-and-board/      # Board simulation output
 ├── package.json            # Project metadata and dependencies
 └── tsconfig.json           # TypeScript configuration
 ```

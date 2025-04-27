@@ -1,0 +1,5 @@
+- use context7 mcp to gather all docs info
+    - fallback to brave search
+    - fallback to internal search
+
+- use all available websearch tools for all other searches
