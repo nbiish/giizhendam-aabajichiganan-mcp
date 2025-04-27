@@ -39,6 +39,18 @@ log(`--- Starting server v2 ---`);
 // --- Configuration ---
 // Path to the script we will be calling
 // const AIDER_SCRIPT_PATH = './aider-cli-commands.sh'; // Assuming it's in the root
+// Define standard board roles for ceo_and_board tool
+const STANDARD_BOARD_ROLES = [
+    "Board Chair",
+    "CEO (Chief Executive Officer)",
+    "CFO (Chief Financial Officer)",
+    "COO (Chief Operations Officer)",
+    "CTO (Chief Technology Officer)",
+    "Independent Director",
+    "Corporate Secretary/General Counsel",
+    "Lead Investor/Venture Capitalist",
+    "Risk/Audit Committee Chair"
+];
 // --- Server Setup ---
 const serverName = "giizhendam-aabajichiganan-mcp-script-interface";
 const serverVersion = "0.3.1"; // Incremented version
@@ -503,7 +515,8 @@ const financeExpertsParamsSchema = zod_1.z.object({
     // experts field removed - all experts are processed now.
     output_filename: zod_1.z.string().optional().describe("Optional filename (without extension) for the output markdown file. Defaults to a sanitized version of the topic.")
 });
-const OUTPUT_DIR_FINANCE = path_1.default.join(process.cwd(), 'financial-experts');
+// Make output directories configurable via environment variables
+const OUTPUT_DIR_FINANCE = process.env.FINANCE_EXPERTS_OUTPUT_DIR || path_1.default.join(process.cwd(), 'financial-experts');
 // const FINANCE_AGENTS_PATH = path.join(process.cwd(), 'finance-agents.md'); // Removed - prompts are hardcoded
 const GEMINI_MODEL_NAME = "gemini-1.5-flash-latest"; // Or choose another appropriate model
 // Helper function to parse expert prompts from finance-agents.md - REMOVED
@@ -686,10 +699,11 @@ ${response}
 // --- Tool: ceo_and_board ---
 const ceoBoardParamsSchema = zod_1.z.object({
     topic: zod_1.z.string().max(2000, "Topic exceeds maximum length of 2000 characters.").describe("The central topic for the board discussion (e.g., 'Q3 Strategy Review', 'Acquisition Proposal X')."),
-    roles: zod_1.z.array(zod_1.z.string().max(100, "Role exceeds maximum length of 100 characters.")).min(1).describe("List of board member roles to simulate (e.g., ['CEO', 'CTO', 'Lead Investor', 'Independent Director'])."),
+    roles: zod_1.z.array(zod_1.z.string().max(100, "Role exceeds maximum length of 100 characters.")).optional().describe("Optional list of board member roles to simulate. If not provided, standard board roles will be used."),
     output_filename: zod_1.z.string().optional().describe("Optional filename (without extension) for the output markdown file. Defaults to a sanitized version of the topic.")
 });
-const OUTPUT_DIR_BOARD = path_1.default.join(process.cwd(), 'ceo-and-board');
+// Make output directories configurable via environment variables
+const OUTPUT_DIR_BOARD = process.env.CEO_BOARD_OUTPUT_DIR || path_1.default.join(process.cwd(), 'ceo-and-board');
 // const GEMINI_MODEL_NAME = "gemini-1.5-flash-latest"; // Already defined above
 server.tool("ceo_and_board", 
 // Updated Description:
@@ -716,8 +730,10 @@ server.tool("ceo_and_board",
             _meta: { success: false, errorType: 'InitializationError' }
         };
     }
+    // Use standard board roles if none are provided
+    const rolesToUse = params.roles || STANDARD_BOARD_ROLES;
+    const rolesString = rolesToUse.join(', ');
     // 1. Construct the detailed prompt for the Gemini model
-    const rolesString = params.roles.join(', ');
     const prompt_text = `
 Simulate a concise board meeting transcript.
 Topic: ${params.topic}
