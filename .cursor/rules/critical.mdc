@@ -28,7 +28,7 @@ curl -fLo LICENSE https://raw.githubusercontent.com/nbiish/license-for-all-works
 
 ## 4.1 @README.md -> curl the image to complete step 4.2:
 ```bash
-curl -fLo https://raw.githubusercontent.com/nbiish/license-for-all-works/8e9b73b269add9161dc04bbdd79f818c40fca14e/qr-stripe-donation.png
+curl -fLo qr-stripe-donation.png https://raw.githubusercontent.com/nbiish/license-for-all-works/8e9b73b269add9161dc04bbdd79f818c40fca14e/qr-stripe-donation.png
 ```
 
 ### 4.2 @README.md -> Add the following near the top:
