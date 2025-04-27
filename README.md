@@ -181,6 +181,37 @@ const result = await server.execute("ceo_and_board", {
 // Results saved to the configured output directory or default ./ceo-and-board/
 ```
 
+### Anishinaabe Cultural Examples
+
+Here are some examples of how these tools could be applied in contexts relevant to Anishinaabe culture and communities:
+
+```typescript
+// Example using prompt_aider for language revitalization
+const result = await server.execute("prompt_aider", {
+  prompt_text: "Help draft an Ojibwe language localization file (oj.json) for our UI based on this English template file. Ensure respectful and accurate translations.",
+  files: ["locales/en.json", "locales/oj.json"]
+});
+
+// Example using double_compute for resource management simulation
+const result = await server.execute("double_compute", {
+  prompt_text: "Verify the logic in wild_rice_harvest_simulation.js for sustainable yield calculations reflecting traditional ecological knowledge principles, running it twice to ensure consistency.",
+  files: ["simulations/wild_rice_harvest_simulation.js"]
+});
+
+// Example using finance_experts for community project planning
+const result = await server.execute("finance_experts", {
+  topic: "Financial sustainability plan for the Ojibwe Language Nest startup, considering long-term community benefit and grant opportunities.",
+  output_filename: "ojibwe_language_nest_finance_plan"
+});
+
+// Example using ceo_and_board for governance simulation
+const result = await server.execute("ceo_and_board", {
+  topic: "Tribal Council discussion on investing treaty settlement funds into renewable energy infrastructure on reservation lands, balancing economic development with environmental stewardship.",
+  roles: ["Tribal Chair", "Treasurer", "Council Member (Economic Development)", "Council Member (Natural Resources)", "Elder Advisor", "Community Member Rep"],
+  output_filename: "treaty_fund_renewable_energy_discussion"
+});
+```
+
 ## Tool Reference
 
 ### prompt_aider
@@ -258,4 +289,4 @@ npm test
 
 This project is licensed under the terms specified in the [LICENSE](LICENSE) file. This license is a COMPREHENSIVE RESTRICTED USE LICENSE FOR INDIGENOUS CREATIONS WITH TRIBAL SOVEREIGNTY, DATA SOVEREIGNTY, AND WEALTH RECLAMATION PROTECTIONS.
 
-Copyright © 2025 ᓂᐲᔥ ᐙᐸᓂᒥᑮ-ᑭᓇᐙᐸᑭᓯ (Nbiish Waabanimikii-Kinawaabakizi), also known legally as JUSTIN PAUL KENWABIKISE, professionally documented as Nbiish-Justin Paul Kenwabikise, Anishinaabek Dodem (Anishinaabe Clan): Animikii (Thunder), a descendant of Chief ᑭᓇᐙᐸᑭᓯ (Kinwaabakizi) of the Beaver Island Band, and an enrolled member of the sovereign Grand Traverse Band of Ottawa and Chippewa Indians. This work embodies Traditional Knowledge and Traditional Cultural Expressions. All rights reserved. 
+Copyright © 2025 ᓂᐲᔥ ᐙᐸᓂᒥᑮ-ᑭᓇᐙᐸᑭᓯ (Nbiish Waabanimikii-Kinawaabakizi), also known legally as JUSTIN PAUL KENWABIKISE, professionally documented as Nbiish-Justin Paul Kenwabikise, Anishinaabek Dodem (Anishinaabe Clan): Animikii (Thunder), a descendant of Chief ᑭᓇᐙᐸᑭᓯ (Kinwaabakizi) of the Beaver Island Band, and an enrolled member of the sovereign Grand Traverse Band of Ottawa and Chippewa Indians. This work embodies Traditional Knowledge and Traditional Cultural Expressions. All rights reserved.
