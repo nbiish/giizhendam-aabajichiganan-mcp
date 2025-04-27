@@ -175,38 +175,63 @@ async function executeAider(
     toolArgs: string[] // Args specific to the tool, e.g., ['--message', 'prompt', 'file1.ts']
 ): Promise<{ stdout: string; stderr: string; exitCode: number | null; executedCommand: string }> {
     return new Promise((resolve, reject) => {
-        // Define the hardcoded model and flags from the bash script
-        const defaultModel = "openrouter/google/gemini-2.5-pro-preview-03-25";
-        
-        // Build the base args according to the bash script
+        // --- START Added Logging ---
+        log(`DEBUG: Checking environment variables within executeAider:`);
+        log(`DEBUG: process.env.AIDER_MODEL = ${process.env.AIDER_MODEL}`);
+        log(`DEBUG: process.env.AIDER_EDITOR_MODEL = ${process.env.AIDER_EDITOR_MODEL}`);
+        log(`DEBUG: process.env.OPENROUTER_API_KEY present = ${!!process.env.OPENROUTER_API_KEY}`); // Log presence, not the key itself
+        // --- END Added Logging ---
+
+        // --- START Environment Variable Validation ---
+        const aiderModel = process.env.AIDER_MODEL;
+        const aiderEditorModel = process.env.AIDER_EDITOR_MODEL;
+
+        if (!aiderModel || !aiderEditorModel) {
+            const errorMsg = `Configuration Error: AIDER_MODEL (${aiderModel}) or AIDER_EDITOR_MODEL (${aiderEditorModel}) environment variables are not set. Check MCP server configuration (mcp.json).`;
+            log(errorMsg);
+            // Reject the promise directly
+            return reject(new Error(errorMsg));
+        }
+         if (!process.env.OPENROUTER_API_KEY) {
+             // Also check for OpenRouter key if using OpenRouter models - adjust if other providers are used
+             const errorMsg = `Configuration Error: OPENROUTER_API_KEY environment variable is not set. Check MCP server configuration (mcp.json).`;
+             log(errorMsg);
+             return reject(new Error(errorMsg));
+         }
+        // --- END Environment Variable Validation ---
+
+        // Define the hardcoded model and flags from the bash script - REMOVED DEFAULT MODEL
+        // const defaultModel = "openrouter/google/gemini-2.5-pro-preview-03-25"; // <-- REMOVED
+
+        // Build the base args using REQUIRED environment variables
         const baseAiderArgs: string[] = [
-            '--model', defaultModel,
+            '--model', aiderModel, // Use validated env var
             '--architect',
-            '--editor-model', defaultModel,
+            '--editor-model', aiderEditorModel, // Use validated env var
             '--no-detect-urls',
             '--no-gui',
             '--yes-always'
         ];
 
-        // Then allow environment variables to override if specified
-        const aiderModel = process.env.AIDER_MODEL;
-        const aiderEditorModel = process.env.AIDER_EDITOR_MODEL;
-        
-        if (aiderModel) {
+        // Then allow environment variables to override if specified - REMOVED redundant checks
+        // const aiderModel = process.env.AIDER_MODEL; // Moved up
+        // const aiderEditorModel = process.env.AIDER_EDITOR_MODEL; // Moved up
+
+        // if (aiderModel) { // <-- REMOVED BLOCK
             // Replace the default model if specified in env
-            const modelIndex = baseAiderArgs.indexOf('--model');
-            if (modelIndex >= 0 && modelIndex + 1 < baseAiderArgs.length) {
-                baseAiderArgs[modelIndex + 1] = aiderModel;
-            }
-        }
-        
-        if (aiderEditorModel) {
+            // const modelIndex = baseAiderArgs.indexOf('--model');
+            // if (modelIndex >= 0 && modelIndex + 1 < baseAiderArgs.length) {
+            //     baseAiderArgs[modelIndex + 1] = aiderModel;
+            // }
+        // }
+
+        // if (aiderEditorModel) { // <-- REMOVED BLOCK
             // Replace the default editor model if specified in env
-            const editorModelIndex = baseAiderArgs.indexOf('--editor-model');
-            if (editorModelIndex >= 0 && editorModelIndex + 1 < baseAiderArgs.length) {
-                baseAiderArgs[editorModelIndex + 1] = aiderEditorModel;
-            }
-        }
+            // const editorModelIndex = baseAiderArgs.indexOf('--editor-model');
+            // if (editorModelIndex >= 0 && editorModelIndex + 1 < baseAiderArgs.length) {
+            //     baseAiderArgs[editorModelIndex + 1] = aiderEditorModel;
+            // }
+        // }
 
         // Add common flags needed for programmatic execution
         baseAiderArgs.push('--no-auto-commit');
@@ -225,7 +250,7 @@ async function executeAider(
             const aiderProcess = spawn('aider', finalArgs, {
                 stdio: ['pipe', 'pipe', 'pipe'],
                 cwd: process.cwd(), // Run aider from the project root
-                env: process.env
+                env: process.env // Pass the current environment
             });
 
             aiderProcess.stdout.on('data', (data) => {
@@ -601,7 +626,7 @@ const financeExpertsParamsSchema = z.object({
 });
 
 // Make output directories configurable via environment variables
-const OUTPUT_DIR_FINANCE = process.env.FINANCE_EXPERTS_OUTPUT_DIR || path.join(process.cwd(), 'financial-experts');
+// const OUTPUT_DIR_FINANCE = process.env.FINANCE_EXPERTS_OUTPUT_DIR || path.join(process.cwd(), 'financial-experts'); // <-- REMOVED FALLBACK
 // const FINANCE_AGENTS_PATH = path.join(process.cwd(), 'finance-agents.md'); // Removed - prompts are hardcoded
 const GEMINI_MODEL_NAME = "gemini-1.5-flash-latest"; // Or choose another appropriate model
 
@@ -642,15 +667,27 @@ server.tool(
         isError?: boolean;
       }> => {
 
+        // --- START Configuration Validation ---
         const apiKey = process.env.GEMINI_API_KEY;
+        const outputDirFinance = process.env.FINANCE_EXPERTS_OUTPUT_DIR; // Get configured path
+
         if (!apiKey) {
-            log("Error: GEMINI_API_KEY environment variable not set.");
+            log("Error: GEMINI_API_KEY environment variable not set for finance_experts.");
             return {
                 content: [{ type: 'text', text: "Configuration Error: GEMINI_API_KEY is not set." }],
                 isError: true,
                 _meta: { success: false, expertsProcessed: [], errorType: 'InitializationError' }
             };
         }
+        if (!outputDirFinance) { // Check if the output directory path is configured
+            log("Error: FINANCE_EXPERTS_OUTPUT_DIR environment variable not set.");
+            return {
+                content: [{ type: 'text', text: "Configuration Error: FINANCE_EXPERTS_OUTPUT_DIR is not set. Check MCP server configuration (mcp.json)." }],
+                isError: true,
+                _meta: { success: false, expertsProcessed: [], errorType: 'ConfigurationError' } // Use ConfigurationError
+            };
+        }
+        // --- END Configuration Validation ---
 
         let ai: GoogleGenerativeAI;
         try {
@@ -759,15 +796,15 @@ ${response}
         // 4. Determine output file path
         const safeFilenameBase = params.output_filename?.replace(/[^a-z0-9_-]/gi, '_').toLowerCase() || params.topic.replace(/[^a-z0-9_-]/gi, '_').toLowerCase().substring(0, 50);
         const outputFilename = `${safeFilenameBase}_${Date.now()}.md`;
-        const outputFilePath = path.join(OUTPUT_DIR_FINANCE, outputFilename);
+        const outputFilePath = path.join(outputDirFinance, outputFilename);
 
         // 5. Ensure output directory exists and save file
         let fileSaveSuccess = false;
         let fileSaveError = '';
         let fileSystemError = false;
         try {
-            await fsPromises.mkdir(OUTPUT_DIR_FINANCE, { recursive: true });
-            log(`Ensured output directory exists: ${OUTPUT_DIR_FINANCE}`);
+            await fsPromises.mkdir(outputDirFinance, { recursive: true });
+            log(`Ensured output directory exists: ${outputDirFinance}`);
             await fsPromises.writeFile(outputFilePath, markdownOutput);
             log(`Successfully saved finance_experts perspectives to ${outputFilePath}`);
                     fileSaveSuccess = true;
@@ -815,7 +852,7 @@ const ceoBoardParamsSchema = z.object({
 });
 
 // Make output directories configurable via environment variables
-const OUTPUT_DIR_BOARD = process.env.CEO_BOARD_OUTPUT_DIR || path.join(process.cwd(), 'ceo-and-board');
+// const OUTPUT_DIR_BOARD = process.env.CEO_BOARD_OUTPUT_DIR || path.join(process.cwd(), 'ceo-and-board'); // <-- REMOVED FALLBACK
 // const GEMINI_MODEL_NAME = "gemini-1.5-flash-latest"; // Already defined above
 
 server.tool(
@@ -830,7 +867,10 @@ server.tool(
         isError?: boolean;
       }> => {
 
+        // --- START Configuration Validation ---
         const apiKey = process.env.GEMINI_API_KEY;
+        const outputDirBoard = process.env.CEO_BOARD_OUTPUT_DIR; // Get configured path
+
         if (!apiKey) {
             log("Error: GEMINI_API_KEY environment variable not set for ceo_and_board.");
             return {
@@ -839,6 +879,15 @@ server.tool(
                 _meta: { success: false, errorType: 'InitializationError' }
             };
         }
+        if (!outputDirBoard) { // Check if the output directory path is configured
+            log("Error: CEO_BOARD_OUTPUT_DIR environment variable not set.");
+            return {
+                content: [{ type: 'text', text: "Configuration Error: CEO_BOARD_OUTPUT_DIR is not set. Check MCP server configuration (mcp.json)." }],
+                isError: true,
+                _meta: { success: false, errorType: 'ConfigurationError' } // Use ConfigurationError
+            };
+        }
+        // --- END Configuration Validation ---
 
         let ai: GoogleGenerativeAI;
         try {
@@ -874,16 +923,17 @@ Instructions:
         // 2. Determine output file path
         const safeFilenameBase = params.output_filename?.replace(/[^a-z0-9_-]/gi, '_').toLowerCase() || params.topic.replace(/[^a-z0-9_-]/gi, '_').toLowerCase().substring(0, 50);
         const outputFilename = `${safeFilenameBase}_${Date.now()}.md`;
-        const outputFilePath = path.join(OUTPUT_DIR_BOARD, outputFilename);
+        const outputFilePath = path.join(outputDirBoard, outputFilename);
 
         // 3. Ensure output directory exists
         try {
-            await fsPromises.mkdir(OUTPUT_DIR_BOARD, { recursive: true });
-            log(`Ensured output directory exists: ${OUTPUT_DIR_BOARD}`);
+             // Use the validated environment variable for the path
+            await fsPromises.mkdir(outputDirBoard, { recursive: true });
+            log(`Ensured output directory exists: ${outputDirBoard}`);
         } catch (dirError: any) {
-            log(`Error creating directory ${OUTPUT_DIR_BOARD}: ${dirError.message}`);
+            log(`Error creating directory ${outputDirBoard}: ${dirError.message}`);
             return {
-                content: [{ type: 'text', text: `Failed to create output directory: ${OUTPUT_DIR_BOARD}` }],
+                content: [{ type: 'text', text: `Failed to create output directory: ${outputDirBoard}` }],
                 isError: true,
                 _meta: {
                     success: false, apiError: `Directory creation error: ${dirError.message}`, errorType: 'FileSystemError',

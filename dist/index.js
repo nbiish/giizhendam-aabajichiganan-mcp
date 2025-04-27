@@ -60,7 +60,7 @@ const server = new mcp_js_1.McpServer({
     capabilities: { resources: {}, tools: {} },
 });
 // Aider Task Types and Configuration
-const TASK_TYPES = ['research', 'docs', 'security', 'code', 'verify', 'progress'];
+const TASK_TYPES = ['research', 'docs', 'security', 'code', 'verify', 'progress', 'general'];
 // Use environment variables for defaults, allowing override via params
 // Helper to escape shell arguments (basic version, might need refinement)
 /*
@@ -150,34 +150,63 @@ function validateUrl(urlStr) {
     }
 }
 // --- Tool Implementations (To be added based on PRD) ---
+// Helper function to format prompt based on task type
+function formatPromptByTaskType(prompt, taskType) {
+    if (!taskType || taskType === 'general') {
+        return prompt; // No formatting for general tasks
+    }
+    switch (taskType) {
+        case 'research':
+            return `Act as a research analyst. Synthesize the key findings, evidence, and implications related to the following topic. Provide a concise summary suitable for a technical team. Topic: ${prompt}`;
+        case 'docs':
+            return `Act as a technical writer. Generate clear and concise documentation (e.g., explanation, usage guide, API reference) for the following subject, targeting an audience of developers. Subject: ${prompt}`;
+        case 'security':
+            return `Act as an expert security analyst. Review the provided context/code for potential security vulnerabilities (e.g., OWASP Top 10, injection flaws, insecure configurations, logic errors). Clearly identify any findings, explain the risks, and suggest mitigations. Focus area: ${prompt}`;
+        case 'code':
+            return `Act as an expert software developer. Implement the following code generation or modification request, ensuring code is efficient, readable, and adheres to best practices. Request: ${prompt}`;
+        case 'verify':
+            return `Act as a meticulous code reviewer. Verify the following code or implementation against the requirements or criteria specified. Identify any discrepancies, potential bugs, logical errors, or areas for improvement (e.g., clarity, performance). Verification request: ${prompt}`;
+        case 'progress':
+            return `Provide a status update or progress report based on the following request: ${prompt}`;
+        default:
+            return prompt;
+    }
+}
 // Helper function to execute the aider command directly
 function executeAider(toolArgs // Args specific to the tool, e.g., ['--message', 'prompt', 'file1.ts']
 ) {
     return __awaiter(this, void 0, void 0, function* () {
         return new Promise((resolve, reject) => {
+            // Define the hardcoded model and flags from the bash script
+            const defaultModel = "openrouter/google/gemini-2.5-pro-preview-03-25";
+            // Build the base args according to the bash script
+            const baseAiderArgs = [
+                '--model', defaultModel,
+                '--architect',
+                '--editor-model', defaultModel,
+                '--no-detect-urls',
+                '--no-gui',
+                '--yes-always'
+            ];
+            // Then allow environment variables to override if specified
             const aiderModel = process.env.AIDER_MODEL;
             const aiderEditorModel = process.env.AIDER_EDITOR_MODEL;
-            if (!aiderModel) {
-                const errorMsg = "Environment variable AIDER_MODEL is not set.";
-                log(`Error: ${errorMsg}`);
-                // Reject the promise immediately for configuration errors
-                return reject(new Error(errorMsg));
+            if (aiderModel) {
+                // Replace the default model if specified in env
+                const modelIndex = baseAiderArgs.indexOf('--model');
+                if (modelIndex >= 0 && modelIndex + 1 < baseAiderArgs.length) {
+                    baseAiderArgs[modelIndex + 1] = aiderModel;
+                }
             }
-            const baseAiderArgs = [];
-            // Add model and common args
-            // Check if editor model is specified to use architect mode
             if (aiderEditorModel) {
-                baseAiderArgs.push('--architect');
-                baseAiderArgs.push('--model', aiderModel);
-                baseAiderArgs.push('--editor-model', aiderEditorModel);
-            }
-            else {
-                baseAiderArgs.push('--model', aiderModel);
+                // Replace the default editor model if specified in env
+                const editorModelIndex = baseAiderArgs.indexOf('--editor-model');
+                if (editorModelIndex >= 0 && editorModelIndex + 1 < baseAiderArgs.length) {
+                    baseAiderArgs[editorModelIndex + 1] = aiderEditorModel;
+                }
             }
             // Add common flags needed for programmatic execution
             baseAiderArgs.push('--no-auto-commit');
-            baseAiderArgs.push('--yes-always');
-            // baseAiderArgs.push('--no-detect-urls'); // Add if needed
             // Combine base args with tool-specific args
             const finalArgs = [...baseAiderArgs, ...toolArgs];
             const executedCommand = `aider ${finalArgs.join(' ')}`;
@@ -239,9 +268,11 @@ const simulationOutputMetaSchema = scriptExecutionOutputSchema.extend({
     fileSaveSuccess: zod_1.z.boolean().optional().describe("True if the output was successfully saved to the file (if applicable).")
 });
 server.tool("prompt_aider", "Executes the aider command directly with the given prompt and optional files, using models defined in environment variables (AIDER_MODEL, optional AIDER_EDITOR_MODEL).", promptAiderParamsSchema.shape, (params) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a, _b, _c, _d, _e, _f;
+    var _a, _b, _c, _d, _e;
+    // Format prompt based on task type
+    const formattedPrompt = formatPromptByTaskType(params.prompt_text, params.task_type);
     // Construct tool-specific arguments for aider
-    const toolArgs = ['--message', (_a = params.prompt_text) !== null && _a !== void 0 ? _a : ''];
+    const toolArgs = ['--message', formattedPrompt];
     if (params.files && params.files.length > 0) {
         toolArgs.push(...params.files);
     }
@@ -264,11 +295,11 @@ server.tool("prompt_aider", "Executes the aider command directly with the given 
         }
     }
     const success = (result === null || result === void 0 ? void 0 : result.exitCode) === 0 && !error;
-    const stdout = (_b = result === null || result === void 0 ? void 0 : result.stdout) !== null && _b !== void 0 ? _b : '';
+    const stdout = (_a = result === null || result === void 0 ? void 0 : result.stdout) !== null && _a !== void 0 ? _a : '';
     // Use safeErrorReport to scrub sensitive error details before returning to client
-    const stderr = `${(_c = result === null || result === void 0 ? void 0 : result.stderr) !== null && _c !== void 0 ? _c : ''}${error ? `\nTool Error: ${safeErrorReport(error)}` : ''}`;
-    const exitCode = (_d = result === null || result === void 0 ? void 0 : result.exitCode) !== null && _d !== void 0 ? _d : null;
-    const executedCommand = (_e = result === null || result === void 0 ? void 0 : result.executedCommand) !== null && _e !== void 0 ? _e : `aider [error constructing command - ${safeErrorReport(error)}]`; // Provide fallback
+    const stderr = `${(_b = result === null || result === void 0 ? void 0 : result.stderr) !== null && _b !== void 0 ? _b : ''}${error ? `\nTool Error: ${safeErrorReport(error)}` : ''}`;
+    const exitCode = (_c = result === null || result === void 0 ? void 0 : result.exitCode) !== null && _c !== void 0 ? _c : null;
+    const executedCommand = (_d = result === null || result === void 0 ? void 0 : result.executedCommand) !== null && _d !== void 0 ? _d : `aider [error constructing command - ${safeErrorReport(error)}]`; // Provide fallback
     if (!errorType && !success && exitCode !== 0) { // If no execution error but script failed
         errorType = 'AiderError';
     }
@@ -278,7 +309,7 @@ server.tool("prompt_aider", "Executes the aider command directly with the given 
             type: "text",
             text: success
                 ? `Aider command executed successfully (Exit Code: ${exitCode}). See _meta for full logs.`
-                : `Aider command failed (Exit Code: ${exitCode}). Error: ${(_f = safeErrorReport(error)) !== null && _f !== void 0 ? _f : 'Aider execution failed.'} See _meta for full logs.`
+                : `Aider command failed (Exit Code: ${exitCode}). Error: ${(_e = safeErrorReport(error)) !== null && _e !== void 0 ? _e : 'Aider execution failed.'} See _meta for full logs.`
         }
     ];
     // Add snippet conditionally
@@ -304,6 +335,7 @@ server.tool("prompt_aider", "Executes the aider command directly with the given 
 // --- Tool: double_compute ---
 const doubleComputeParamsSchema = zod_1.z.object({
     prompt_text: zod_1.z.string().max(10000, "Prompt text exceeds maximum length of 10000 characters.").describe("The main prompt/instruction for aider."),
+    task_type: zod_1.z.enum(TASK_TYPES).optional().describe("Optional task type hint (research, docs, security, code, verify, progress) - currently informational."),
     files: zod_1.z.array(zod_1.z.string()).optional().describe("Optional list of files for aider to consider or modify.")
 });
 const doubleComputeOutputMetaSchema = zod_1.z.object({
@@ -313,9 +345,11 @@ const doubleComputeOutputMetaSchema = zod_1.z.object({
     errorType: zod_1.z.string().optional().describe("Indicates if there was an execution error ('ExecutionError'), aider error ('AiderError'), or config error ('ConfigurationError').") // Added ConfigurationError
 });
 server.tool("double_compute", "Executes the aider command TWICE directly with the same prompt and optional files, using models defined in environment variables. Useful for tasks requiring redundant computation or comparison.", doubleComputeParamsSchema.shape, (params) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _j;
+    var _a, _b, _c, _d, _e, _f, _g, _h;
+    // Format prompt based on task type
+    const formattedPrompt = formatPromptByTaskType(params.prompt_text, params.task_type);
     // Construct tool-specific arguments once
-    const toolArgs = ['--message', (_a = params.prompt_text) !== null && _a !== void 0 ? _a : ''];
+    const toolArgs = ['--message', formattedPrompt];
     if (params.files && params.files.length > 0) {
         toolArgs.push(...params.files);
     }
@@ -336,10 +370,10 @@ server.tool("double_compute", "Executes the aider command TWICE directly with th
         errorType1 = e.message.includes("AIDER_MODEL is not set") ? 'ConfigurationError' : 'ExecutionError';
     }
     const success1 = (result1 === null || result1 === void 0 ? void 0 : result1.exitCode) === 0 && !error1;
-    const stdout1 = (_b = result1 === null || result1 === void 0 ? void 0 : result1.stdout) !== null && _b !== void 0 ? _b : '';
-    const stderr1 = `${(_c = result1 === null || result1 === void 0 ? void 0 : result1.stderr) !== null && _c !== void 0 ? _c : ''}${error1 ? `\nTool Error (Run 1): ${safeErrorReport(error1)}` : ''}`;
-    const exitCode1 = (_d = result1 === null || result1 === void 0 ? void 0 : result1.exitCode) !== null && _d !== void 0 ? _d : null;
-    const executedCommand1 = (_e = result1 === null || result1 === void 0 ? void 0 : result1.executedCommand) !== null && _e !== void 0 ? _e : `aider [error constructing command (run 1) - ${safeErrorReport(error1)}]`;
+    const stdout1 = (_a = result1 === null || result1 === void 0 ? void 0 : result1.stdout) !== null && _a !== void 0 ? _a : '';
+    const stderr1 = `${(_b = result1 === null || result1 === void 0 ? void 0 : result1.stderr) !== null && _b !== void 0 ? _b : ''}${error1 ? `\nTool Error (Run 1): ${safeErrorReport(error1)}` : ''}`;
+    const exitCode1 = (_c = result1 === null || result1 === void 0 ? void 0 : result1.exitCode) !== null && _c !== void 0 ? _c : null;
+    const executedCommand1 = (_d = result1 === null || result1 === void 0 ? void 0 : result1.executedCommand) !== null && _d !== void 0 ? _d : `aider [error constructing command (run 1) - ${safeErrorReport(error1)}]`;
     if (!errorType1 && !success1 && exitCode1 !== 0)
         errorType1 = 'AiderError';
     // Run 2
@@ -352,10 +386,10 @@ server.tool("double_compute", "Executes the aider command TWICE directly with th
         errorType2 = e.message.includes("AIDER_MODEL is not set") ? 'ConfigurationError' : 'ExecutionError';
     }
     const success2 = (result2 === null || result2 === void 0 ? void 0 : result2.exitCode) === 0 && !error2;
-    const stdout2 = (_f = result2 === null || result2 === void 0 ? void 0 : result2.stdout) !== null && _f !== void 0 ? _f : '';
-    const stderr2 = `${(_g = result2 === null || result2 === void 0 ? void 0 : result2.stderr) !== null && _g !== void 0 ? _g : ''}${error2 ? `\nTool Error (Run 2): ${safeErrorReport(error2)}` : ''}`;
-    const exitCode2 = (_h = result2 === null || result2 === void 0 ? void 0 : result2.exitCode) !== null && _h !== void 0 ? _h : null;
-    const executedCommand2 = (_j = result2 === null || result2 === void 0 ? void 0 : result2.executedCommand) !== null && _j !== void 0 ? _j : `aider [error constructing command (run 2) - ${safeErrorReport(error2)}]`;
+    const stdout2 = (_e = result2 === null || result2 === void 0 ? void 0 : result2.stdout) !== null && _e !== void 0 ? _e : '';
+    const stderr2 = `${(_f = result2 === null || result2 === void 0 ? void 0 : result2.stderr) !== null && _f !== void 0 ? _f : ''}${error2 ? `\nTool Error (Run 2): ${safeErrorReport(error2)}` : ''}`;
+    const exitCode2 = (_g = result2 === null || result2 === void 0 ? void 0 : result2.exitCode) !== null && _g !== void 0 ? _g : null;
+    const executedCommand2 = (_h = result2 === null || result2 === void 0 ? void 0 : result2.executedCommand) !== null && _h !== void 0 ? _h : `aider [error constructing command (run 2) - ${safeErrorReport(error2)}]`;
     if (!errorType2 && !success2 && exitCode2 !== 0)
         errorType2 = 'AiderError';
     const overallSuccess = success1 && success2;
