@@ -44,7 +44,7 @@ This server is designed to be run via `npx` within an environment configured for
             "GEMINI_API_KEY": "YOUR_GEMINI_API_KEY_HERE", // Essential for finance_experts
             "OPENROUTER_API_KEY": "YOUR_OPENROUTER_KEY_HERE", // Likely needed for aider tools
             "AIDER_MODEL": "openrouter/google/gemini-pro", // Example, configure as needed
-            "AIDER_EDITOR_MODEL": "openrouter/google/gemini-pro" // Example, configure as needed
+            "AIDER_EDITOR_MODEL": "openrouter/google/gemini-pro" // (Optional) Example, configure if using architect mode, can be omitted
             // Add any other necessary environment variables here
           }
         }
@@ -61,7 +61,7 @@ The server requires the following environment variables to be set (either in the
 
 *   `GEMINI_API_KEY`: **Required** for the `finance_experts` and `ceo_and_board` tools. Get an API key from [Google AI Studio](https://aistudio.google.com/app/apikey).
 *   `AIDER_MODEL`: Specifies the primary model for aider (used *only* by `prompt_aider` and `double_compute`). Configure according to your `aider` setup (e.g., referencing OpenAI, OpenRouter, etc.).
-*   `AIDER_EDITOR_MODEL`: Specifies the editor model for aider (used *only* by `prompt_aider` and `double_compute`, optional).
+*   `AIDER_EDITOR_MODEL`: Specifies the editor model for aider (used *only* by `prompt_aider` and `double_compute`, **optional**).
 *   `OPENROUTER_API_KEY`: Required *if* your `AIDER_MODEL` or `AIDER_EDITOR_MODEL` uses an OpenRouter model.
 
 ### Dependencies
@@ -88,11 +88,11 @@ This project is licensed under the terms detailed in the [LICENSE](LICENSE) file
 Please cite this work as follows:
 
 ```bibtex
-@misc{giizhendam-aabajichiganan-mcp2024,
+@misc{giizhendam-aabajichiganan-mcp2025,
   author/creator/steward = {ᓂᐲᔥ ᐙᐸᓂᒥᑮ-ᑭᓇᐙᐸᑭᓯ (Nbiish Waabanimikii-Kinawaabakizi), also known legally as JUSTIN PAUL KENWABIKISE, professionally documented as Nbiish-Justin Paul Kenwabikise, Anishinaabek Dodem (Anishinaabe Clan): Animikii (Thunder), descendant of Chief ᑭᓇᐙᐸᑭᓯ (Kinwaabakizi) of the Beaver Island Band and enrolled member of the sovereign Grand Traverse Band of Ottawa and Chippewa Indians},
   title/description = {giizhendam-aabajichiganan-mcp},
   type_of_work = {Indigenous digital creation/software incorporating traditional knowledge and cultural expressions},
-  year = {2024},
+  year = {2025},
   publisher/source/event = {GitHub repository under tribal sovereignty protections},
   howpublished = {\url{https://github.com/nbiish/giizhendam-aabajichiganan-mcp}},
   note = {Authored and stewarded by ᓂᐲᔥ ᐙᐸᓂᒥᑮ-ᑭᓇᐙᐸᑭᓯ (Nbiish Waabanimikii-Kinawaabakizi), also known legally as JUSTIN PAUL KENWABIKISE, professionally documented as Nbiish-Justin Paul Kenwabikise, Anishinaabek Dodem (Anishinaabe Clan): Animikii (Thunder), descendant of Chief ᑭᓇᐙᐸᑭᓯ (Kinwaabakizi) of the Beaver Island Band and enrolled member of the sovereign Grand Traverse Band of Ottawa and Chippewa Indians. This work embodies Indigenous intellectual property, traditional knowledge systems (TK), traditional cultural expressions (TCEs), and associated data protected under tribal law, federal Indian law, treaty rights, Indigenous Data Sovereignty principles, and international indigenous rights frameworks including UNDRIP. All usage, benefit-sharing, and data governance are governed by the COMPREHENSIVE RESTRICTED USE LICENSE FOR INDIGENOUS CREATIONS WITH TRIBAL SOVEREIGNTY, DATA SOVEREIGNTY, AND WEALTH RECLAMATION PROTECTIONS.}
@@ -100,4 +100,4 @@ Please cite this work as follows:
 ```
 
 ---
-Copyright © 2024 ᓂᐲᔥ ᐙᐸᓂᒥᑮ-ᑭᓇᐙᐸᑭᓯ (Nbiish Waabanimikii-Kinawaabakizi), also known legally as JUSTIN PAUL KENWABIKISE, professionally documented as Nbiish-Justin Paul Kenwabikise, Anishinaabek Dodem (Anishinaabe Clan): Animikii (Thunder), a descendant of Chief ᑭᓇᐙᐸᑭᓯ (Kinwaabakizi) of the Beaver Island Band, and an enrolled member of the sovereign Grand Traverse Band of Ottawa and Chippewa Indians. This work embodies Traditional Knowledge and Traditional Cultural Expressions. All rights reserved. 
+Copyright © 2025 ᓂᐲᔥ ᐙᐸᓂᒥᑮ-ᑭᓇᐙᐸᑭᓯ (Nbiish Waabanimikii-Kinawaabakizi), also known legally as JUSTIN PAUL KENWABIKISE, professionally documented as Nbiish-Justin Paul Kenwabikise, Anishinaabek Dodem (Anishinaabe Clan): Animikii (Thunder), a descendant of Chief ᑭᓇᐙᐸᑭᓯ (Kinwaabakizi) of the Beaver Island Band, and an enrolled member of the sovereign Grand Traverse Band of Ottawa and Chippewa Indians. This work embodies Traditional Knowledge and Traditional Cultural Expressions. All rights reserved.
