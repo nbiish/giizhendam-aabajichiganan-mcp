@@ -52,7 +52,7 @@ const server = new McpServer({
 });
 
 // Aider Task Types and Configuration
-const TASK_TYPES = ['research', 'docs', 'security', 'code', 'verify', 'progress'] as const;
+const TASK_TYPES = ['research', 'docs', 'security', 'code', 'verify', 'progress', 'general'] as const;
 type TaskType = typeof TASK_TYPES[number];
 
 // Use environment variables for defaults, allowing override via params
@@ -146,37 +146,70 @@ function validateUrl(urlStr: string): boolean {
 
 // --- Tool Implementations (To be added based on PRD) ---
 
+// Helper function to format prompt based on task type
+function formatPromptByTaskType(prompt: string, taskType?: TaskType): string {
+    if (!taskType || taskType === 'general') {
+        return prompt; // No formatting for general tasks
+    }
+    
+    switch(taskType) {
+        case 'research':
+            return `Act as a research analyst. Synthesize the key findings, evidence, and implications related to the following topic. Provide a concise summary suitable for a technical team. Topic: ${prompt}`;
+        case 'docs':
+            return `Act as a technical writer. Generate clear and concise documentation (e.g., explanation, usage guide, API reference) for the following subject, targeting an audience of developers. Subject: ${prompt}`;
+        case 'security':
+            return `Act as an expert security analyst. Review the provided context/code for potential security vulnerabilities (e.g., OWASP Top 10, injection flaws, insecure configurations, logic errors). Clearly identify any findings, explain the risks, and suggest mitigations. Focus area: ${prompt}`;
+        case 'code':
+            return `Act as an expert software developer. Implement the following code generation or modification request, ensuring code is efficient, readable, and adheres to best practices. Request: ${prompt}`;
+        case 'verify':
+            return `Act as a meticulous code reviewer. Verify the following code or implementation against the requirements or criteria specified. Identify any discrepancies, potential bugs, logical errors, or areas for improvement (e.g., clarity, performance). Verification request: ${prompt}`;
+        case 'progress':
+            return `Provide a status update or progress report based on the following request: ${prompt}`;
+        default:
+            return prompt;
+    }
+}
+
 // Helper function to execute the aider command directly
 async function executeAider(
     toolArgs: string[] // Args specific to the tool, e.g., ['--message', 'prompt', 'file1.ts']
 ): Promise<{ stdout: string; stderr: string; exitCode: number | null; executedCommand: string }> {
     return new Promise((resolve, reject) => {
+        // Define the hardcoded model and flags from the bash script
+        const defaultModel = "openrouter/google/gemini-2.5-pro-preview-03-25";
+        
+        // Build the base args according to the bash script
+        const baseAiderArgs: string[] = [
+            '--model', defaultModel,
+            '--architect',
+            '--editor-model', defaultModel,
+            '--no-detect-urls',
+            '--no-gui',
+            '--yes-always'
+        ];
+
+        // Then allow environment variables to override if specified
         const aiderModel = process.env.AIDER_MODEL;
         const aiderEditorModel = process.env.AIDER_EDITOR_MODEL;
-
-        if (!aiderModel) {
-            const errorMsg = "Environment variable AIDER_MODEL is not set.";
-            log(`Error: ${errorMsg}`);
-            // Reject the promise immediately for configuration errors
-            return reject(new Error(errorMsg)); 
+        
+        if (aiderModel) {
+            // Replace the default model if specified in env
+            const modelIndex = baseAiderArgs.indexOf('--model');
+            if (modelIndex >= 0 && modelIndex + 1 < baseAiderArgs.length) {
+                baseAiderArgs[modelIndex + 1] = aiderModel;
+            }
         }
-
-        const baseAiderArgs: string[] = [];
-
-        // Add model and common args
-        // Check if editor model is specified to use architect mode
+        
         if (aiderEditorModel) {
-            baseAiderArgs.push('--architect');
-            baseAiderArgs.push('--model', aiderModel);
-            baseAiderArgs.push('--editor-model', aiderEditorModel);
-        } else {
-            baseAiderArgs.push('--model', aiderModel);
+            // Replace the default editor model if specified in env
+            const editorModelIndex = baseAiderArgs.indexOf('--editor-model');
+            if (editorModelIndex >= 0 && editorModelIndex + 1 < baseAiderArgs.length) {
+                baseAiderArgs[editorModelIndex + 1] = aiderEditorModel;
+            }
         }
 
         // Add common flags needed for programmatic execution
         baseAiderArgs.push('--no-auto-commit');
-        baseAiderArgs.push('--yes-always');
-        // baseAiderArgs.push('--no-detect-urls'); // Add if needed
 
         // Combine base args with tool-specific args
         const finalArgs = [...baseAiderArgs, ...toolArgs];
@@ -257,8 +290,11 @@ server.tool(
         isError?: boolean;
       }> => {
         
+        // Format prompt based on task type
+        const formattedPrompt = formatPromptByTaskType(params.prompt_text, params.task_type);
+        
         // Construct tool-specific arguments for aider
-        const toolArgs: string[] = ['--message', params.prompt_text ?? '']; 
+        const toolArgs: string[] = ['--message', formattedPrompt]; 
         if (params.files && params.files.length > 0) {
             toolArgs.push(...params.files); 
         }
@@ -327,6 +363,7 @@ server.tool(
 // --- Tool: double_compute ---
 const doubleComputeParamsSchema = z.object({
     prompt_text: z.string().max(10000, "Prompt text exceeds maximum length of 10000 characters.").describe("The main prompt/instruction for aider."),
+    task_type: z.enum(TASK_TYPES).optional().describe("Optional task type hint (research, docs, security, code, verify, progress) - currently informational."),
     files: z.array(z.string()).optional().describe("Optional list of files for aider to consider or modify.")
 });
 
@@ -347,8 +384,11 @@ server.tool(
         _meta: z.infer<typeof doubleComputeOutputMetaSchema>;
         isError?: boolean;
       }> => {
+        // Format prompt based on task type
+        const formattedPrompt = formatPromptByTaskType(params.prompt_text, params.task_type);
+        
         // Construct tool-specific arguments once
-        const toolArgs: string[] = ['--message', params.prompt_text ?? ''];
+        const toolArgs: string[] = ['--message', formattedPrompt];
         if (params.files && params.files.length > 0) {
             toolArgs.push(...params.files);
         }

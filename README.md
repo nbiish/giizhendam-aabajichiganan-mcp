@@ -71,14 +71,14 @@ npm run build
 
 ## Configuration
 
-Set the following environment variables:
+Set the following environment variables or use the default configuration:
 
 ```bash
-# Required for aider tools
-export AIDER_MODEL="your-model-name"  # e.g., "gpt-4o" or other model supported by aider
+# Required for aider tools (defaults to "openrouter/google/gemini-2.5-pro-preview-03-25" if not set)
+export AIDER_MODEL="your-model-name"  # Override the default model
 
-# Optional for architect mode
-export AIDER_EDITOR_MODEL="your-editor-model-name"  # e.g., "gpt-4o"
+# Optional for architect mode (defaults to same as AIDER_MODEL if not set)
+export AIDER_EDITOR_MODEL="your-editor-model-name"  # Override the default editor model
 
 # Required for financial expert and board simulations
 export GEMINI_API_KEY="your-gemini-api-key"
@@ -87,6 +87,11 @@ export GEMINI_API_KEY="your-gemini-api-key"
 export FINANCE_EXPERTS_OUTPUT_DIR="/path/to/finance-experts-output"  # Default: ./financial-experts
 export CEO_BOARD_OUTPUT_DIR="/path/to/ceo-board-output"  # Default: ./ceo-and-board
 ```
+
+The server uses the following default configuration from EXAMPLES-aider-cli-commands.sh:
+- Model: openrouter/google/gemini-2.5-pro-preview-03-25
+- Architect mode enabled (same model for editor)
+- Flags: --no-detect-urls, --no-gui, --yes-always, --no-auto-commit
 
 You can also configure these in your mcp.json file:
 
@@ -97,8 +102,8 @@ You can also configure these in your mcp.json file:
     "path/to/giizhendam-aabajichiganan-mcp/dist/index.js"
   ],
   "env": {
-    "AIDER_MODEL": "your-model-name",
-    "AIDER_EDITOR_MODEL": "your-editor-model-name",
+    "AIDER_MODEL": "openrouter/google/gemini-2.5-pro-preview-03-25",
+    "AIDER_EDITOR_MODEL": "openrouter/google/gemini-2.5-pro-preview-03-25",
     "GEMINI_API_KEY": "your-gemini-api-key",
     "FINANCE_EXPERTS_OUTPUT_DIR": "/path/to/finance-experts-output",
     "CEO_BOARD_OUTPUT_DIR": "/path/to/ceo-board-output"

@@ -7,6 +7,7 @@ BASE_CONFIG="aider \\
     --architect \\
     --editor-model openrouter/google/gemini-2.5-pro-exp-03-25:free \\
     --no-detect-urls \\
+    --no-gui \\
     --yes-always"
 
 # Check if prompt and tag are provided
