@@ -13,3 +13,4 @@ publish to:
 # ALWAYS complete these rules (in this order):
 - [critical.mdc](mdc:.cursor/rules/critical.mdc)
 - [dual-publish.mdc](mdc:.cursor/rules/dual-publish.mdc)
+- make an appropriate @.gitignore that does not interfere with pair programmers.
