@@ -225,7 +225,8 @@ async function executeAider(
             // '--editor-model', aiderEditorModel, // REMOVED Line
             '--no-detect-urls',
             '--no-gui',
-            '--yes-always'
+            '--yes-always',
+            '--verbose' // ADDED VERBOSE FLAG
         ];
 
         // Add common flags needed for programmatic execution
