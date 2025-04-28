@@ -236,6 +236,10 @@ function executeAider(toolArgs // Args specific to the tool, e.g., ['--message',
             let stdoutData = '';
             let stderrData = '';
             try {
+                // --- START CHANGE ---
+                // Log the PATH environment variable just before spawning
+                log(`DEBUG: Environment PATH before spawning aider: ${process.env.PATH}`);
+                // --- END CHANGE ---
                 // Spawn 'aider' directly
                 const aiderProcess = (0, child_process_1.spawn)('aider', finalArgs, {
                     stdio: ['pipe', 'pipe', 'pipe'],
