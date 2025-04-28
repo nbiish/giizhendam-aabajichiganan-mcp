@@ -199,10 +199,10 @@ async function executeAider(
 
         // --- START Environment Variable Validation ---
         const aiderModel = process.env.AIDER_MODEL;
-        const aiderEditorModel = process.env.AIDER_EDITOR_MODEL;
+        // const aiderEditorModel = process.env.AIDER_EDITOR_MODEL; // REMOVED
 
-        if (!aiderModel || !aiderEditorModel) {
-            const errorMsg = `Configuration Error: AIDER_MODEL (${aiderModel}) or AIDER_EDITOR_MODEL (${aiderEditorModel}) environment variables are not set. Check MCP server configuration (mcp.json).`;
+        if (!aiderModel) { // ADJUSTED CONDITION
+            const errorMsg = `Configuration Error: AIDER_MODEL (${aiderModel}) environment variable is not set. Check MCP server configuration (mcp.json).`; // ADJUSTED MESSAGE
             log(errorMsg);
             // Reject the promise directly
             return reject(new Error(errorMsg));
@@ -222,31 +222,11 @@ async function executeAider(
         const baseAiderArgs: string[] = [
             '--model', aiderModel, // Use validated env var
             '--architect',
-            '--editor-model', aiderEditorModel, // Use validated env var
+            // '--editor-model', aiderEditorModel, // REMOVED Line
             '--no-detect-urls',
             '--no-gui',
             '--yes-always'
         ];
-
-        // Then allow environment variables to override if specified - REMOVED redundant checks
-        // const aiderModel = process.env.AIDER_MODEL; // Moved up
-        // const aiderEditorModel = process.env.AIDER_EDITOR_MODEL; // Moved up
-
-        // if (aiderModel) { // <-- REMOVED BLOCK
-            // Replace the default model if specified in env
-            // const modelIndex = baseAiderArgs.indexOf('--model');
-            // if (modelIndex >= 0 && modelIndex + 1 < baseAiderArgs.length) {
-            //     baseAiderArgs[modelIndex + 1] = aiderModel;
-            // }
-        // }
-
-        // if (aiderEditorModel) { // <-- REMOVED BLOCK
-            // Replace the default editor model if specified in env
-            // const editorModelIndex = baseAiderArgs.indexOf('--editor-model');
-            // if (editorModelIndex >= 0 && editorModelIndex + 1 < baseAiderArgs.length) {
-            //     baseAiderArgs[editorModelIndex + 1] = aiderEditorModel;
-            // }
-        // }
 
         // Add common flags needed for programmatic execution
         baseAiderArgs.push('--no-auto-commit');
@@ -256,6 +236,7 @@ async function executeAider(
         const executedCommand = `aider ${finalArgs.join(' ')}`;
 
         log(`Executing aider: ${executedCommand}`);
+        log(`Current Directory: ${process.cwd()}`); // ADDED CWD LOG
 
         let stdoutData = '';
         let stderrData = '';
@@ -264,7 +245,8 @@ async function executeAider(
             // Spawn 'aider' directly
             const aiderProcess = spawn('aider', finalArgs, {
                 stdio: ['pipe', 'pipe', 'pipe'],
-                env: process.env // Pass the current environment
+                env: process.env, // Pass the current environment
+                cwd: process.cwd() // ADDED EXPLICIT CWD
             });
 
             aiderProcess.stdout.on('data', (data) => {
