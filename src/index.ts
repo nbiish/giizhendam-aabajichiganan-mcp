@@ -5,21 +5,11 @@
  */
 
 // --- START MCP DEBUG LOGGING ---
-try {
-    console.error(`DEBUG MCP START: Node.js Version: ${process.version}`);
-    console.error(`DEBUG MCP START: AIDER_MODEL=${process.env.AIDER_MODEL}`);
-    console.error(`DEBUG MCP START: AIDER_EDITOR_MODEL=${process.env.AIDER_EDITOR_MODEL}`);
-    console.error(`DEBUG MCP START: OPENROUTER_API_KEY present=${!!process.env.OPENROUTER_API_KEY}`);
-    console.error(`DEBUG MCP START: GEMINI_API_KEY present=${!!process.env.GEMINI_API_KEY}`);
-    console.error(`DEBUG MCP START: FINANCE_EXPERTS_OUTPUT_DIR=${process.env.FINANCE_EXPERTS_OUTPUT_DIR}`);
-    console.error(`DEBUG MCP START: CEO_BOARD_OUTPUT_DIR=${process.env.CEO_BOARD_OUTPUT_DIR}`);
-} catch (e: any) {
-    console.error(`DEBUG MCP START: Error during initial logging: ${e.message}`);
-}
+// Removed initial console.error debug logs for brevity
 // --- END MCP DEBUG LOGGING ---
 
 // --- START Initial CWD Logging ---
-log(`DEBUG MCP START: Initial process.cwd() = ${process.cwd()}`);
+// Removed duplicate log statement here, initial CWD is logged later if needed
 // --- END Initial CWD Logging ---
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -41,11 +31,10 @@ function log(message: string) {
         console.error(`Unable to write to log file: ${error.message}`);
     }
 }
-log(`--- Starting server v2 ---`);
 
 // --- Configuration ---
 // Path to the script we will be calling
-// const AIDER_SCRIPT_PATH = './aider-cli-commands.sh'; // Assuming it's in the root
+// const AIDER_SCRIPT_PATH = './aider-cli-commands.sh'; // Removed commented-out line
 
 // Define standard board roles for ceo_and_board tool
 const STANDARD_BOARD_ROLES = [
@@ -194,22 +183,17 @@ async function executeAider(
     toolArgs: string[] // Args specific to the tool, e.g., ['--message', 'prompt', 'file1.ts']
 ): Promise<{ stdout: string; stderr: string; exitCode: number | null; executedCommand: string }> {
     return new Promise((resolve, reject) => {
-        // --- START Added Logging ---
-        log(`DEBUG: Checking environment variables within executeAider:`);
-        log(`DEBUG: process.env.AIDER_MODEL = ${process.env.AIDER_MODEL}`);
-        log(`DEBUG: process.env.AIDER_EDITOR_MODEL = ${process.env.AIDER_EDITOR_MODEL}`);
-        log(`DEBUG: process.env.OPENROUTER_API_KEY present = ${!!process.env.OPENROUTER_API_KEY}`); // Log presence, not the key itself
-        // --- END Added Logging ---
+        // Log relevant env vars for debugging aider execution
+        log(`DEBUG executeAider: AIDER_MODEL=${process.env.AIDER_MODEL}`);
+        log(`DEBUG executeAider: OPENROUTER_API_KEY present=${!!process.env.OPENROUTER_API_KEY}`);
 
         // --- START Environment Variable Validation ---
         const aiderModel = process.env.AIDER_MODEL;
-        // const aiderEditorModel = process.env.AIDER_EDITOR_MODEL; // REMOVED
 
-        if (!aiderModel) { // ADJUSTED CONDITION
-            const errorMsg = `Configuration Error: AIDER_MODEL (${aiderModel}) environment variable is not set. Check MCP server configuration (mcp.json).`; // ADJUSTED MESSAGE
+        if (!aiderModel) {
+            const errorMsg = `Configuration Error: AIDER_MODEL environment variable is not set. Check MCP server configuration (mcp.json).`;
             log(errorMsg);
-            // Reject the promise directly
-            return reject(new Error(errorMsg));
+            return reject(new Error(errorMsg)); // Reject the promise directly
         }
          if (!process.env.OPENROUTER_API_KEY) {
              // Also check for OpenRouter key if using OpenRouter models - adjust if other providers are used
@@ -219,14 +203,10 @@ async function executeAider(
          }
         // --- END Environment Variable Validation ---
 
-        // Define the hardcoded model and flags from the bash script - REMOVED DEFAULT MODEL
-        // const defaultModel = "openrouter/google/gemini-2.5-pro-preview-03-25"; // <-- REMOVED
-
         // Build the base args using REQUIRED environment variables
         const baseAiderArgs: string[] = [
             '--model', aiderModel, // Use validated env var
             '--architect',
-            // '--editor-model', aiderEditorModel, // REMOVED Line
             '--no-detect-urls',
             '--no-gui',
             '--yes-always',
@@ -248,27 +228,14 @@ async function executeAider(
         let stderrData = '';
 
         try {
-            // --- START CHANGE ---
-            // Log the PATH environment variable just before spawning
-            log(`DEBUG: Environment PATH before spawning aider: ${process.env.PATH}`);
-            // --- END CHANGE ---
+            // Log the PATH environment variable just before spawning aider (kept for debugging but less critical now)
+            log(`DEBUG: Environment PATH before spawning aider: ${process.env.PATH?.substring(0, 100)}...`); // Shortened log
 
             // Spawn 'aider' directly
             const aiderProcess = spawn('aider', finalArgs, {
                 stdio: ['pipe', 'pipe', 'pipe'],
-                // --- START CHANGE ---
-                // Explicitly set the PATH using the user's terminal PATH to ensure dependencies are found
-                env: {
-                    ...process.env, // Inherit other env vars
-                    PATH: '/Users/nbiish/.pyenv/versions/3.10.16/bin:/Users/nbiish/.codeium/windsurf/bin:/Users/nbiish/miniconda3/condabin:/Users/nbiish/google-cloud-sdk/bin:/opt/homebrew/bin:/Users/nbiish/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/Library/Apple/usr/bin:/usr/local/share/dotnet:~/.dotnet/tools:/opt/podman/bin:/Users/nbiish/.cargo/bin:/Users/nbiish/.local/bin:/Users/nbiish/.codeium/windsurf/bin:/Users/nbiish/google-cloud-sdk/bin:/opt/homebrew/bin:/Users/nbiish/.pyenv/versions/3.10.16/bin:/Users/nbiish/.codeium/windsurf/bin:/Users/nbiish/miniconda3/condabin:/Users/nbiish/google-cloud-sdk/bin:/opt/homebrew/bin:/Users/nbiish/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/Library/Apple/usr/bin:/usr/local/share/dotnet:~/.dotnet/tools:/opt/podman/bin:/Users/nbiish/.cargo/bin:/Users/nbiish/.local/bin:/Users/nbiish/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/Library/Apple/usr/bin:/usr/local/share/dotnet:~/.dotnet/tools:/opt/podman/bin:/Users/nbiish/.local/bin:/Users/nbiish/.pyenv/versions/3.10.16/bin:/Users/nbiish/.codeium/windsurf/bin:/Users/nbiish/miniconda3/condabin:/Users/nbiish/google-cloud-sdk/bin:/Users/nbiish/bin:/Users/nbiish/.cargo/bin'
-                },
-                // env: process.env, // Pass the current environment -- OLD WAY
-                // --- END CHANGE ---
-                // --- START CHANGE ---
-                // Revert to using process.cwd() for spawn, relying on the MCP runner to set it correctly.
+                env: process.env,
                 cwd: process.cwd()
-                // cwd: '/Volumes/1tb-sandisk/code-external/giizhendam-aabajichiganan-mcp' // PREVIOUS HARDCODED WAY
-                // --- END CHANGE ---
             });
 
             aiderProcess.stdout.on('data', (data) => {
@@ -284,7 +251,6 @@ async function executeAider(
             aiderProcess.on('error', (error) => {
                 log(`Failed to start aider process: ${error.message}`);
                 stderrData += `\nFailed to start aider: ${error.message}`;
-                // Reject on spawn error
                 reject(new Error(`Failed to start aider: ${error.message}`));
             });
 
@@ -294,7 +260,6 @@ async function executeAider(
             });
         } catch (error: any) {
             log(`Error spawning aider process: ${error.message}`);
-            // Reject on catch error
             reject(new Error(`Error spawning aider: ${error.message}`));
         }
     });
@@ -417,7 +382,7 @@ const doubleComputeOutputMetaSchema = z.object({
     overallSuccess: z.boolean().describe("True if both aider executions succeeded (Exit Code 0)."),
     run1: scriptExecutionOutputSchema.describe("Results of the first execution."),
     run2: scriptExecutionOutputSchema.describe("Results of the second execution."),
-    errorType: z.string().optional().describe("Indicates if there was an execution error ('ExecutionError'), aider error ('AiderError'), or config error ('ConfigurationError').") // Added ConfigurationError
+    errorType: z.string().optional().describe("Indicates if there was an execution error ('ExecutionError'), aider error ('AiderError'), or config error ('ConfigurationError').")
 });
 
 
@@ -462,7 +427,7 @@ server.tool(
         const stdout1 = result1?.stdout ?? '';
         const stderr1 = `${result1?.stderr ?? ''}${error1 ? `\nTool Error (Run 1): ${safeErrorReport(error1)}` : ''}`;
         const exitCode1 = result1?.exitCode ?? null;
-        const executedCommand1 = result1?.executedCommand ?? `aider [error constructing command (run 1) - ${safeErrorReport(error1)}]`; 
+        const executedCommand1 = result1?.executedCommand ?? `aider [error constructing command (run 1) - ${safeErrorReport(error1)}]`;
         if (!errorType1 && !success1 && exitCode1 !== 0) errorType1 = 'AiderError';
 
         // Run 2
@@ -477,7 +442,7 @@ server.tool(
         const stdout2 = result2?.stdout ?? '';
         const stderr2 = `${result2?.stderr ?? ''}${error2 ? `\nTool Error (Run 2): ${safeErrorReport(error2)}` : ''}`;
         const exitCode2 = result2?.exitCode ?? null;
-        const executedCommand2 = result2?.executedCommand ?? `aider [error constructing command (run 2) - ${safeErrorReport(error2)}]`; 
+        const executedCommand2 = result2?.executedCommand ?? `aider [error constructing command (run 2) - ${safeErrorReport(error2)}]`;
         if (!errorType2 && !success2 && exitCode2 !== 0) errorType2 = 'AiderError';
 
 
@@ -652,7 +617,12 @@ const financeExpertsParamsSchema = z.object({
 // Make output directories configurable via environment variables
 // const OUTPUT_DIR_FINANCE = process.env.FINANCE_EXPERTS_OUTPUT_DIR || path.join(process.cwd(), 'financial-experts'); // <-- REMOVED FALLBACK
 // const FINANCE_AGENTS_PATH = path.join(process.cwd(), 'finance-agents.md'); // Removed - prompts are hardcoded
-const GEMINI_MODEL_NAME = "gemini-1.5-flash-latest"; // Or choose another appropriate model
+
+// --- START Configuration Change ---
+// Make Gemini Model configurable via environment variable, with a default
+const DEFAULT_GEMINI_MODEL = "gemini-2.0-flash-lite";
+const GEMINI_MODEL_NAME = process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
+// --- END Configuration Change ---
 
 // Helper function to parse expert prompts from finance-agents.md - REMOVED
 /*
@@ -877,7 +847,7 @@ const ceoBoardParamsSchema = z.object({
 
 // Make output directories configurable via environment variables
 // const OUTPUT_DIR_BOARD = process.env.CEO_BOARD_OUTPUT_DIR || path.join(process.cwd(), 'ceo-and-board'); // <-- REMOVED FALLBACK
-// const GEMINI_MODEL_NAME = "gemini-1.5-flash-latest"; // Already defined above
+// const GEMINI_MODEL_NAME = "gemini-1.5-flash-latest"; // Now defined globally and configurable
 
 server.tool(
     "ceo_and_board",
@@ -1055,16 +1025,21 @@ Instructions:
 
 // --- Main Execution ---
 async function main() {
-  try {
-    const transport = new StdioServerTransport();
-    await server.connect(transport);
-    console.error(`${serverName} v${serverVersion} running on stdio`);
-    log(`Server connected via stdio.`);
-  } catch (error: any) {
-    console.error("Fatal error in main():", error);
-    log(`Fatal error in main(): ${safeErrorReport(error)}`);
-    process.exit(1);
-  }
+    log(`--- Starting server v2 ---`);
+    log(`Initial process.cwd() = ${process.cwd()}`); // Log initial CWD once
+
+    log(`Starting ${serverName} v${serverVersion}`);
+
+    try {
+        const transport = new StdioServerTransport();
+        await server.connect(transport);
+        console.error(`${serverName} v${serverVersion} running on stdio`);
+        log(`Server connected via stdio.`);
+    } catch (error: any) {
+        console.error("Fatal error in main():", error);
+        log(`Fatal error in main(): ${safeErrorReport(error)}`);
+        process.exit(1);
+    }
 }
 
 main().catch((error: any) => {

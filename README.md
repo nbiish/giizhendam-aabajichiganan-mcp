@@ -96,45 +96,30 @@ If you encounter issues with the executable script (e.g., "command not found" or
 
 ## Configuration
 
-Set the following environment variables or use the default configuration:
-
-```bash
-# Required for aider tools (defaults to "openrouter/google/gemini-2.5-pro-preview-03-25" if not set)
-export AIDER_MODEL="your-model-name"  # Override the default model
-
-# Optional for architect mode (defaults to same as AIDER_MODEL if not set)
-export AIDER_EDITOR_MODEL="your-editor-model-name"  # Override the default editor model
-
-# Required for financial expert and board simulations
-export GEMINI_API_KEY="your-gemini-api-key"
-
-# Optional: Configure output directories for simulations
-export FINANCE_EXPERTS_OUTPUT_DIR="/path/to/finance-experts-output"  # Default: ./financial-experts
-export CEO_BOARD_OUTPUT_DIR="/path/to/ceo-board-output"  # Default: ./ceo-and-board
-```
-
-The server uses the following default configuration from EXAMPLES-aider-cli-commands.sh:
-- Model: openrouter/google/gemini-2.5-pro-preview-03-25
-- Architect mode enabled (same model for editor)
-- Flags: --no-detect-urls, --no-gui, --yes-always, --no-auto-commit
-
-You can also configure these in your mcp.json file:
+You can configure the server settings within your `mcp.json` file when defining the server:
 
 ```json
-"giizhendam-aabajichiganan-mcp": {
-  "command": "node",
+"ai-tool-mcp": { // Or whatever you name this server instance
+  "command": "node", // Or npx @nbiish/giizhendam-aabajichiganan-mcp if installed globally
   "args": [
-    "path/to/giizhendam-aabajichiganan-mcp/dist/index.js"
+    "path/to/giizhendam-aabajichiganan-mcp/dist/index.js" // Adjust path if using node directly
   ],
   "env": {
-    "AIDER_MODEL": "openrouter/google/gemini-2.5-pro-preview-03-25",
-    "AIDER_EDITOR_MODEL": "openrouter/google/gemini-2.5-pro-preview-03-25",
-    "GEMINI_API_KEY": "your-gemini-api-key",
-    "FINANCE_EXPERTS_OUTPUT_DIR": "/path/to/finance-experts-output",
-    "CEO_BOARD_OUTPUT_DIR": "/path/to/ceo-board-output"
-  }
+    "AIDER_MODEL": "openrouter/google/gemini-2.5-pro-preview-03-25", // Default if not set
+    "AIDER_EDITOR_MODEL": "openrouter/google/gemini-2.5-pro-preview-03-25", // Default if not set
+    "GEMINI_API_KEY": "YOUR_GEMINI_API_KEY", // Required for simulations
+    "FINANCE_EXPERTS_OUTPUT_DIR": "/path/to/finance-experts-output", // Optional, defaults to ./output/finance-experts relative to server CWD
+    "CEO_BOARD_OUTPUT_DIR": "/path/to/ceo-board-output" // Optional, defaults to ./output/ceo-and-board relative to server CWD
+  },
+  "cwd": "/path/to/giizhendam-aabajichiganan-mcp" // Set the working directory if needed
 }
 ```
+
+The server uses the following internal defaults if environment variables are not provided via `mcp.json`:
+- `AIDER_MODEL`: `openrouter/google/gemini-2.5-pro-preview-03-25`
+- `AIDER_EDITOR_MODEL`: Same as `AIDER_MODEL`
+- Aider Flags: `--no-detect-urls`, `--no-gui`, `--yes-always`, `--no-auto-commit`
+- Output Directories: Relative to the server's Current Working Directory (`cwd`) specified in `mcp.json`, defaulting to `./output/finance-experts` and `./output/ceo-and-board`.
 
 ## Usage
 
