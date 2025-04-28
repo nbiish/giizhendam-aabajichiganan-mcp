@@ -65,7 +65,8 @@ echo "Building Package 1..."
 npm run build # Assumes 'build' script exists in package.json
 
 echo "Staging and committing Package 1 changes..."
-git add package.json package-lock.json "$BUILD_DIR/"
+# git add package.json package-lock.json "$BUILD_DIR/" # Commented out to avoid adding ignored dist/
+git add package.json package-lock.json # Only add package files
 git commit -m "chore: bump version to $NEW_VERSION"
 
 echo "Publishing Package 1 (@nbiish/giizhendam-aabajichiganan-mcp) version $NEW_VERSION..."
