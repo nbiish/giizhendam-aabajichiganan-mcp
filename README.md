@@ -57,17 +57,42 @@ The server includes direct interfaces to the aider CLI for AI pair programming a
 
 ## Installation
 
+### Global Installation (Recommended)
+
 ```bash
-# Clone repository
-git clone https://github.com/yourusername/giizhendam-aabajichiganan-mcp.git
-cd giizhendam-aabajichiganan-mcp
+# First uninstall any existing versions
+npm uninstall -g @nbiish/giizhendam-aabajichiganan-mcp
 
-# Install dependencies
-npm install
+# Install from the current directory
+npm install -g .
 
-# Build project
-npm run build
+# Or install from npm registry
+npm install -g @nbiish/giizhendam-aabajichiganan-mcp
 ```
+
+### Troubleshooting Installation Issues
+
+If you encounter issues with the executable script (e.g., "command not found" or shell syntax errors), try these steps:
+
+1. Check if the installed script has the proper shebang line:
+   ```bash
+   cat $(which aider-mcp-server)
+   ```
+
+2. If the shebang line is missing or incorrect, fix it manually:
+   ```bash
+   echo '#!/usr/bin/env node' > /tmp/fixed-script
+   cat $(which aider-mcp-server) >> /tmp/fixed-script
+   sudo mv /tmp/fixed-script $(which aider-mcp-server)
+   sudo chmod +x $(which aider-mcp-server)
+   ```
+
+3. Alternatively, reinstall after clearing npm cache:
+   ```bash
+   npm cache clean --force
+   npm uninstall -g @nbiish/giizhendam-aabajichiganan-mcp
+   npm install -g .
+   ```
 
 ## Configuration
 

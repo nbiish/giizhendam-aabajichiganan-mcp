@@ -1,6 +1,6 @@
 {
   "name": "@nbiish/giizhendam-aabajichiganan-mcp",
-  "version": "0.3.20",
+  "version": "0.3.21",
   "description": "MCP Server to interface with aider CLI for specialized tasks",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -8,7 +8,7 @@
     "aider-mcp-server": "dist/index.js"
   },
   "scripts": {
-    "build": "tsc && chmod +x dist/index.js",
+    "build": "tsc && chmod +x dist/index.js && sed -i '' '1s/^.*$/\\#\\!\\/usr\\/bin\\/env node/' dist/index.js",
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
     "prepublishOnly": "npm run build"
@@ -35,5 +35,9 @@
   },
   "files": [
     "dist"
-  ]
+  ],
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "preferGlobal": true
 }

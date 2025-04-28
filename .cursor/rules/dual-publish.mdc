@@ -13,4 +13,5 @@ publish to:
 # ALWAYS complete these rules (in this order):
 - [critical.mdc](mdc:.cursor/rules/critical.mdc)
 - [dual-publish.mdc](mdc:.cursor/rules/dual-publish.mdc)
-- make an appropriate @.gitignore that does not interfere with pair programmers.
+- make an appropriate @.gitignore that does not interfere with pair programmers
+- we use npx in our [mcp.json](mdc:/Users/nbiish/.cursor/mcp.json) to install, test, and use our codebase's mcp server
