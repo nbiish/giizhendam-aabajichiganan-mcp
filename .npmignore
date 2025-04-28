@@ -29,3 +29,6 @@ publish_all.sh
 
 # Aider files
 .aider*
+
+# Docs
+docs/
