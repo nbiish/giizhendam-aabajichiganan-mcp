@@ -251,7 +251,14 @@ async function executeAider(
             // Spawn 'aider' directly
             const aiderProcess = spawn('aider', finalArgs, {
                 stdio: ['pipe', 'pipe', 'pipe'],
-                env: process.env, // Pass the current environment
+                // --- START CHANGE ---
+                // Explicitly set the PATH using the user's terminal PATH to ensure dependencies are found
+                env: {
+                    ...process.env, // Inherit other env vars
+                    PATH: '/Users/nbiish/.pyenv/versions/3.10.16/bin:/Users/nbiish/.codeium/windsurf/bin:/Users/nbiish/miniconda3/condabin:/Users/nbiish/google-cloud-sdk/bin:/opt/homebrew/bin:/Users/nbiish/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/Library/Apple/usr/bin:/usr/local/share/dotnet:~/.dotnet/tools:/opt/podman/bin:/Users/nbiish/.cargo/bin:/Users/nbiish/.local/bin:/Users/nbiish/.codeium/windsurf/bin:/Users/nbiish/google-cloud-sdk/bin:/opt/homebrew/bin:/Users/nbiish/.pyenv/versions/3.10.16/bin:/Users/nbiish/.codeium/windsurf/bin:/Users/nbiish/miniconda3/condabin:/Users/nbiish/google-cloud-sdk/bin:/opt/homebrew/bin:/Users/nbiish/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/Library/Apple/usr/bin:/usr/local/share/dotnet:~/.dotnet/tools:/opt/podman/bin:/Users/nbiish/.cargo/bin:/Users/nbiish/.local/bin:/Users/nbiish/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/Library/Apple/usr/bin:/usr/local/share/dotnet:~/.dotnet/tools:/opt/podman/bin:/Users/nbiish/.local/bin:/Users/nbiish/.pyenv/versions/3.10.16/bin:/Users/nbiish/.codeium/windsurf/bin:/Users/nbiish/miniconda3/condabin:/Users/nbiish/google-cloud-sdk/bin:/Users/nbiish/bin:/Users/nbiish/.cargo/bin'
+                },
+                // env: process.env, // Pass the current environment -- OLD WAY
+                // --- END CHANGE ---
                 cwd: process.cwd() // ADDED EXPLICIT CWD
             });
 
@@ -321,7 +328,7 @@ server.tool(
         const formattedPrompt = formatPromptByTaskType(params.prompt_text, params.task_type);
         
         // Construct tool-specific arguments for aider
-        const toolArgs: string[] = ['--message', formattedPrompt];
+        const toolArgs: string[] = ['--message', formattedPrompt]; 
         if (params.files && params.files.length > 0) {
             // Convert relative paths to absolute paths
             const absolutePaths = params.files.map(file => path.resolve(process.cwd(), file));
