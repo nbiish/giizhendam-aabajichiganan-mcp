@@ -295,7 +295,10 @@ server.tool("prompt_aider", "Executes the aider command directly with the given 
     // Construct tool-specific arguments for aider
     const toolArgs = ['--message', formattedPrompt];
     if (params.files && params.files.length > 0) {
-        toolArgs.push(...params.files);
+        // Convert relative paths to absolute paths
+        const absolutePaths = params.files.map(file => path_1.default.resolve(process.cwd(), file));
+        log(`Resolved file paths for aider (prompt_aider): ${absolutePaths.join(', ')}`); // Add logging
+        toolArgs.push(...absolutePaths); // Push resolved paths
     }
     // task_type is not passed directly to aider in this setup, but could be added to the prompt if needed.
     let result = null;
@@ -372,7 +375,10 @@ server.tool("double_compute", "Executes the aider command TWICE directly with th
     // Construct tool-specific arguments once
     const toolArgs = ['--message', formattedPrompt];
     if (params.files && params.files.length > 0) {
-        toolArgs.push(...params.files);
+        // Convert relative paths to absolute paths
+        const absolutePaths = params.files.map(file => path_1.default.resolve(process.cwd(), file));
+        log(`Resolved file paths for aider (double_compute): ${absolutePaths.join(', ')}`); // Add logging
+        toolArgs.push(...absolutePaths); // Push resolved paths
     }
     log(`Preparing double_compute with tool args: ${toolArgs.join(' ')}`);
     let result1 = null;

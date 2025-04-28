@@ -42,3 +42,9 @@ Thumbs.db
 .npmrc
 .yarnrc
 .aider*
+
+
+# Testing
+output/
+test-dir/
+.aider*

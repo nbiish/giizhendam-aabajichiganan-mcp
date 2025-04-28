@@ -3,15 +3,15 @@ description:
 globs: package*.json,dual-publish.sh,package.json
 alwaysApply: false
 ---
-- Publish to my npm packages and KEEP VERSIONS THE SAME
-- Increment both package versions slightly when calling this to build/publish/etc..
-
 publish to:
 - 'giizhendam-aabajichiganan-mcp' -> https://www.npmjs.com/package/@nbiish/giizhendam-aabajichiganan-mcp
 - 'ai-tool-mcp' -> https://www.npmjs.com/package/@nbiish/ai-tool-mcp
+- Increment both package versions slightly when calling this to build/publish/etc..
 
-# ALWAYS complete these rules (in this order):
+
+# ALWAYS RUN THROUGH (in this order):
 - [critical.mdc](mdc:.cursor/rules/critical.mdc)
+- update [README.md](mdc:README.md) (changes, etc)
 - [dual-publish.mdc](mdc:.cursor/rules/dual-publish.mdc)
 - make an appropriate @.gitignore that does not interfere with pair programmers
 - we use npx in our [mcp.json](mdc:/Users/nbiish/.cursor/mcp.json) to install, test, and use our codebase's mcp server

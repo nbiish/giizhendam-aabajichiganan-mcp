@@ -1,7 +1,7 @@
 {
   "name": "@nbiish/giizhendam-aabajichiganan-mcp",
-  "version": "0.3.22",
-  "description": "MCP Server to interface with aider CLI for specialized tasks",
+  "version": "0.3.23",
+  "description": "MCP Server providing AI-driven tools (aider wrapper, financial/board simulations)",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {

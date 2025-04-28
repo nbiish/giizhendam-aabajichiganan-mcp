@@ -315,9 +315,12 @@ server.tool(
         const formattedPrompt = formatPromptByTaskType(params.prompt_text, params.task_type);
         
         // Construct tool-specific arguments for aider
-        const toolArgs: string[] = ['--message', formattedPrompt]; 
+        const toolArgs: string[] = ['--message', formattedPrompt];
         if (params.files && params.files.length > 0) {
-            toolArgs.push(...params.files); 
+            // Convert relative paths to absolute paths
+            const absolutePaths = params.files.map(file => path.resolve(process.cwd(), file));
+            log(`Resolved file paths for aider (prompt_aider): ${absolutePaths.join(', ')}`); // Add logging
+            toolArgs.push(...absolutePaths); // Push resolved paths
         }
         // task_type is not passed directly to aider in this setup, but could be added to the prompt if needed.
 
@@ -411,7 +414,10 @@ server.tool(
         // Construct tool-specific arguments once
         const toolArgs: string[] = ['--message', formattedPrompt];
         if (params.files && params.files.length > 0) {
-            toolArgs.push(...params.files);
+            // Convert relative paths to absolute paths
+            const absolutePaths = params.files.map(file => path.resolve(process.cwd(), file));
+            log(`Resolved file paths for aider (double_compute): ${absolutePaths.join(', ')}`); // Add logging
+            toolArgs.push(...absolutePaths); // Push resolved paths
         }
         log(`Preparing double_compute with tool args: ${toolArgs.join(' ')}`);
 
