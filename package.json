@@ -1,6 +1,6 @@
 {
   "name": "@nbiish/giizhendam-aabajichiganan-mcp",
-  "version": "0.3.16",
+  "version": "0.3.17",
   "description": "MCP Server to interface with aider CLI for specialized tasks",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
