@@ -1,6 +1,6 @@
 ---
 description: 
-globs: package*.json,dual-publish.sh
+globs: package*.json,dual-publish.sh,package.json
 alwaysApply: false
 ---
 - Publish to my npm packages and KEEP VERSIONS THE SAME

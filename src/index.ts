@@ -3,6 +3,20 @@
  * Interface to aider-cli-commands.sh script based on revised PRD.
  */
 
+// --- START MCP DEBUG LOGGING ---
+try {
+    console.error(`DEBUG MCP START: Node.js Version: ${process.version}`);
+    console.error(`DEBUG MCP START: AIDER_MODEL=${process.env.AIDER_MODEL}`);
+    console.error(`DEBUG MCP START: AIDER_EDITOR_MODEL=${process.env.AIDER_EDITOR_MODEL}`);
+    console.error(`DEBUG MCP START: OPENROUTER_API_KEY present=${!!process.env.OPENROUTER_API_KEY}`);
+    console.error(`DEBUG MCP START: GEMINI_API_KEY present=${!!process.env.GEMINI_API_KEY}`);
+    console.error(`DEBUG MCP START: FINANCE_EXPERTS_OUTPUT_DIR=${process.env.FINANCE_EXPERTS_OUTPUT_DIR}`);
+    console.error(`DEBUG MCP START: CEO_BOARD_OUTPUT_DIR=${process.env.CEO_BOARD_OUTPUT_DIR}`);
+} catch (e: any) {
+    console.error(`DEBUG MCP START: Error during initial logging: ${e.message}`);
+}
+// --- END MCP DEBUG LOGGING ---
+
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
@@ -249,7 +263,6 @@ async function executeAider(
             // Spawn 'aider' directly
             const aiderProcess = spawn('aider', finalArgs, {
                 stdio: ['pipe', 'pipe', 'pipe'],
-                cwd: process.cwd(), // Run aider from the project root
                 env: process.env // Pass the current environment
             });
 

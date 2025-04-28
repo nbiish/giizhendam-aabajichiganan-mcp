@@ -18,6 +18,20 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+// --- START MCP DEBUG LOGGING ---
+try {
+    console.error(`DEBUG MCP START: Node.js Version: ${process.version}`);
+    console.error(`DEBUG MCP START: AIDER_MODEL=${process.env.AIDER_MODEL}`);
+    console.error(`DEBUG MCP START: AIDER_EDITOR_MODEL=${process.env.AIDER_EDITOR_MODEL}`);
+    console.error(`DEBUG MCP START: OPENROUTER_API_KEY present=${!!process.env.OPENROUTER_API_KEY}`);
+    console.error(`DEBUG MCP START: GEMINI_API_KEY present=${!!process.env.GEMINI_API_KEY}`);
+    console.error(`DEBUG MCP START: FINANCE_EXPERTS_OUTPUT_DIR=${process.env.FINANCE_EXPERTS_OUTPUT_DIR}`);
+    console.error(`DEBUG MCP START: CEO_BOARD_OUTPUT_DIR=${process.env.CEO_BOARD_OUTPUT_DIR}`);
+}
+catch (e) {
+    console.error(`DEBUG MCP START: Error during initial logging: ${e.message}`);
+}
+// --- END MCP DEBUG LOGGING ---
 const mcp_js_1 = require("@modelcontextprotocol/sdk/server/mcp.js");
 const stdio_js_1 = require("@modelcontextprotocol/sdk/server/stdio.js");
 const zod_1 = require("zod");
@@ -241,7 +255,6 @@ function executeAider(toolArgs // Args specific to the tool, e.g., ['--message',
                 // Spawn 'aider' directly
                 const aiderProcess = (0, child_process_1.spawn)('aider', finalArgs, {
                     stdio: ['pipe', 'pipe', 'pipe'],
-                    cwd: process.cwd(), // Run aider from the project root
                     env: process.env // Pass the current environment
                 });
                 aiderProcess.stdout.on('data', (data) => {
