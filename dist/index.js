@@ -223,7 +223,8 @@ function executeAider(toolArgs // Args specific to the tool, e.g., ['--message',
                 // '--editor-model', aiderEditorModel, // REMOVED Line
                 '--no-detect-urls',
                 '--no-gui',
-                '--yes-always'
+                '--yes-always',
+                '--verbose' // ADDED VERBOSE FLAG
             ];
             // Add common flags needed for programmatic execution
             baseAiderArgs.push('--no-auto-commit');
