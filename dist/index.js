@@ -224,7 +224,8 @@ function executeAider(toolArgs // Args specific to the tool, e.g., ['--message',
                 '--no-detect-urls',
                 '--no-gui',
                 '--yes-always',
-                '--verbose' // ADDED VERBOSE FLAG
+                '--verbose', // ADDED VERBOSE FLAG
+                '--no-git' // ADDED NO-GIT FLAG
             ];
             // Add common flags needed for programmatic execution
             baseAiderArgs.push('--no-auto-commit');

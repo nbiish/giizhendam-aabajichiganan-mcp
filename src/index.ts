@@ -226,7 +226,8 @@ async function executeAider(
             '--no-detect-urls',
             '--no-gui',
             '--yes-always',
-            '--verbose' // ADDED VERBOSE FLAG
+            '--verbose', // ADDED VERBOSE FLAG
+            '--no-git' // ADDED NO-GIT FLAG
         ];
 
         // Add common flags needed for programmatic execution
