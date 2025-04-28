@@ -18,6 +18,10 @@ try {
 }
 // --- END MCP DEBUG LOGGING ---
 
+// --- START Initial CWD Logging ---
+log(`DEBUG MCP START: Initial process.cwd() = ${process.cwd()}`);
+// --- END Initial CWD Logging ---
+
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
@@ -260,7 +264,11 @@ async function executeAider(
                 },
                 // env: process.env, // Pass the current environment -- OLD WAY
                 // --- END CHANGE ---
-                cwd: process.cwd() // ADDED EXPLICIT CWD
+                // --- START CHANGE ---
+                // Revert to using process.cwd() for spawn, relying on the MCP runner to set it correctly.
+                cwd: process.cwd()
+                // cwd: '/Volumes/1tb-sandisk/code-external/giizhendam-aabajichiganan-mcp' // PREVIOUS HARDCODED WAY
+                // --- END CHANGE ---
             });
 
             aiderProcess.stdout.on('data', (data) => {

@@ -31,6 +31,9 @@ catch (e) {
     console.error(`DEBUG MCP START: Error during initial logging: ${e.message}`);
 }
 // --- END MCP DEBUG LOGGING ---
+// --- START Initial CWD Logging ---
+log(`DEBUG MCP START: Initial process.cwd() = ${process.cwd()}`);
+// --- END Initial CWD Logging ---
 const mcp_js_1 = require("@modelcontextprotocol/sdk/server/mcp.js");
 const stdio_js_1 = require("@modelcontextprotocol/sdk/server/stdio.js");
 const zod_1 = require("zod");
@@ -249,7 +252,11 @@ function executeAider(toolArgs // Args specific to the tool, e.g., ['--message',
                     env: Object.assign(Object.assign({}, process.env), { PATH: '/Users/nbiish/.pyenv/versions/3.10.16/bin:/Users/nbiish/.codeium/windsurf/bin:/Users/nbiish/miniconda3/condabin:/Users/nbiish/google-cloud-sdk/bin:/opt/homebrew/bin:/Users/nbiish/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/Library/Apple/usr/bin:/usr/local/share/dotnet:~/.dotnet/tools:/opt/podman/bin:/Users/nbiish/.cargo/bin:/Users/nbiish/.local/bin:/Users/nbiish/.codeium/windsurf/bin:/Users/nbiish/google-cloud-sdk/bin:/opt/homebrew/bin:/Users/nbiish/.pyenv/versions/3.10.16/bin:/Users/nbiish/.codeium/windsurf/bin:/Users/nbiish/miniconda3/condabin:/Users/nbiish/google-cloud-sdk/bin:/opt/homebrew/bin:/Users/nbiish/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/Library/Apple/usr/bin:/usr/local/share/dotnet:~/.dotnet/tools:/opt/podman/bin:/Users/nbiish/.cargo/bin:/Users/nbiish/.local/bin:/Users/nbiish/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/Library/Apple/usr/bin:/usr/local/share/dotnet:~/.dotnet/tools:/opt/podman/bin:/Users/nbiish/.local/bin:/Users/nbiish/.pyenv/versions/3.10.16/bin:/Users/nbiish/.codeium/windsurf/bin:/Users/nbiish/miniconda3/condabin:/Users/nbiish/google-cloud-sdk/bin:/Users/nbiish/bin:/Users/nbiish/.cargo/bin' }),
                     // env: process.env, // Pass the current environment -- OLD WAY
                     // --- END CHANGE ---
-                    cwd: process.cwd() // ADDED EXPLICIT CWD
+                    // --- START CHANGE ---
+                    // Revert to using process.cwd() for spawn, relying on the MCP runner to set it correctly.
+                    cwd: process.cwd()
+                    // cwd: '/Volumes/1tb-sandisk/code-external/giizhendam-aabajichiganan-mcp' // PREVIOUS HARDCODED WAY
+                    // --- END CHANGE ---
                 });
                 aiderProcess.stdout.on('data', (data) => {
                     stdoutData += data.toString();
