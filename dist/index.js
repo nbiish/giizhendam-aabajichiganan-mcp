@@ -8259,6 +8259,8 @@ async function executeAider(toolArgs) {
     ];
     baseAiderArgs.push("--no-auto-commit");
     baseAiderArgs.push("--no-git");
+    baseAiderArgs.push("--yes");
+    baseAiderArgs.push("--no-pretty");
     const finalArgs = [...baseAiderArgs, ...toolArgs];
     const executedCommand = `aider ${finalArgs.join(" ")}`;
     log(`Executing aider: ${executedCommand}`);

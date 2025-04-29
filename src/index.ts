@@ -216,6 +216,10 @@ async function executeAider(
         baseAiderArgs.push('--no-auto-commit');
         baseAiderArgs.push('--no-git');
         
+        // Add flags to help with non-interactive mode
+        baseAiderArgs.push('--yes');  // Automatically accept all confirmations
+        baseAiderArgs.push('--no-pretty');  // Disable formatting that might not work in non-interactive environments
+
         // Combine base args with tool-specific args
         const finalArgs = [...baseAiderArgs, ...toolArgs];
         const executedCommand = `aider ${finalArgs.join(' ')}`;
