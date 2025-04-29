@@ -7168,7 +7168,6 @@ var StdioServerTransport = class {
 };
 
 // src/index.ts
-import { spawn } from "child_process";
 import fs from "fs";
 import path from "path";
 import fsPromises from "fs/promises";
@@ -8256,83 +8255,76 @@ function formatPromptByTaskType(prompt, taskType) {
       return prompt;
   }
 }
-async function executeAider(toolArgs) {
-  return new Promise((resolve, reject) => {
-    log(`DEBUG executeAider: AIDER_MODEL=${process.env.AIDER_MODEL}`);
-    log(`DEBUG executeAider: OPENROUTER_API_KEY present=${!!process.env.OPENROUTER_API_KEY}`);
-    let aiderModel = process.env.AIDER_MODEL;
-    if (!aiderModel) {
-      aiderModel = DEFAULT_AIDER_MODEL;
-      log(`AIDER_MODEL not set, using default: ${DEFAULT_AIDER_MODEL}`);
-    }
-    if (!process.env.OPENROUTER_API_KEY) {
-      const errorMsg = `Configuration Error: OPENROUTER_API_KEY environment variable is not set. Check MCP server configuration (mcp.json).`;
-      log(errorMsg);
-      return reject(new Error(errorMsg));
-    }
-    const editFormat = getBestEditFormatForModel(aiderModel);
-    log(`Using edit format '${editFormat}' for model: ${aiderModel}`);
-    const baseAiderArgs = [
-      "--model",
-      aiderModel,
-      "--no-detect-urls",
-      "--no-gui",
-      "--yes-always",
-      "--no-auto-commit",
-      "--no-git",
-      "--yes",
-      // Always say yes to every confirmation
-      "--no-pretty",
-      "--edit-format",
-      editFormat
-      // Use the appropriate edit format for this model
-    ];
-    if (editFormat === "architect") {
-      baseAiderArgs.push("--editor-model", aiderModel);
-      const editorEditFormat = "editor-whole";
-      baseAiderArgs.push("--editor-edit-format", editorEditFormat);
-    }
-    const finalArgs = [...baseAiderArgs, ...toolArgs];
-    const executedCommand = `aider ${finalArgs.join(" ")}`;
-    log(`Executing aider: ${executedCommand}`);
-    log(`Current Directory: ${process.cwd()}`);
-    let stdoutData = "";
-    let stderrData = "";
-    try {
-      log(`DEBUG: Environment PATH before spawning aider: ${process.env.PATH?.substring(0, 100)}...`);
-      log(`DEBUG executeAider: UID=${process.getuid ? process.getuid() : "N/A"}, GID=${process.getgid ? process.getgid() : "N/A"}`);
-      log(`DEBUG executeAider: Environment Keys: ${Object.keys(process.env).sort().join(", ")}`);
-      const aiderProcess = spawn("aider", finalArgs, {
-        stdio: ["ignore", "pipe", "pipe"],
-        // Change stdio to ignore stdin, but capture stdout and stderr
-        env: process.env,
-        cwd: process.cwd(),
-        shell: true
-      });
-      aiderProcess.stdout.on("data", (data) => {
-        stdoutData += data.toString();
-        log(`Aider stdout: ${data.toString().substring(0, 100)}...`);
-      });
-      aiderProcess.stderr.on("data", (data) => {
-        stderrData += data.toString();
-        log(`Aider stderr: ${data.toString().substring(0, 100)}...`);
-      });
-      aiderProcess.on("error", (error) => {
-        log(`Failed to start aider process: ${error.message}`);
-        stderrData += `
-Failed to start aider: ${error.message}`;
-        reject(new Error(`Failed to start aider: ${error.message}`));
-      });
-      aiderProcess.on("close", (code) => {
-        log(`Aider process exited with code ${code}`);
-        resolve({ stdout: stdoutData, stderr: stderrData, exitCode: code, executedCommand });
-      });
-    } catch (error) {
-      log(`Error spawning aider process: ${error.message}`);
-      reject(new Error(`Error spawning aider: ${error.message}`));
-    }
-  });
+async function generateAiderCommandGuidance(toolArgs, isDoubleCompute = false) {
+  let aiderModel = process.env.AIDER_MODEL;
+  if (!aiderModel) {
+    aiderModel = DEFAULT_AIDER_MODEL;
+    log(`AIDER_MODEL not set, using default: ${DEFAULT_AIDER_MODEL}`);
+  }
+  let apiKeyWarning = void 0;
+  if (aiderModel.toLowerCase().includes("openrouter") && !process.env.OPENROUTER_API_KEY) {
+    const warningMsg = `WARNING: OPENROUTER_API_KEY environment variable is not set. You will need to set this before running the aider command.`;
+    log(warningMsg);
+    apiKeyWarning = warningMsg;
+  }
+  const editFormat = getBestEditFormatForModel(aiderModel);
+  log(`Recommending edit format '${editFormat}' for model: ${aiderModel}`);
+  let editFormatReasoning = `Based on the aider.chat leaderboard performance data, '${editFormat}' is the optimal edit format for ${aiderModel}.`;
+  if (editFormat === "architect") {
+    editFormatReasoning += ` The 'architect' mode is a two-stage editing approach that performs best with models like ${aiderModel}.`;
+  } else if (editFormat === "diff-fenced") {
+    editFormatReasoning += ` The 'diff-fenced' format uses clearly marked code fences that perform well with ${aiderModel}.`;
+  } else if (editFormat === "diff") {
+    editFormatReasoning += ` The 'diff' format provides clear edit boundaries that work effectively with ${aiderModel}.`;
+  } else if (editFormat === "whole") {
+    editFormatReasoning += ` The 'whole' format is the safest default option for ${aiderModel} when other formats are not specifically recommended.`;
+  }
+  const baseAiderArgs = [
+    "--model",
+    aiderModel,
+    "--no-detect-urls",
+    "--no-gui",
+    "--yes-always",
+    "--no-auto-commit",
+    "--no-git",
+    "--yes",
+    // Always say yes to every confirmation
+    "--no-pretty",
+    "--edit-format",
+    editFormat
+    // Use the appropriate edit format for this model
+  ];
+  if (editFormat === "architect") {
+    baseAiderArgs.push("--editor-model", aiderModel);
+    const editorEditFormat = "editor-whole";
+    baseAiderArgs.push("--editor-edit-format", editorEditFormat);
+  }
+  const finalArgs = [...baseAiderArgs, ...toolArgs];
+  const recommendedCommand = `aider ${finalArgs.join(" ")}`;
+  const finalRecommendedCommand = isDoubleCompute ? `# Run this command twice for redundant computation/comparison:
+${recommendedCommand}` : recommendedCommand;
+  return {
+    recommendedCommand: finalRecommendedCommand,
+    editFormat,
+    editFormatReasoning,
+    baseArgs: baseAiderArgs,
+    modelName: aiderModel,
+    apiKeyWarning
+  };
 }
+var aiderGuidanceOutputSchema = z.object({
+  recommendedCommand: z.string().describe("The recommended aider command to execute."),
+  editFormat: z.string().describe("The optimal edit format for the specified model."),
+  editFormatReasoning: z.string().describe("Explanation of why this edit format is recommended."),
+  taskType: z.string().optional().describe("The task type used for prompt formatting."),
+  formattedPrompt: z.string().optional().describe("The prompt after task-specific formatting."),
+  modelName: z.string().describe("The aider model that will be used."),
+  fileArgs: z.array(z.string()).optional().describe("File arguments to be passed to aider."),
+  apiKeyWarning: z.string().optional().describe("Warning about missing API keys needed for the model.")
+});
+var doubleComputeGuidanceOutputSchema = aiderGuidanceOutputSchema.extend({
+  isDoubleCompute: z.boolean().describe("Indicates this is guidance for a double compute operation.")
+});
 var promptAiderParamsSchema = z.object({
   prompt_text: z.string().max(1e4, "Prompt text exceeds maximum length of 10000 characters.").describe("The main prompt/instruction for aider."),
   task_type: z.enum(TASK_TYPES).optional().describe("Optional task type hint (research, docs, security, code, verify, progress) - currently informational."),
@@ -8370,66 +8362,77 @@ server.tool(
         toolArgs.push("--cache-file", params.cache_file);
       }
     }
+    const fileArgs = [];
     if (params.files && params.files.length > 0) {
-      log(`Using relative file paths for aider (prompt_aider): ${params.files.join(", ")}`);
-      toolArgs.push(...params.files);
-    }
-    let result = null;
-    let error = null;
-    let errorType = void 0;
-    try {
-      result = await executeAider(toolArgs);
-    } catch (e) {
-      error = e;
-      if (e.message.includes("AIDER_MODEL is not set")) {
-        errorType = "ConfigurationError";
-      } else {
-        errorType = "ExecutionError";
-      }
-    }
-    const success = result?.exitCode === 0 && !error;
-    const stdout = result?.stdout ?? "";
-    const stderr = `${result?.stderr ?? ""}${error ? `
-Tool Error: ${safeErrorReport(error)}` : ""}`;
-    const exitCode = result?.exitCode ?? null;
-    const executedCommand = result?.executedCommand ?? `aider [error constructing command - ${safeErrorReport(error)}]`;
-    if (!errorType && !success && exitCode !== 0) {
-      errorType = "AiderError";
-    }
-    const contentResponse = [
-      {
-        type: "text",
-        text: success ? `Aider [${taskTypeName}] executed successfully (Exit Code: ${exitCode}).` : `Aider [${taskTypeName}] failed (Exit Code: ${exitCode}). Error: ${safeErrorReport(error) ?? "Aider execution failed."}`
-      }
-    ];
-    if (params.task_type && params.task_type !== "general") {
-      contentResponse.push({
-        type: "text",
-        text: `Task Type: ${taskTypeName}
-Prompt Engineering: ${formattedPrompt.substring(0, formattedPrompt.indexOf(params.prompt_text))}...`
+      params.files.forEach((file) => {
+        toolArgs.push("--file", file);
+        fileArgs.push(file);
       });
+      log(`Using --file flags for aider (prompt_aider): ${params.files.join(", ")}`);
     }
-    if (success && stdout.trim()) {
-      contentResponse.push({ type: "text", text: `
---- Aider Output Snippet ---
-...${stdout.trim().slice(-300)}` });
-    } else if (!success && stderr.trim()) {
-      contentResponse.push({ type: "text", text: `
---- Aider Error Snippet ---
-...${stderr.trim().slice(-300)}` });
-    }
-    return {
-      content: contentResponse,
-      isError: !success,
-      _meta: {
-        success,
-        exitCode,
-        stdout,
-        stderr,
-        executedCommand,
-        errorType
+    try {
+      const guidance = await generateAiderCommandGuidance(toolArgs);
+      const contentResponse = [
+        {
+          type: "text",
+          text: `# Aider Command Guidance (${taskTypeName})
+
+## Recommended Command
+\`\`\`bash
+${guidance.recommendedCommand}
+\`\`\`
+
+## Edit Format
+${guidance.editFormat}
+
+## Reasoning
+${guidance.editFormatReasoning}` + (guidance.apiKeyWarning ? `
+
+## \u26A0\uFE0F Warning
+${guidance.apiKeyWarning}` : "")
+        }
+      ];
+      if (params.task_type && params.task_type !== "general") {
+        contentResponse.push({
+          type: "text",
+          text: `
+## Task-Specific Prompt Formatting
+Task Type: ${taskTypeName}
+Prompt Engineering: ${formattedPrompt.substring(0, formattedPrompt.indexOf(params.prompt_text))}...`
+        });
       }
-    };
+      return {
+        content: contentResponse,
+        _meta: {
+          recommendedCommand: guidance.recommendedCommand,
+          editFormat: guidance.editFormat,
+          editFormatReasoning: guidance.editFormatReasoning,
+          taskType: taskTypeName,
+          formattedPrompt,
+          modelName: guidance.modelName,
+          fileArgs: fileArgs.length > 0 ? fileArgs : void 0,
+          apiKeyWarning: guidance.apiKeyWarning
+        }
+      };
+    } catch (error) {
+      const errorMsg = safeErrorReport(error);
+      log(`Error generating aider command guidance: ${errorMsg}`);
+      return {
+        content: [{
+          type: "text",
+          text: `Error generating aider command guidance: ${errorMsg}`
+        }],
+        isError: true,
+        _meta: {
+          recommendedCommand: `# Error generating command: ${errorMsg}`,
+          editFormat: "unknown",
+          editFormatReasoning: "Could not determine optimal edit format due to error.",
+          taskType: taskTypeName,
+          modelName: process.env.AIDER_MODEL || DEFAULT_AIDER_MODEL,
+          apiKeyWarning: void 0
+        }
+      };
+    }
   }
 );
 var doubleComputeParamsSchema = z.object({
@@ -8462,103 +8465,83 @@ server.tool(
         toolArgs.push("--cache-file", params.cache_file);
       }
     }
+    const fileArgs = [];
     if (params.files && params.files.length > 0) {
-      log(`Using relative file paths for aider (double_compute): ${params.files.join(", ")}`);
-      toolArgs.push(...params.files);
-    }
-    log(`Preparing double_compute with tool args: ${toolArgs.join(" ")}`);
-    let result1 = null;
-    let error1 = null;
-    let errorType1 = void 0;
-    let result2 = null;
-    let error2 = null;
-    let errorType2 = void 0;
-    try {
-      log("Executing double_compute Run 1...");
-      result1 = await executeAider(toolArgs);
-    } catch (e) {
-      error1 = e;
-      errorType1 = e.message.includes("AIDER_MODEL is not set") ? "ConfigurationError" : "ExecutionError";
-    }
-    const success1 = result1?.exitCode === 0 && !error1;
-    const stdout1 = result1?.stdout ?? "";
-    const stderr1 = `${result1?.stderr ?? ""}${error1 ? `
-Tool Error (Run 1): ${safeErrorReport(error1)}` : ""}`;
-    const exitCode1 = result1?.exitCode ?? null;
-    const executedCommand1 = result1?.executedCommand ?? `aider [error constructing command (run 1) - ${safeErrorReport(error1)}]`;
-    if (!errorType1 && !success1 && exitCode1 !== 0) errorType1 = "AiderError";
-    try {
-      log("Executing double_compute Run 2...");
-      result2 = await executeAider(toolArgs);
-    } catch (e) {
-      error2 = e;
-      errorType2 = e.message.includes("AIDER_MODEL is not set") ? "ConfigurationError" : "ExecutionError";
-    }
-    const success2 = result2?.exitCode === 0 && !error2;
-    const stdout2 = result2?.stdout ?? "";
-    const stderr2 = `${result2?.stderr ?? ""}${error2 ? `
-Tool Error (Run 2): ${safeErrorReport(error2)}` : ""}`;
-    const exitCode2 = result2?.exitCode ?? null;
-    const executedCommand2 = result2?.executedCommand ?? `aider [error constructing command (run 2) - ${safeErrorReport(error2)}]`;
-    if (!errorType2 && !success2 && exitCode2 !== 0) errorType2 = "AiderError";
-    const overallSuccess = success1 && success2;
-    let finalErrorType = void 0;
-    if (errorType1 === "ConfigurationError" || errorType2 === "ConfigurationError") finalErrorType = "ConfigurationError";
-    else if (errorType1 === "ExecutionError" || errorType2 === "ExecutionError") finalErrorType = "ExecutionError";
-    else if (!overallSuccess) finalErrorType = "AiderError";
-    const contentResponse = [
-      {
-        type: "text",
-        text: overallSuccess ? `Double Compute [${taskTypeName}] executed successfully twice (Exit Codes: ${exitCode1}, ${exitCode2}).` : `Double Compute [${taskTypeName}] execution failed. Run 1 Success: ${success1} (Exit Code: ${exitCode1}), Run 2 Success: ${success2} (Exit Code: ${exitCode2}).`
-      }
-    ];
-    if (params.task_type && params.task_type !== "general") {
-      contentResponse.push({
-        type: "text",
-        text: `Task Type: ${taskTypeName}
-Prompt Engineering: ${formattedPrompt.substring(0, formattedPrompt.indexOf(params.prompt_text))}...`
+      params.files.forEach((file) => {
+        toolArgs.push("--file", file);
+        fileArgs.push(file);
       });
+      log(`Using --file flags for aider (double_compute): ${params.files.join(", ")}`);
     }
-    if (success1 && stdout1.trim()) {
-      contentResponse.push({ type: "text", text: `
---- Run 1 Output Snippet ---
-...${stdout1.trim().slice(-200)}` });
-    } else if (!success1 && stderr1.trim()) {
-      contentResponse.push({ type: "text", text: `
---- Run 1 Error Snippet ---
-...${stderr1.trim().slice(-200)}` });
-    }
-    if (success2 && stdout2.trim()) {
-      contentResponse.push({ type: "text", text: `
---- Run 2 Output Snippet ---
-...${stdout2.trim().slice(-200)}` });
-    } else if (!success2 && stderr2.trim()) {
-      contentResponse.push({ type: "text", text: `
---- Run 2 Error Snippet ---
-...${stderr2.trim().slice(-200)}` });
-    }
-    return {
-      content: contentResponse,
-      isError: !overallSuccess,
-      _meta: {
-        overallSuccess,
-        run1: {
-          success: success1,
-          exitCode: exitCode1,
-          stdout: stdout1,
-          stderr: stderr1,
-          executedCommand: executedCommand1
-        },
-        run2: {
-          success: success2,
-          exitCode: exitCode2,
-          stdout: stdout2,
-          stderr: stderr2,
-          executedCommand: executedCommand2
-        },
-        errorType: finalErrorType
+    log(`Preparing double_compute guidance with tool args: ${toolArgs.join(" ")}`);
+    try {
+      const guidance = await generateAiderCommandGuidance(toolArgs, true);
+      const contentResponse = [
+        {
+          type: "text",
+          text: `# Double Compute Aider Command Guidance (${taskTypeName})
+
+## Recommended Command (Run Twice)
+\`\`\`bash
+${guidance.recommendedCommand.replace("# Run this command twice for redundant computation/comparison:\n", "")}
+\`\`\`
+
+## Edit Format
+${guidance.editFormat}
+
+## Reasoning
+${guidance.editFormatReasoning}
+
+## Double Compute Note
+This command should be run twice to perform redundant computation/comparison for better results.` + (guidance.apiKeyWarning ? `
+
+## \u26A0\uFE0F Warning
+${guidance.apiKeyWarning}` : "")
+        }
+      ];
+      if (params.task_type && params.task_type !== "general") {
+        contentResponse.push({
+          type: "text",
+          text: `
+## Task-Specific Prompt Formatting
+Task Type: ${taskTypeName}
+Prompt Engineering: ${formattedPrompt.substring(0, formattedPrompt.indexOf(params.prompt_text))}...`
+        });
       }
-    };
+      return {
+        content: contentResponse,
+        _meta: {
+          recommendedCommand: guidance.recommendedCommand,
+          editFormat: guidance.editFormat,
+          editFormatReasoning: guidance.editFormatReasoning,
+          taskType: taskTypeName,
+          formattedPrompt,
+          modelName: guidance.modelName,
+          fileArgs: fileArgs.length > 0 ? fileArgs : void 0,
+          isDoubleCompute: true,
+          apiKeyWarning: guidance.apiKeyWarning
+        }
+      };
+    } catch (error) {
+      const errorMsg = safeErrorReport(error);
+      log(`Error generating double compute aider command guidance: ${errorMsg}`);
+      return {
+        content: [{
+          type: "text",
+          text: `Error generating double compute aider command guidance: ${errorMsg}`
+        }],
+        isError: true,
+        _meta: {
+          recommendedCommand: `# Error generating command: ${errorMsg}`,
+          editFormat: "unknown",
+          editFormatReasoning: "Could not determine optimal edit format due to error.",
+          taskType: taskTypeName,
+          modelName: process.env.AIDER_MODEL || DEFAULT_AIDER_MODEL,
+          isDoubleCompute: true,
+          apiKeyWarning: void 0
+        }
+      };
+    }
   }
 );
 var EXPERT_PROMPTS = {
@@ -8858,9 +8841,9 @@ ${aiderPromptSuggestion}` : `
 --- No Aider Prompt Recommendation Available ---`
         }
       ],
-      isError: !overallSuccess || !fileSaveSuccess,
+      isError: !overallSuccess,
       _meta: {
-        success: overallSuccess && fileSaveSuccess,
+        success: overallSuccess,
         outputFilePath,
         fileSaveSuccess,
         expertsProcessed: expertsToProcess,

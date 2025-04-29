@@ -93,12 +93,15 @@ alwaysApply: false
 
 ---
 
-## [2024-06-XX] Dual Publish & Bugfix Summary
-- Fixed file argument handling in `prompt_aider` and `double_compute` (now uses relative positional arguments, fully compatible with aider CLI).
-- Updated README.md with release notes, bugfix summary, and support/donation info.
-- Refreshed LICENSE, critical.mdc, and Stripe QR code as per project rules.
+## [2025-04-29] Architectural Refactoring & Bugfix Summary
+- **Major Refactoring**: Changed architecture of `prompt_aider` and `double_compute` tools to act as advisors rather than executors
+  - Tools now provide expert guidance on optimal aider commands with proper edit formats
+  - Automatically selects best edit format based on aider leaderboard data for current model
+  - Includes warnings for missing API keys and dependencies
+- Fixed file argument handling in `prompt_aider` and `double_compute` (now uses `--file` flags rather than positional arguments)
+- Updated README.md with detailed explanation of architectural changes and improved examples
 - Committed all changes and ran dual-publish.sh, successfully building and publishing:
-  - @nbiish/giizhendam-aabajichiganan-mcp@0.3.41
-  - @nbiish/ai-tool-mcp@0.3.41
-- No errors in main package; alias package published with expected warnings (not a git repo, bin warning).
-- Project is now compliant with dual-publish.mdc and critical.mdc requirements.
+  - @nbiish/giizhendam-aabajichiganan-mcp@0.3.XX
+  - @nbiish/ai-tool-mcp@0.3.XX
+- The refactored tools now function similar to the `deliberate` MCP tool, providing guidance rather than direct execution
+- Project is now compliant with dual-publish.mdc and critical.mdc requirements
