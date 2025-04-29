@@ -215,6 +215,10 @@ async function executeAider(
         // Additional recommended flags for programmatic execution
         baseAiderArgs.push('--no-auto-commit');
         baseAiderArgs.push('--no-git');
+        
+        // Add additional flags to help with non-interactive mode
+        baseAiderArgs.push('--no-input');  // Add this flag to indicate we don't want interactive input
+        baseAiderArgs.push('--noninteractive');  // Another flag to reinforce non-interactive mode
 
         // Combine base args with tool-specific args
         const finalArgs = [...baseAiderArgs, ...toolArgs];
@@ -235,9 +239,9 @@ async function executeAider(
             log(`DEBUG executeAider: Environment Keys: ${Object.keys(process.env).sort().join(', ')}`);
             // END ADDED LOGGING
 
-            // Spawn 'aider' directly
+            // Spawn 'aider' directly with modified stdio configuration
             const aiderProcess = spawn('aider', finalArgs, {
-                stdio: ['pipe', 'pipe', 'pipe'],
+                stdio: ['ignore', 'pipe', 'pipe'], // Change stdio to ignore stdin, but capture stdout and stderr
                 env: process.env,
                 cwd: process.cwd(),
                 shell: true

@@ -8259,6 +8259,8 @@ async function executeAider(toolArgs) {
     ];
     baseAiderArgs.push("--no-auto-commit");
     baseAiderArgs.push("--no-git");
+    baseAiderArgs.push("--no-input");
+    baseAiderArgs.push("--noninteractive");
     const finalArgs = [...baseAiderArgs, ...toolArgs];
     const executedCommand = `aider ${finalArgs.join(" ")}`;
     log(`Executing aider: ${executedCommand}`);
@@ -8270,7 +8272,8 @@ async function executeAider(toolArgs) {
       log(`DEBUG executeAider: UID=${process.getuid ? process.getuid() : "N/A"}, GID=${process.getgid ? process.getgid() : "N/A"}`);
       log(`DEBUG executeAider: Environment Keys: ${Object.keys(process.env).sort().join(", ")}`);
       const aiderProcess = spawn("aider", finalArgs, {
-        stdio: ["pipe", "pipe", "pipe"],
+        stdio: ["ignore", "pipe", "pipe"],
+        // Change stdio to ignore stdin, but capture stdout and stderr
         env: process.env,
         cwd: process.cwd(),
         shell: true
