@@ -1,4 +1,5 @@
-#!/usr/bin/env node
+console.error("--- MCP SCRIPT START ---"); // Diagnostic log
+
 /**
  * ᑮᔐᓐᑕᒻ ᐋᐸᒋᒋᑲᓇᓐ (Giizhendam Aabajichiganan) MCP Server v2
  * Interface to aider-cli-commands.sh script based on revised PRD.
@@ -203,39 +204,43 @@ async function executeAider(
          }
         // --- END Environment Variable Validation ---
 
-        // Build the base args using REQUIRED environment variables
+        // Build the base args - match EXAMPLES-aider-cli-commands.sh BASE_CONFIG
         const baseAiderArgs: string[] = [
-            '--model', aiderModel, // Use validated env var
-            '--architect',
+            '--model', aiderModel,
             '--no-detect-urls',
             '--no-gui',
-            '--yes-always',
-            '--verbose', // ADDED VERBOSE FLAG
-            '--no-git' // ADDED NO-GIT FLAG
+            '--yes-always'
         ];
 
-        // Add common flags needed for programmatic execution
+        // Additional recommended flags for programmatic execution
         baseAiderArgs.push('--no-auto-commit');
+        baseAiderArgs.push('--no-git');
 
         // Combine base args with tool-specific args
         const finalArgs = [...baseAiderArgs, ...toolArgs];
         const executedCommand = `aider ${finalArgs.join(' ')}`;
 
         log(`Executing aider: ${executedCommand}`);
-        log(`Current Directory: ${process.cwd()}`); // ADDED CWD LOG
+        log(`Current Directory: ${process.cwd()}`);
 
         let stdoutData = '';
         let stderrData = '';
 
         try {
             // Log the PATH environment variable just before spawning aider (kept for debugging but less critical now)
-            log(`DEBUG: Environment PATH before spawning aider: ${process.env.PATH?.substring(0, 100)}...`); // Shortened log
+            log(`DEBUG: Environment PATH before spawning aider: ${process.env.PATH?.substring(0, 100)}...`);
+
+            // ADDED: Log UID, GID, and Environment Keys
+            log(`DEBUG executeAider: UID=${process.getuid ? process.getuid() : 'N/A'}, GID=${process.getgid ? process.getgid() : 'N/A'}`);
+            log(`DEBUG executeAider: Environment Keys: ${Object.keys(process.env).sort().join(', ')}`);
+            // END ADDED LOGGING
 
             // Spawn 'aider' directly
             const aiderProcess = spawn('aider', finalArgs, {
                 stdio: ['pipe', 'pipe', 'pipe'],
                 env: process.env,
-                cwd: process.cwd()
+                cwd: process.cwd(),
+                shell: true
             });
 
             aiderProcess.stdout.on('data', (data) => {
@@ -269,7 +274,10 @@ async function executeAider(
 const promptAiderParamsSchema = z.object({
     prompt_text: z.string().max(10000, "Prompt text exceeds maximum length of 10000 characters.").describe("The main prompt/instruction for aider."),
     task_type: z.enum(TASK_TYPES).optional().describe("Optional task type hint (research, docs, security, code, verify, progress) - currently informational."),
-    files: z.array(z.string()).optional().describe("Optional list of files for aider to consider or modify.")
+    files: z.array(z.string()).optional().describe("Optional list of files for aider to consider or modify."),
+    use_unified_diffs: z.boolean().optional().default(true).describe("Whether to use unified diff format for code edits (recommended)."),
+    cache_prompts: z.boolean().optional().default(true).describe("Whether to enable prompt caching to reduce token usage."),
+    cache_file: z.string().optional().describe("Optional path to store cached prompts. Defaults to .aider/prompt_cache.json")
 });
 
 // Output Schema (shared part for script execution tools)
@@ -290,7 +298,7 @@ const simulationOutputMetaSchema = scriptExecutionOutputSchema.extend({
 
 server.tool(
     "prompt_aider",
-    "Executes the aider command directly with the given prompt and optional files, using models defined in environment variables (AIDER_MODEL, optional AIDER_EDITOR_MODEL).",
+    "Executes the aider command with optimized settings for code editing. Uses unified diff format by default for more reliable edits. Supports prompt caching to reduce token usage. Requires models defined in environment variables (AIDER_MODEL, optional AIDER_EDITOR_MODEL). The tool will:\n\n1. Use unified diffs for code edits (more reliable than line-by-line)\n2. Focus on high-level edits (whole functions/blocks)\n3. Apply flexible matching for edit application\n4. Cache static prompt parts to reduce token usage",
     promptAiderParamsSchema.shape,
     async (params): Promise<{ 
         content: { type: 'text'; text: string }[]; 
@@ -300,16 +308,27 @@ server.tool(
         
         // Format prompt based on task type
         const formattedPrompt = formatPromptByTaskType(params.prompt_text, params.task_type);
+        const taskTypeName = params.task_type || 'general';
         
         // Construct tool-specific arguments for aider
-        const toolArgs: string[] = ['--message', formattedPrompt]; 
+        const toolArgs: string[] = [
+            '--message', formattedPrompt,
+            '--edit-format', params.use_unified_diffs ? 'unified' : 'whole'
+        ];
+
+        if (params.cache_prompts) {
+            toolArgs.push('--cache-prompts');
+            if (params.cache_file) {
+                toolArgs.push('--cache-file', params.cache_file);
+            }
+        }
+
         if (params.files && params.files.length > 0) {
             // Convert relative paths to absolute paths
             const absolutePaths = params.files.map(file => path.resolve(process.cwd(), file));
-            log(`Resolved file paths for aider (prompt_aider): ${absolutePaths.join(', ')}`); // Add logging
-            toolArgs.push(...absolutePaths); // Push resolved paths
+            log(`Resolved file paths for aider (prompt_aider): ${absolutePaths.join(', ')}`);
+            toolArgs.push(...absolutePaths);
         }
-        // task_type is not passed directly to aider in this setup, but could be added to the prompt if needed.
 
         let result: { stdout: string; stderr: string; exitCode: number | null; executedCommand: string } | null = null;
         let error: Error | null = null;
@@ -344,10 +363,18 @@ server.tool(
             {
                 type: "text",
                 text: success 
-                    ? `Aider command executed successfully (Exit Code: ${exitCode}). See _meta for full logs.` 
-                    : `Aider command failed (Exit Code: ${exitCode}). Error: ${safeErrorReport(error) ?? 'Aider execution failed.'} See _meta for full logs.`
+                    ? `Aider [${taskTypeName}] executed successfully (Exit Code: ${exitCode}).` 
+                    : `Aider [${taskTypeName}] failed (Exit Code: ${exitCode}). Error: ${safeErrorReport(error) ?? 'Aider execution failed.'}`
             }
         ];
+
+        // Add prompt information
+        if (params.task_type && params.task_type !== 'general') {
+            contentResponse.push({ 
+                type: 'text', 
+                text: `Task Type: ${taskTypeName}\nPrompt Engineering: ${formattedPrompt.substring(0, formattedPrompt.indexOf(params.prompt_text))}...`
+            });
+        }
 
         // Add snippet conditionally
         if (success && stdout.trim()) {
@@ -375,7 +402,10 @@ server.tool(
 const doubleComputeParamsSchema = z.object({
     prompt_text: z.string().max(10000, "Prompt text exceeds maximum length of 10000 characters.").describe("The main prompt/instruction for aider."),
     task_type: z.enum(TASK_TYPES).optional().describe("Optional task type hint (research, docs, security, code, verify, progress) - currently informational."),
-    files: z.array(z.string()).optional().describe("Optional list of files for aider to consider or modify.")
+    files: z.array(z.string()).optional().describe("Optional list of files for aider to consider or modify."),
+    use_unified_diffs: z.boolean().optional().default(true).describe("Whether to use unified diff format for code edits (recommended)."),
+    cache_prompts: z.boolean().optional().default(true).describe("Whether to enable prompt caching to reduce token usage."),
+    cache_file: z.string().optional().describe("Optional path to store cached prompts. Defaults to .aider/prompt_cache.json")
 });
 
 const doubleComputeOutputMetaSchema = z.object({
@@ -388,7 +418,7 @@ const doubleComputeOutputMetaSchema = z.object({
 
 server.tool(
     "double_compute",
-    "Executes the aider command TWICE directly with the same prompt and optional files, using models defined in environment variables. Useful for tasks requiring redundant computation or comparison.",
+    "Executes the aider command TWICE with optimized settings for code editing. Uses unified diff format by default for more reliable edits. Supports prompt caching to reduce token usage. Useful for tasks requiring redundant computation or comparison. The tool will:\n\n1. Use unified diffs for code edits (more reliable than line-by-line)\n2. Focus on high-level edits (whole functions/blocks)\n3. Apply flexible matching for edit application\n4. Cache static prompt parts to reduce token usage\n5. Run the computation twice to verify results",
     doubleComputeParamsSchema.shape,
     async (params): Promise<{
         content: { type: 'text'; text: string }[];
@@ -397,14 +427,26 @@ server.tool(
       }> => {
         // Format prompt based on task type
         const formattedPrompt = formatPromptByTaskType(params.prompt_text, params.task_type);
+        const taskTypeName = params.task_type || 'general';
         
         // Construct tool-specific arguments once
-        const toolArgs: string[] = ['--message', formattedPrompt];
+        const toolArgs: string[] = [
+            '--message', formattedPrompt,
+            '--edit-format', params.use_unified_diffs ? 'unified' : 'whole'
+        ];
+
+        if (params.cache_prompts) {
+            toolArgs.push('--cache-prompts');
+            if (params.cache_file) {
+                toolArgs.push('--cache-file', params.cache_file);
+            }
+        }
+
         if (params.files && params.files.length > 0) {
             // Convert relative paths to absolute paths
             const absolutePaths = params.files.map(file => path.resolve(process.cwd(), file));
-            log(`Resolved file paths for aider (double_compute): ${absolutePaths.join(', ')}`); // Add logging
-            toolArgs.push(...absolutePaths); // Push resolved paths
+            log(`Resolved file paths for aider (double_compute): ${absolutePaths.join(', ')}`);
+            toolArgs.push(...absolutePaths);
         }
         log(`Preparing double_compute with tool args: ${toolArgs.join(' ')}`);
 
@@ -458,10 +500,18 @@ server.tool(
             {
                 type: "text",
                 text: overallSuccess
-                    ? `double_compute executed successfully twice (Exit Codes: ${exitCode1}, ${exitCode2}). See _meta for full logs.`
-                    : `double_compute execution failed. Run 1 Success: ${success1} (Exit Code: ${exitCode1}), Run 2 Success: ${success2} (Exit Code: ${exitCode2}). See _meta for full logs.`
+                    ? `Double Compute [${taskTypeName}] executed successfully twice (Exit Codes: ${exitCode1}, ${exitCode2}).`
+                    : `Double Compute [${taskTypeName}] execution failed. Run 1 Success: ${success1} (Exit Code: ${exitCode1}), Run 2 Success: ${success2} (Exit Code: ${exitCode2}).`
             }
         ];
+
+        // Add prompt information
+        if (params.task_type && params.task_type !== 'general') {
+            contentResponse.push({ 
+                type: 'text', 
+                text: `Task Type: ${taskTypeName}\nPrompt Engineering: ${formattedPrompt.substring(0, formattedPrompt.indexOf(params.prompt_text))}...`
+            });
+        }
 
         // Add snippets conditionally for Run 1
         if (success1 && stdout1.trim()) {
@@ -653,7 +703,7 @@ const boardSimulationOutputMetaSchema = z.object({
 server.tool(
     "finance_experts",
     // Updated Description:
-    "Simulates a deliberation between multiple internally-defined financial expert personas (Graham, Ackman, Wood, Munger, Burry, Lynch, Fisher) on a given financial topic/query related to a project or business situation using the Gemini API. Generates responses reflecting each expert's refocused principles and saves the aggregated result to './financial-experts/'. Requires GEMINI_API_KEY environment variable.",
+    "Simulates a deliberation between multiple internally-defined financial expert personas (Graham, Ackman, Wood, Munger, Burry, Lynch, Fisher) on a given financial topic/query related to a project or business situation using the Gemini API. Generates responses reflecting each expert's refocused principles and saves the aggregated result to './financial-experts/'. Also includes a collective deliberation on the optimal aider prompt for the topic. Requires GEMINI_API_KEY environment variable.",
     financeExpertsParamsSchema.shape,
      async (params): Promise<{
         content: { type: 'text'; text: string }[];
@@ -695,27 +745,10 @@ server.tool(
              };
         }
 
-        // 1. Read and parse finance-agents.md - REMOVED
-        /*
-        let expertPrompts: Map<string, string>;
-        try {
-            // ... file reading and parsing removed ...
-        } catch (readError: any) {
-            // ... error handling removed ...
-        }
-        */
-
         // 2. Generate responses for ALL defined experts
         const apiErrors: { expert: string; error: string }[] = [];
         const expertResponses: { expert: string; response: string }[] = [];
         const expertsToProcess = Object.keys(EXPERT_PROMPTS); // Process all experts defined above
-
-        // Removed check for empty expertsToProcess as it's now based on the hardcoded object
-        /*
-        if (expertsToProcess.length === 0) {
-             // ... logic removed ...
-        }
-        */
 
         log(`Processing topic "${params.topic}" for ALL defined experts: ${expertsToProcess.join(', ')}`);
 
@@ -758,8 +791,62 @@ ${params.topic}`;
         // Sort responses to maintain consistent order (matching definition order)
         expertResponses.sort((a, b) => expertsToProcess.indexOf(a.expert) - expertsToProcess.indexOf(b.expert));
 
+        // 3. Generate aider prompt deliberation
+        let aiderDeliberation = "";
+        let aiderPromptSuggestion = "";
+        
+        try {
+            log("Generating collective deliberation for optimal aider prompt...");
+            
+            // Create a deliberation prompt that simulates the experts discussing the best aider prompt
+            const deliberationPrompt = `
+You represent a collective deliberation between financial experts (${expertsToProcess.join(', ')}) who must formulate the optimal prompt for an AI coding assistant called "aider".
 
-        // 3. Format output as Markdown
+Topic: ${params.topic}
+
+The experts are aware of different aider task types that can be used:
+1. research - For synthesizing findings, evidence and implications
+2. docs - For generating clear documentation 
+3. security - For reviewing code/systems for vulnerabilities
+4. code - For implementing efficient, readable code
+5. verify - For verifying code against requirements
+6. progress - For status updates/reports
+7. general - For general requests
+
+FORMAT YOUR RESPONSE AS FOLLOWS:
+
+## Expert Deliberation
+[Simulate a brief discussion between the experts about which aider task type would be most appropriate for this topic and what specific prompt would be most effective]
+
+## Recommended Task Type
+[Single word recommendation: research/docs/security/code/verify/progress/general]
+
+## Recommended Aider Prompt
+[The exact, concise prompt that should be sent to aider]
+
+## Confidence Score
+[A number from 1-10 representing the group's collective confidence in this recommendation]
+`;
+            
+            const model = ai.getGenerativeModel({ model: GEMINI_MODEL_NAME });
+            const result = await model.generateContent(deliberationPrompt);
+            const response = await result.response;
+            aiderDeliberation = response.text();
+            
+            // Extract the recommended prompt from the deliberation
+            const promptMatch = aiderDeliberation.match(/## Recommended Aider Prompt\n([^#]+)/);
+            if (promptMatch && promptMatch[1]) {
+                aiderPromptSuggestion = promptMatch[1].trim();
+            }
+            
+            log("Successfully generated aider prompt deliberation");
+        } catch (error: any) {
+            const errorMsg = `API Error for aider deliberation: ${error.message}`;
+            log(errorMsg);
+            aiderDeliberation = `*Error: Could not generate aider prompt deliberation: ${error.message}*`;
+        }
+
+        // 4. Format output as Markdown
         let markdownOutput = `# Financial Expert Perspectives
 
 **Topic/Query:** ${params.topic}
@@ -776,6 +863,16 @@ ${response}
 
 `;
         });
+        
+        // Add the aider prompt deliberation section
+        markdownOutput += `
+# Collective Deliberation on Optimal Aider Prompt
+
+${aiderDeliberation}
+
+---
+
+`;
 
         if (apiErrors.length > 0) {
              markdownOutput += `
@@ -787,12 +884,12 @@ ${response}
              });
         }
 
-        // 4. Determine output file path
+        // 5. Determine output file path
         const safeFilenameBase = params.output_filename?.replace(/[^a-z0-9_-]/gi, '_').toLowerCase() || params.topic.replace(/[^a-z0-9_-]/gi, '_').toLowerCase().substring(0, 50);
         const outputFilename = `${safeFilenameBase}_${Date.now()}.md`;
         const outputFilePath = path.join(outputDirFinance, outputFilename);
 
-        // 5. Ensure output directory exists and save file
+        // 6. Ensure output directory exists and save file
         let fileSaveSuccess = false;
         let fileSaveError = '';
         let fileSystemError = false;
@@ -808,7 +905,7 @@ ${response}
             fileSystemError = true;
         }
 
-        // 6. Determine overall success and return result
+        // 7. Determine overall success and return result
         const overallSuccess = apiErrors.length === 0 && !fileSystemError;
         let finalErrorType: string | undefined = undefined;
         if (fileSystemError) finalErrorType = 'FileSystemError';
@@ -819,10 +916,15 @@ ${response}
             content: [
                 {
                     type: "text",
-                    // Updated response text
                     text: overallSuccess
                         ? `Financial Experts simulation (Topic: ${params.topic}) completed processing perspectives from all defined experts ${fileSaveSuccess ? `and saved to '${outputFilePath}'` : 'but failed to save file'}.`
                         : `Financial Experts simulation (Topic: ${params.topic}) completed with errors while processing perspectives. Saved: ${fileSaveSuccess}. See details in _meta.`
+                },
+                {
+                    type: "text",
+                    text: aiderPromptSuggestion 
+                        ? `\n--- Recommended Aider Prompt ---\n${aiderPromptSuggestion}`
+                        : `\n--- No Aider Prompt Recommendation Available ---`
                 }
             ],
             isError: !overallSuccess || !fileSaveSuccess,
@@ -830,7 +932,7 @@ ${response}
                 success: overallSuccess && fileSaveSuccess,
                 outputFilePath: outputFilePath,
                 fileSaveSuccess: fileSaveSuccess,
-                expertsProcessed: expertsToProcess, // Now always lists all defined experts
+                expertsProcessed: expertsToProcess,
                 apiErrors: apiErrors.length > 0 ? apiErrors : undefined,
                 errorType: finalErrorType
             }
@@ -852,7 +954,7 @@ const ceoBoardParamsSchema = z.object({
 server.tool(
     "ceo_and_board",
     // Updated Description:
-    "Simulates a board discussion on a given topic with specified roles using the Gemini API. Constructs a prompt, executes the API call, and saves the output markdown to './ceo-and-board/'. Requires GEMINI_API_KEY environment variable.",
+    "Simulates a board discussion on a given topic with specified roles using the Gemini API. Constructs a prompt, executes the API call, and saves the output markdown to './ceo-and-board/'. Also includes a deliberation on the optimal aider prompt for the topic. Requires GEMINI_API_KEY environment variable.",
     ceoBoardParamsSchema.shape,
     async (params): Promise<{
         content: { type: 'text'; text: string }[];
@@ -914,12 +1016,67 @@ Instructions:
 - Conclude with a summary of key decisions or next steps.
         `.trim();
 
-        // 2. Determine output file path
+        // 2. Generate aider prompt deliberation
+        let aiderDeliberation = "";
+        let aiderPromptSuggestion = "";
+        
+        try {
+            log("Generating collective board deliberation for optimal aider prompt...");
+            
+            // Create a deliberation prompt that simulates the board discussing the best aider prompt
+            const deliberationPrompt = `
+You represent a collective deliberation between board members (${rolesString}) who must formulate the optimal prompt for an AI coding assistant called "aider".
+
+Topic: ${params.topic}
+
+The board members are aware of different aider task types that can be used:
+1. research - For synthesizing findings, evidence and implications
+2. docs - For generating clear documentation 
+3. security - For reviewing code/systems for vulnerabilities
+4. code - For implementing efficient, readable code
+5. verify - For verifying code against requirements
+6. progress - For status updates/reports
+7. general - For general requests
+
+FORMAT YOUR RESPONSE AS FOLLOWS:
+
+## Board Deliberation
+[Simulate a brief discussion between the board members about which aider task type would be most appropriate for this topic and what specific prompt would be most effective]
+
+## Recommended Task Type
+[Single word recommendation: research/docs/security/code/verify/progress/general]
+
+## Recommended Aider Prompt
+[The exact, concise prompt that should be sent to aider]
+
+## Confidence Score
+[A number from 1-10 representing the board's collective confidence in this recommendation]
+`;
+            
+            const model = ai.getGenerativeModel({ model: GEMINI_MODEL_NAME });
+            const result = await model.generateContent(deliberationPrompt);
+            const response = await result.response;
+            aiderDeliberation = response.text();
+            
+            // Extract the recommended prompt from the deliberation
+            const promptMatch = aiderDeliberation.match(/## Recommended Aider Prompt\n([^#]+)/);
+            if (promptMatch && promptMatch[1]) {
+                aiderPromptSuggestion = promptMatch[1].trim();
+            }
+            
+            log("Successfully generated board aider prompt deliberation");
+        } catch (error: any) {
+            const errorMsg = `API Error for board aider deliberation: ${error.message}`;
+            log(errorMsg);
+            aiderDeliberation = `*Error: Could not generate aider prompt deliberation: ${error.message}*`;
+        }
+
+        // 3. Determine output file path
         const safeFilenameBase = params.output_filename?.replace(/[^a-z0-9_-]/gi, '_').toLowerCase() || params.topic.replace(/[^a-z0-9_-]/gi, '_').toLowerCase().substring(0, 50);
         const outputFilename = `${safeFilenameBase}_${Date.now()}.md`;
         const outputFilePath = path.join(outputDirBoard, outputFilename);
 
-        // 3. Ensure output directory exists
+        // 4. Ensure output directory exists
         try {
              // Use the validated environment variable for the path
             await fsPromises.mkdir(outputDirBoard, { recursive: true });
@@ -936,7 +1093,7 @@ Instructions:
             };
         }
 
-        // 4. Execute the Gemini API call
+        // 5. Execute the Gemini API call for board simulation
         let simulationText = '';
         let apiError: string | undefined = undefined;
         let apiSuccess = false;
@@ -963,15 +1120,27 @@ Instructions:
             apiError = errorMsg;
         }
 
+        // 6. Combine board simulation with aider deliberation
+        const fullOutputContent = `
+# Board Meeting: ${params.topic}
 
-        // 5. Attempt to save output if API call succeeded
+${simulationText}
+
+---
+
+# Board Deliberation on Optimal Aider Prompt
+
+${aiderDeliberation}
+`;
+
+        // 7. Attempt to save output if API call succeeded
         let fileSaveSuccess = false;
         let fileSaveError = '';
         let fileSystemError = false;
 
         if (apiSuccess && simulationText) {
             try {
-                await fsPromises.writeFile(outputFilePath, simulationText);
+                await fsPromises.writeFile(outputFilePath, fullOutputContent);
                 log(`Successfully saved ceo_and_board output to ${outputFilePath}`);
                 fileSaveSuccess = true;
             } catch (writeError: any) {
@@ -985,7 +1154,7 @@ Instructions:
              // fileSaveSuccess remains false
         }
 
-        // 6. Determine overall success and return result
+        // 8. Determine overall success and return result
         const overallSuccess = apiSuccess && fileSaveSuccess;
         let finalErrorType: string | undefined = undefined;
         if (fileSystemError) finalErrorType = 'FileSystemError';
@@ -1001,6 +1170,12 @@ Instructions:
                 text: overallSuccess
                     ? `CEO & Board simulation (Topic: ${params.topic}) using Gemini API completed and saved to '${outputFilePath}'.`
                     : `CEO & Board simulation (Topic: ${params.topic}) using Gemini API failed. API Success: ${apiSuccess}, Saved: ${fileSaveSuccess}. Error: ${safeErrorReport(finalApiError) || 'See _meta'}.`
+            },
+            {
+                type: "text",
+                text: aiderPromptSuggestion 
+                    ? `\n--- Recommended Aider Prompt ---\n${aiderPromptSuggestion}`
+                    : `\n--- No Aider Prompt Recommendation Available ---`
             }
         ];
 

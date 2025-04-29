@@ -1,5 +1,5 @@
 {
-  "name": "@nbiish/giizhendam-aabajichiganan-mcp",
+  "name": "@nbiish/ai-tool-mcp",
   "version": "0.3.32",
   "description": "MCP Server providing AI-driven tools (aider wrapper, financial/board simulations)",
   "main": "dist/index.js",
@@ -41,4 +41,4 @@
     "node": ">=14.0.0"
   },
   "preferGlobal": true
-}
+} 

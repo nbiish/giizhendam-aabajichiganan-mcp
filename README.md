@@ -62,12 +62,15 @@ The server includes direct interfaces to the aider CLI for AI pair programming a
 ```bash
 # First uninstall any existing versions
 npm uninstall -g @nbiish/giizhendam-aabajichiganan-mcp
+npm uninstall -g @nbiish/ai-tool-mcp
 
 # Install from the current directory
 npm install -g .
 
-# Or install from npm registry
+# Or install from npm registry (choose one)
 npm install -g @nbiish/giizhendam-aabajichiganan-mcp
+# Alternative package with identical functionality
+npm install -g @nbiish/ai-tool-mcp
 ```
 
 ### Troubleshooting Installation Issues
@@ -100,9 +103,10 @@ You can configure the server settings within your `mcp.json` file when defining 
 
 ```json
 "ai-tool-mcp": { // Or whatever you name this server instance
-  "command": "node", // Or npx @nbiish/giizhendam-aabajichiganan-mcp if installed globally
+  "command": "npx",
   "args": [
-    "path/to/giizhendam-aabajichiganan-mcp/dist/index.js" // Adjust path if using node directly
+    "-y", 
+    "@nbiish/ai-tool-mcp" // Or @nbiish/giizhendam-aabajichiganan-mcp
   ],
   "env": {
     "AIDER_MODEL": "openrouter/google/gemini-2.5-pro-preview-03-25", // Default if not set
@@ -111,7 +115,7 @@ You can configure the server settings within your `mcp.json` file when defining 
     "FINANCE_EXPERTS_OUTPUT_DIR": "/path/to/finance-experts-output", // Optional, defaults to ./output/finance-experts relative to server CWD
     "CEO_BOARD_OUTPUT_DIR": "/path/to/ceo-board-output" // Optional, defaults to ./output/ceo-and-board relative to server CWD
   },
-  "cwd": "/path/to/giizhendam-aabajichiganan-mcp" // Set the working directory if needed
+  "cwd": "/path/to/your/project" // Set the working directory if needed
 }
 ```
 

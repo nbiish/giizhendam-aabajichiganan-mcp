@@ -3,9 +3,7 @@
 # Base configuration for autonomous tasks
 # Uses high-reasoning model and architect mode for complex operations
 BASE_CONFIG="aider \\
-    --model openrouter/google/gemini-2.5-pro-exp-03-25:free \\
-    --architect \\
-    --editor-model openrouter/google/gemini-2.5-pro-exp-03-25:free \\
+    --model openrouter/google/gemini-2.5-flash-preview \\
     --no-detect-urls \\
     --no-gui \\
     --yes-always"
