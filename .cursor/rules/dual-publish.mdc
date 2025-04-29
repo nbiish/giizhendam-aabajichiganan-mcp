@@ -12,6 +12,7 @@ publish to:
 # ALWAYS RUN THROUGH (in this order):
 - [critical.mdc](mdc:.cursor/rules/critical.mdc)
 - update [README.md](mdc:README.md) (changes, etc)
+- commit all changes before proceeding
 - [dual-publish.mdc](mdc:.cursor/rules/dual-publish.mdc)
 - make an appropriate @.gitignore that does not interfere with pair programmers
-- we use npx in our [mcp.json](mdc:/Users/nbiish/.cursor/mcp.json) to install, test, and use our codebase's mcp server
+- we use npx in our [mcp.json](mdc:Users/nbiish/.cursor/mcp.json) to install, test, and use our codebase's mcp server
