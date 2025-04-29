@@ -8215,6 +8215,26 @@ function safeErrorReport(error) {
   if (error.message) return error.message.split("\n")[0];
   return "An error occurred.";
 }
+function getBestEditFormatForModel(modelName) {
+  const model = modelName.toLowerCase();
+  const getBaseModelName = (fullName) => {
+    const parts = fullName.split("/");
+    return parts[parts.length - 1];
+  };
+  const baseModelName = getBaseModelName(model);
+  if (model.includes("architect") || baseModelName.includes("architect")) {
+    return "architect";
+  } else if (baseModelName.includes("gemini-2.5-pro-preview")) {
+    return "diff-fenced";
+  } else if (baseModelName.includes("claude-3") || baseModelName.includes("sonnet") || baseModelName.includes("claude-3-5")) {
+    return "diff";
+  } else if (baseModelName.includes("o3") || baseModelName.includes("o-3") || baseModelName.includes("gpt-4") || baseModelName.includes("gpt4") || baseModelName.includes("o4") || baseModelName.includes("o-4") || baseModelName.includes("o1") || baseModelName.includes("o-1")) {
+    return "diff";
+  } else if (baseModelName.includes("deepseek") && baseModelName.includes("r1")) {
+    return "architect";
+  }
+  return "whole";
+}
 function formatPromptByTaskType(prompt, taskType) {
   if (!taskType || taskType === "general") {
     return prompt;
@@ -8250,6 +8270,8 @@ async function executeAider(toolArgs) {
       log(errorMsg);
       return reject(new Error(errorMsg));
     }
+    const editFormat = getBestEditFormatForModel(aiderModel);
+    log(`Using edit format '${editFormat}' for model: ${aiderModel}`);
     const baseAiderArgs = [
       "--model",
       aiderModel,
@@ -8259,8 +8281,17 @@ async function executeAider(toolArgs) {
       "--no-auto-commit",
       "--no-git",
       "--yes",
-      "--no-pretty"
+      // Always say yes to every confirmation
+      "--no-pretty",
+      "--edit-format",
+      editFormat
+      // Use the appropriate edit format for this model
     ];
+    if (editFormat === "architect") {
+      baseAiderArgs.push("--editor-model", aiderModel);
+      const editorEditFormat = "editor-whole";
+      baseAiderArgs.push("--editor-edit-format", editorEditFormat);
+    }
     const finalArgs = [...baseAiderArgs, ...toolArgs];
     const executedCommand = `aider ${finalArgs.join(" ")}`;
     log(`Executing aider: ${executedCommand}`);
@@ -8306,7 +8337,6 @@ var promptAiderParamsSchema = z.object({
   prompt_text: z.string().max(1e4, "Prompt text exceeds maximum length of 10000 characters.").describe("The main prompt/instruction for aider."),
   task_type: z.enum(TASK_TYPES).optional().describe("Optional task type hint (research, docs, security, code, verify, progress) - currently informational."),
   files: z.array(z.string()).optional().describe("Optional list of files for aider to consider or modify."),
-  use_unified_diffs: z.boolean().optional().default(true).describe("Whether to use unified diff format for code edits (recommended)."),
   cache_prompts: z.boolean().optional().default(true).describe("Whether to enable prompt caching to reduce token usage."),
   cache_file: z.string().optional().describe("Optional path to store cached prompts. Defaults to .aider/prompt_cache.json")
 });
@@ -8325,16 +8355,14 @@ var simulationOutputMetaSchema = scriptExecutionOutputSchema.extend({
 });
 server.tool(
   "prompt_aider",
-  "Executes the aider command with best-practice flags and model for robust, non-interactive code editing. Uses unified diff format by default for reliable edits. Supports prompt caching to reduce token usage. All invocations use: --model openrouter/google/gemini-2.5-pro-preview-03-25, --no-gui, --yes-always, --no-detect-urls, --no-auto-commit, --no-git, --yes, --no-pretty. The tool will:\n\n1. Use unified diffs for code edits (more reliable than line-by-line)\n2. Focus on high-level edits (whole functions/blocks)\n3. Apply flexible matching for edit application\n4. Cache static prompt parts to reduce token usage",
+  "Executes the aider command with proven best-practice flags and model for robust, non-interactive code editing. Automatically selects the optimal edit format based on the model (architect, diff, diff-fenced, or whole) according to the Aider leaderboard performance data. Uses all necessary acceptance flags (--yes-always, --yes, etc.) for fully automated operation. All invocations use the base model with: --no-gui, --no-detect-urls, --no-auto-commit, --no-git, --no-pretty and other compatibility options.",
   promptAiderParamsSchema.shape,
   async (params) => {
     const formattedPrompt = formatPromptByTaskType(params.prompt_text, params.task_type);
     const taskTypeName = params.task_type || "general";
     const toolArgs = [
       "--message",
-      formattedPrompt,
-      "--edit-format",
-      params.use_unified_diffs ? "unified" : "whole"
+      formattedPrompt
     ];
     if (params.cache_prompts) {
       toolArgs.push("--cache-prompts");
@@ -8408,7 +8436,6 @@ var doubleComputeParamsSchema = z.object({
   prompt_text: z.string().max(1e4, "Prompt text exceeds maximum length of 10000 characters.").describe("The main prompt/instruction for aider."),
   task_type: z.enum(TASK_TYPES).optional().describe("Optional task type hint (research, docs, security, code, verify, progress) - currently informational."),
   files: z.array(z.string()).optional().describe("Optional list of files for aider to consider or modify."),
-  use_unified_diffs: z.boolean().optional().default(true).describe("Whether to use unified diff format for code edits (recommended)."),
   cache_prompts: z.boolean().optional().default(true).describe("Whether to enable prompt caching to reduce token usage."),
   cache_file: z.string().optional().describe("Optional path to store cached prompts. Defaults to .aider/prompt_cache.json")
 });
@@ -8420,16 +8447,14 @@ var doubleComputeOutputMetaSchema = z.object({
 });
 server.tool(
   "double_compute",
-  "Executes the aider command TWICE with best-practice flags and model for robust, non-interactive code editing. Uses unified diff format by default for reliable edits. Supports prompt caching to reduce token usage. Useful for tasks requiring redundant computation or comparison. All invocations use: --model openrouter/google/gemini-2.5-pro-preview-03-25, --no-gui, --yes-always, --no-detect-urls, --no-auto-commit, --no-git, --yes, --no-pretty. The tool will:\n\n1. Use unified diffs for code edits (more reliable than line-by-line)\n2. Focus on high-level edits (whole functions/blocks)\n3. Apply flexible matching for edit application\n4. Cache static prompt parts to reduce token usage\n5. Run the computation twice to verify results",
+  "Executes the aider command TWICE with proven best-practice flags and model for robust, non-interactive code editing. Automatically selects the optimal edit format based on the model (architect, diff, diff-fenced, or whole) according to the Aider leaderboard performance data. Uses all necessary acceptance flags (--yes-always, --yes, etc.) for fully automated operation. All invocations use the base model with: --no-gui, --no-detect-urls, --no-auto-commit, --no-git, --no-pretty and other compatibility options. Useful for tasks requiring redundant computation or comparison.",
   doubleComputeParamsSchema.shape,
   async (params) => {
     const formattedPrompt = formatPromptByTaskType(params.prompt_text, params.task_type);
     const taskTypeName = params.task_type || "general";
     const toolArgs = [
       "--message",
-      formattedPrompt,
-      "--edit-format",
-      params.use_unified_diffs ? "unified" : "whole"
+      formattedPrompt
     ];
     if (params.cache_prompts) {
       toolArgs.push("--cache-prompts");
