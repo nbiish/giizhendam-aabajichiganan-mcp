@@ -34,4 +34,12 @@
 4.  **(Pending) Debug `aider` File Modification:** Address the original issue once the server launches reliably via MCP.
 5.  **Memory Bank Files:** Draft initial versions of missing Memory Bank files (`projectbrief.md`, `productContext.md`, `systemPatterns.md`, `techContext.md`) with summaries of project vision, context, patterns, and technology.
 
+## Current Blocker: MCP Connection Error (2025-04-28)
+
+- **Issue:** MCP failed to connect to `@nbiish/giizhendam-aabajichiganan-mcp` (Error -32000: Connection closed, based on logs from 2025-04-28 21:10:32).
+- **Impact:** Tools `prompt_aider` and `double_compute` are unavailable.
+- **Blocked Goal:** Generation of expert `aider` CLI prompts via agent deliberation (ceo/board, finance experts) is currently blocked.
+- **Fix Applied:** Modified the build script in package.json to add a proper shebang line (`#!/usr/bin/env node`) to the bundled output using esbuild's banner option. The absence of a shebang line at the top of the bundled file likely caused execution issues with npx.
+- **Next Step:** Rebuild the package using `npm run build` and test with `npx -y @nbiish/giizhendam-aabajichiganan-mcp`.
+
 --- 

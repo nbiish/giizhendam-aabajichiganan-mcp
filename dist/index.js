@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 // node_modules/zod/lib/index.mjs
 var util;
 (function(util2) {
