@@ -8343,9 +8343,8 @@ server.tool(
       }
     }
     if (params.files && params.files.length > 0) {
-      const absolutePaths = params.files.map((file) => path.resolve(process.cwd(), file));
-      log(`Resolved file paths for aider (prompt_aider): ${absolutePaths.join(", ")}`);
-      toolArgs.push(...absolutePaths);
+      log(`Using relative file paths for aider (prompt_aider): ${params.files.join(", ")}`);
+      toolArgs.push(...params.files);
     }
     let result = null;
     let error = null;
@@ -8439,9 +8438,8 @@ server.tool(
       }
     }
     if (params.files && params.files.length > 0) {
-      const absolutePaths = params.files.map((file) => path.resolve(process.cwd(), file));
-      log(`Resolved file paths for aider (double_compute): ${absolutePaths.join(", ")}`);
-      toolArgs.push(...absolutePaths);
+      log(`Using relative file paths for aider (double_compute): ${params.files.join(", ")}`);
+      toolArgs.push(...params.files);
     }
     log(`Preparing double_compute with tool args: ${toolArgs.join(" ")}`);
     let result1 = null;
