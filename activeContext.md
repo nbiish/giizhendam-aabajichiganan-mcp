@@ -52,4 +52,14 @@
 - **References:** See EXAMPLES-aider-cli-commands.sh and [Aider Leaderboards](https://aider.chat/docs/leaderboards/edit.html) for details.
 - **Next Step:** Continue to monitor for any edge cases, but current implementation is now aligned with best practices and verified to work as intended.
 
+## Current Status: Edit Format Standardized to 'whole' for Maximum Reliability (2025-04-29)
+
+- **Resolution:** All aider invocations now explicitly use the `--edit-format whole` flag, replacing previous use of `unified`/`udiff` formats.
+- **Rationale:** According to [Aider Edit Formats](https://aider.chat/docs/more/edit-formats.html) documentation, the 'whole' edit format provides maximum reliability with Gemini models, reducing the likelihood of TTY and edit application errors.
+- **Changes:**
+  - Removed `use_unified_diffs` parameter from tool schemas as it's no longer needed
+  - Hardcoded `--edit-format whole` in the base aider arguments
+  - Updated all tool documentation and examples to reflect this change
+- **Next Step:** Test tools with the new standardized format to verify improved reliability and file modification capabilities.
+
 --- 

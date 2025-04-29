@@ -217,7 +217,8 @@ async function executeAider(
             '--no-auto-commit',
             '--no-git',
             '--yes',
-            '--no-pretty'
+            '--no-pretty',
+            '--edit-format', 'whole'  // Always use 'whole' edit format which is most reliable for Gemini models
         ];
 
         // Combine base args with tool-specific args
@@ -279,7 +280,6 @@ const promptAiderParamsSchema = z.object({
     prompt_text: z.string().max(10000, "Prompt text exceeds maximum length of 10000 characters.").describe("The main prompt/instruction for aider."),
     task_type: z.enum(TASK_TYPES).optional().describe("Optional task type hint (research, docs, security, code, verify, progress) - currently informational."),
     files: z.array(z.string()).optional().describe("Optional list of files for aider to consider or modify."),
-    use_unified_diffs: z.boolean().optional().default(true).describe("Whether to use unified diff format for code edits (recommended)."),
     cache_prompts: z.boolean().optional().default(true).describe("Whether to enable prompt caching to reduce token usage."),
     cache_file: z.string().optional().describe("Optional path to store cached prompts. Defaults to .aider/prompt_cache.json")
 });
@@ -302,7 +302,7 @@ const simulationOutputMetaSchema = scriptExecutionOutputSchema.extend({
 
 server.tool(
     "prompt_aider",
-    "Executes the aider command with best-practice flags and model for robust, non-interactive code editing. Uses unified diff format by default for reliable edits. Supports prompt caching to reduce token usage. All invocations use: --model openrouter/google/gemini-2.5-pro-preview-03-25, --no-gui, --yes-always, --no-detect-urls, --no-auto-commit, --no-git, --yes, --no-pretty. The tool will:\n\n1. Use unified diffs for code edits (more reliable than line-by-line)\n2. Focus on high-level edits (whole functions/blocks)\n3. Apply flexible matching for edit application\n4. Cache static prompt parts to reduce token usage",
+    "Executes the aider command with proven best-practice flags and model for robust, non-interactive code editing. Uses whole file format for maximum reliability with Gemini models. Supports prompt caching to reduce token usage. All invocations use: --model openrouter/google/gemini-2.5-pro-preview-03-25, --no-gui, --yes-always, --no-detect-urls, --no-auto-commit, --no-git, --yes, --no-pretty, --edit-format whole. The tool will:\n\n1. Use whole file format for maximum reliability with Gemini models\n2. Focus on high-level edits (whole functions/blocks)\n3. Apply flexible matching for edit application\n4. Cache static prompt parts to reduce token usage",
     promptAiderParamsSchema.shape,
     async (params): Promise<{ 
         content: { type: 'text'; text: string }[]; 
@@ -317,7 +317,6 @@ server.tool(
         // Construct tool-specific arguments for aider
         const toolArgs: string[] = [
             '--message', formattedPrompt,
-            '--edit-format', params.use_unified_diffs ? 'unified' : 'whole'
         ];
 
         if (params.cache_prompts) {
@@ -406,7 +405,6 @@ const doubleComputeParamsSchema = z.object({
     prompt_text: z.string().max(10000, "Prompt text exceeds maximum length of 10000 characters.").describe("The main prompt/instruction for aider."),
     task_type: z.enum(TASK_TYPES).optional().describe("Optional task type hint (research, docs, security, code, verify, progress) - currently informational."),
     files: z.array(z.string()).optional().describe("Optional list of files for aider to consider or modify."),
-    use_unified_diffs: z.boolean().optional().default(true).describe("Whether to use unified diff format for code edits (recommended)."),
     cache_prompts: z.boolean().optional().default(true).describe("Whether to enable prompt caching to reduce token usage."),
     cache_file: z.string().optional().describe("Optional path to store cached prompts. Defaults to .aider/prompt_cache.json")
 });
@@ -421,7 +419,7 @@ const doubleComputeOutputMetaSchema = z.object({
 
 server.tool(
     "double_compute",
-    "Executes the aider command TWICE with best-practice flags and model for robust, non-interactive code editing. Uses unified diff format by default for reliable edits. Supports prompt caching to reduce token usage. Useful for tasks requiring redundant computation or comparison. All invocations use: --model openrouter/google/gemini-2.5-pro-preview-03-25, --no-gui, --yes-always, --no-detect-urls, --no-auto-commit, --no-git, --yes, --no-pretty. The tool will:\n\n1. Use unified diffs for code edits (more reliable than line-by-line)\n2. Focus on high-level edits (whole functions/blocks)\n3. Apply flexible matching for edit application\n4. Cache static prompt parts to reduce token usage\n5. Run the computation twice to verify results",
+    "Executes the aider command TWICE with proven best-practice flags and model for robust, non-interactive code editing. Uses whole file format for maximum reliability with Gemini models. Supports prompt caching to reduce token usage. Useful for tasks requiring redundant computation or comparison. All invocations use: --model openrouter/google/gemini-2.5-pro-preview-03-25, --no-gui, --yes-always, --no-detect-urls, --no-auto-commit, --no-git, --yes, --no-pretty, --edit-format whole. The tool will:\n\n1. Use whole file format for maximum reliability with Gemini models\n2. Focus on high-level edits (whole functions/blocks)\n3. Apply flexible matching for edit application\n4. Cache static prompt parts to reduce token usage\n5. Run the computation twice to verify results",
     doubleComputeParamsSchema.shape,
     async (params): Promise<{
         content: { type: 'text'; text: string }[];
@@ -435,7 +433,6 @@ server.tool(
         // Construct tool-specific arguments once
         const toolArgs: string[] = [
             '--message', formattedPrompt,
-            '--edit-format', params.use_unified_diffs ? 'unified' : 'whole'
         ];
 
         if (params.cache_prompts) {
