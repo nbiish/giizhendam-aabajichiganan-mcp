@@ -62,4 +62,20 @@
   - Updated all tool documentation and examples to reflect this change
 - **Next Step:** Test tools with the new standardized format to verify improved reliability and file modification capabilities.
 
+## Current Status: Intelligent Edit Format Selection for Maximum Compatibility (2025-04-29)
+
+- **Resolution:** Added intelligent edit format selection based on model names, following the optimal formats shown in the [Aider Leaderboards](https://aider.chat/docs/leaderboards/edit.html).
+- **Enhancement:** The system now automatically selects the most compatible edit format for each model:
+   - `architect` format for architect-mode models and DeepSeek R1 (100% correct edits in leaderboard)
+   - `diff-fenced` format for Gemini 2.5 Pro Preview models (92.4% correct edits)
+   - `diff` format for Claude and OpenAI models (90-97.8% correct edits)
+   - `whole` format as a fallback for unknown models
+- **Implementation:**
+   - Added new `getBestEditFormatForModel()` function that analyzes the model name
+   - Detects model types regardless of provider prefixes (openrouter/, anthropic/, etc.)
+   - Adds special handling for architect mode including editor model configuration
+   - Updated documentation and examples to reflect this dynamic selection
+- **Benefits:** This approach maximizes compatibility with all model types while optimizing for edit success rates based on empirical data.
+- **Next Step:** Test with various models to verify improved performance across different model types.
+
 --- 

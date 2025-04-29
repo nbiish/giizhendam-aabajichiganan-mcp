@@ -126,12 +126,20 @@ You can configure the server settings within your `mcp.json` file when defining 
 The server uses the following internal defaults if environment variables are not provided via `mcp.json`:
 - `AIDER_MODEL`: `openrouter/google/gemini-2.5-pro-preview-03-25` (recommended, per Aider Leaderboards and EXAMPLES-aider-cli-commands.sh)
 - `AIDER_EDITOR_MODEL`: Same as `AIDER_MODEL`
-- Aider Flags: `--no-detect-urls`, `--no-gui`, `--yes-always`, `--no-auto-commit`, `--no-git`, `--yes`, `--no-pretty`, `--edit-format whole` (all required for robust non-interactive use with Gemini models)
+- Aider Flags: `--no-detect-urls`, `--no-gui`, `--yes-always`, `--no-auto-commit`, `--no-git`, `--yes`, `--no-pretty` (all required for robust non-interactive use)
 - Output Directories: Relative to the server's Current Working Directory (`cwd`) specified in `mcp.json`, defaulting to `./output/finance-experts` and `./output/ceo-and-board`.
 
 **Note:** All aider invocations (including prompt_aider, double_compute, etc.) use these flags and model settings by default. See `EXAMPLES-aider-cli-commands.sh` and [Aider Leaderboards](https://aider.chat/docs/leaderboards/edit.html) for best-practice references.
 
 **Note:** All aider invocations (including prompt_aider, double_compute, etc.) use these flags and model settings by default. We specifically use the `whole` edit format (not `udiff`/`diff`) as it provides maximum reliability with Gemini models. See `EXAMPLES-aider-cli-commands.sh`, [Aider Leaderboards](https://aider.chat/docs/leaderboards/edit.html) and [Edit Formats](https://aider.chat/docs/more/edit-formats.html) for references.
+
+**Edit Format Selection:** The system automatically selects the optimal edit format for each model based on the [Aider Leaderboards](https://aider.chat/docs/leaderboards/edit.html) performance data:
+  - `architect` format for architect-mode models and DeepSeek R1
+  - `diff-fenced` format for Gemini 2.5 Pro Preview models
+  - `diff` format for Claude and OpenAI models
+  - `whole` format as a safe fallback for unknown models
+
+For more information on edit formats, see [Aider Edit Formats](https://aider.chat/docs/more/edit-formats.html).
 
 ## Usage
 

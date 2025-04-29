@@ -159,6 +159,45 @@ function validateUrl(urlStr: string): boolean {
     }
 }
 
+// --- ADD MODEL-BASED EDIT FORMAT HELPER ---
+/**
+ * Determine the best edit format for a given model based on the leaderboard recommendations.
+ * This looks at the base model name regardless of provider prefix.
+ */
+function getBestEditFormatForModel(modelName: string): string {
+    // Convert to lowercase for case-insensitive matching
+    const model = modelName.toLowerCase();
+    
+    // Extract the base model name, ignoring provider prefixes like openrouter/google/
+    const getBaseModelName = (fullName: string): string => {
+        // Remove provider prefixes if present
+        const parts = fullName.split('/');
+        return parts[parts.length - 1];
+    };
+    
+    const baseModelName = getBaseModelName(model);
+    
+    // Map model patterns to their recommended edit formats based on the leaderboard
+    if (model.includes('architect') || baseModelName.includes('architect')) {
+        return 'architect'; // For any model using architect mode
+    } else if (baseModelName.includes('gemini-2.5-pro-preview')) {
+        return 'diff-fenced'; // Best for Gemini 2.5 Pro Preview models
+    } else if (baseModelName.includes('claude-3') || baseModelName.includes('sonnet') || 
+               baseModelName.includes('claude-3-5')) {
+        return 'diff'; // Best for Claude models
+    } else if (baseModelName.includes('o3') || baseModelName.includes('o-3') || 
+               baseModelName.includes('gpt-4') || baseModelName.includes('gpt4') || 
+               baseModelName.includes('o4') || baseModelName.includes('o-4') || 
+               baseModelName.includes('o1') || baseModelName.includes('o-1')) {
+        return 'diff'; // Best for most OpenAI models
+    } else if (baseModelName.includes('deepseek') && baseModelName.includes('r1')) {
+        return 'architect'; // For DeepSeek R1 models
+    }
+    
+    // Default to 'whole' as the safest option for unknown models
+    return 'whole';
+}
+
 // --- Tool Implementations (To be added based on PRD) ---
 
 // Helper function to format prompt based on task type
@@ -208,6 +247,10 @@ async function executeAider(
         }
         // --- END Environment Variable Validation ---
 
+        // Determine the best edit format for this model
+        const editFormat = getBestEditFormatForModel(aiderModel);
+        log(`Using edit format '${editFormat}' for model: ${aiderModel}`);
+
         // Build the base args - match EXAMPLES-aider-cli-commands.sh BASE_CONFIG and leaderboard best practices
         const baseAiderArgs: string[] = [
             '--model', aiderModel,
@@ -216,10 +259,19 @@ async function executeAider(
             '--yes-always',
             '--no-auto-commit',
             '--no-git',
-            '--yes',
+            '--yes',                 // Always say yes to every confirmation
             '--no-pretty',
-            '--edit-format', 'whole'  // Always use 'whole' edit format which is most reliable for Gemini models
+            '--edit-format', editFormat  // Use the appropriate edit format for this model
         ];
+
+        // Add all "accept all" options from Aider options reference for maximum compatibility
+        if (editFormat === 'architect') {
+            // For architect mode, we need to specify the editor model
+            baseAiderArgs.push('--editor-model', aiderModel);
+            // Use the appropriate editor edit format (usually 'whole' or 'diff')
+            const editorEditFormat = 'editor-whole'; // Could be refined based on model
+            baseAiderArgs.push('--editor-edit-format', editorEditFormat);
+        }
 
         // Combine base args with tool-specific args
         const finalArgs = [...baseAiderArgs, ...toolArgs];
@@ -302,7 +354,7 @@ const simulationOutputMetaSchema = scriptExecutionOutputSchema.extend({
 
 server.tool(
     "prompt_aider",
-    "Executes the aider command with proven best-practice flags and model for robust, non-interactive code editing. Uses whole file format for maximum reliability with Gemini models. Supports prompt caching to reduce token usage. All invocations use: --model openrouter/google/gemini-2.5-pro-preview-03-25, --no-gui, --yes-always, --no-detect-urls, --no-auto-commit, --no-git, --yes, --no-pretty, --edit-format whole. The tool will:\n\n1. Use whole file format for maximum reliability with Gemini models\n2. Focus on high-level edits (whole functions/blocks)\n3. Apply flexible matching for edit application\n4. Cache static prompt parts to reduce token usage",
+    "Executes the aider command with proven best-practice flags and model for robust, non-interactive code editing. Automatically selects the optimal edit format based on the model (architect, diff, diff-fenced, or whole) according to the Aider leaderboard performance data. Uses all necessary acceptance flags (--yes-always, --yes, etc.) for fully automated operation. All invocations use the base model with: --no-gui, --no-detect-urls, --no-auto-commit, --no-git, --no-pretty and other compatibility options.",
     promptAiderParamsSchema.shape,
     async (params): Promise<{ 
         content: { type: 'text'; text: string }[]; 
@@ -419,7 +471,7 @@ const doubleComputeOutputMetaSchema = z.object({
 
 server.tool(
     "double_compute",
-    "Executes the aider command TWICE with proven best-practice flags and model for robust, non-interactive code editing. Uses whole file format for maximum reliability with Gemini models. Supports prompt caching to reduce token usage. Useful for tasks requiring redundant computation or comparison. All invocations use: --model openrouter/google/gemini-2.5-pro-preview-03-25, --no-gui, --yes-always, --no-detect-urls, --no-auto-commit, --no-git, --yes, --no-pretty, --edit-format whole. The tool will:\n\n1. Use whole file format for maximum reliability with Gemini models\n2. Focus on high-level edits (whole functions/blocks)\n3. Apply flexible matching for edit application\n4. Cache static prompt parts to reduce token usage\n5. Run the computation twice to verify results",
+    "Executes the aider command TWICE with proven best-practice flags and model for robust, non-interactive code editing. Automatically selects the optimal edit format based on the model (architect, diff, diff-fenced, or whole) according to the Aider leaderboard performance data. Uses all necessary acceptance flags (--yes-always, --yes, etc.) for fully automated operation. All invocations use the base model with: --no-gui, --no-detect-urls, --no-auto-commit, --no-git, --no-pretty and other compatibility options. Useful for tasks requiring redundant computation or comparison.",
     doubleComputeParamsSchema.shape,
     async (params): Promise<{
         content: { type: 'text'; text: string }[];

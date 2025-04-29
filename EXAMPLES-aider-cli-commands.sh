@@ -7,8 +7,8 @@ BASE_CONFIG="aider \
     --model openrouter/google/gemini-2.5-pro-preview-03-25 \
     --no-detect-urls \
     --no-gui \
-    --yes-always \
-    --edit-format whole"
+    --yes-always"
+    # Edit format will be determined automatically based on model
 
 # Check if prompt and tag are provided
 if [ -z "$1" ] || [ -z "$2" ]; then
