@@ -24,14 +24,14 @@
 
 This project implements a Model Context Protocol (MCP) server that provides various AI-powered tools for developers and decision-makers. It serves as a bridge between different AI models and provides specialized tools for code assistance, financial analysis, and collaborative decision simulation.
 
-The server includes direct interfaces to the aider CLI for AI pair programming and the Gemini API for specialized simulations, all within a secure TypeScript implementation.
+The server includes interfaces to guide the use of aider CLI for AI pair programming and the Gemini API for specialized simulations, all within a secure TypeScript implementation.
 
 ## Features
 
-- **AI-assisted Programming**
-  - Direct interface to aider CLI for code assistance
-  - Support for dual-model architecture ("architect" mode)
-  - Redundant computation capabilities for verification
+- **AI-assisted Programming Guidance**
+  - Expert guidance on using aider CLI for code assistance
+  - Automatic selection of optimal edit formats based on model type
+  - Recommendations for both standard and redundant computation approaches
   
 - **Financial Expert Simulation**
   - Simulates deliberation between 7 financial expert personas
@@ -145,7 +145,7 @@ For more information on edit formats, see [Aider Edit Formats](https://aider.cha
 
 ### Aider Code Assistance
 
-Use the `prompt_aider` tool to interact with the aider CLI:
+Use the `prompt_aider` tool to get expert guidance on using the aider CLI:
 
 ```typescript
 // Example using prompt_aider
@@ -153,6 +153,12 @@ const result = await server.execute("prompt_aider", {
   prompt_text: "Create a React component that displays a counter with increment and decrement buttons",
   files: ["src/components/Counter.tsx"]  // Optional: specific files to consider
 });
+
+// The result includes detailed guidance on:
+// - The recommended aider command to run
+// - The optimal edit format for your model
+// - Reasoning for the format recommendation
+// - Any relevant warnings about API keys or configuration
 
 // Optional: specify task type
 const result = await server.execute("prompt_aider", {
@@ -172,7 +178,8 @@ const result = await server.execute("double_compute", {
   files: ["src/algorithms/pathfinder.ts"]
 });
 
-// Check results from both runs in result._meta.run1 and result._meta.run2
+// The result includes guidance on running the aider command twice
+// for redundant computation and verification
 ```
 
 ### Financial Expert Simulation
@@ -318,7 +325,8 @@ npm test
 ## Release Notes
 
 ### [Unreleased]
-- Bugfix: Fixed file argument handling in `prompt_aider` and `double_compute` tools. File paths are now passed as relative positional arguments, fully compatible with aider CLI expectations. This resolves previous errors with file argument recognition and enables robust file-based code editing and verification.
+- **Major Refactoring**: Changed the architecture of `prompt_aider` and `double_compute` tools to act as advisors rather than executors. Tools now provide expert guidance on crafting optimal aider commands with the best edit format for your model, instead of directly executing aider. This change gives users more control while still providing all the expertise needed for effective aider use.
+- Bugfix: Fixed file argument handling, switching from positional arguments to using `--file` flags. This resolves previous errors with file argument recognition and enables robust file-based code editing and verification.
 
 ## License
 
