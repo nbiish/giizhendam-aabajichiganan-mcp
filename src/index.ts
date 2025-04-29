@@ -328,11 +328,8 @@ const doubleComputeGuidanceOutputSchema = aiderGuidanceOutputSchema.extend({
 
 // --- Tool: prompt_aider (refactored) ---
 const promptAiderParamsSchema = z.object({
-    prompt_text: z.string().max(10000, "Prompt text exceeds maximum length of 10000 characters.").describe("The main prompt/instruction for aider."),
-    task_type: z.enum(TASK_TYPES).optional().describe("Optional task type hint (research, docs, security, code, verify, progress) - currently informational."),
-    files: z.array(z.string()).optional().describe("Optional list of files for aider to consider or modify."),
-    cache_prompts: z.boolean().optional().default(true).describe("Whether to enable prompt caching to reduce token usage."),
-    cache_file: z.string().optional().describe("Optional path to store cached prompts. Defaults to .aider/prompt_cache.json")
+    prompt_text: z.string().max(10000, "Prompt text exceeds maximum length of 10000 characters.").describe("The prompt/instructions for Aider. This tool acts as a passthrough."),
+    files: z.array(z.string()).optional().describe("Optional list of files for aider to consider or modify.")
 });
 
 // Output Schema (shared part for script execution tools)
@@ -353,7 +350,7 @@ const simulationOutputMetaSchema = scriptExecutionOutputSchema.extend({
 
 server.tool(
     "prompt_aider",
-    "Executes the aider command with proven best-practice flags and model for robust, non-interactive code editing. Automatically selects the optimal edit format based on the model (architect, diff, diff-fenced, or whole) according to the Aider leaderboard performance data. Uses all necessary acceptance flags (--yes-always, --yes, etc.) for fully automated operation. All invocations use the base model with: --no-gui, --no-detect-urls, --no-auto-commit, --no-git, --no-pretty and other compatibility options.",
+    "Informs how to expertly craft an Aider prompt based on your topic or goal. This tool acts as a passthrough, providing strategic guidance on formulating effective prompts that leverage best practices in prompt engineering. Use this tool to receive tailored advice on constructing prompts that achieve optimal results from Aider.",
     promptAiderParamsSchema.shape,
     async (params): Promise<{ 
         content: { type: 'text'; text: string }[]; 
@@ -362,20 +359,16 @@ server.tool(
       }> => {
         
         // Format prompt based on task type
-        const formattedPrompt = formatPromptByTaskType(params.prompt_text, params.task_type);
-        const taskTypeName = params.task_type || 'general';
+        const formattedPrompt = params.prompt_text;
+        const taskTypeName = 'general';
         
         // Construct tool-specific arguments for aider
         const toolArgs: string[] = [
             '--message', formattedPrompt,
         ];
 
-        if (params.cache_prompts) {
-            toolArgs.push('--cache-prompts');
-            if (params.cache_file) {
-                toolArgs.push('--cache-file', params.cache_file);
-            }
-        }
+        // We always use prompt caching by default now
+        toolArgs.push('--cache-prompts');
 
         // Format file arguments correctly with --file flag
         const fileArgs: string[] = [];
@@ -402,14 +395,6 @@ server.tool(
                         + (guidance.apiKeyWarning ? `\n\n## ⚠️ Warning\n${guidance.apiKeyWarning}` : '')
                 }
             ];
-
-            // Add prompt information if task type is specified
-            if (params.task_type && params.task_type !== 'general') {
-                contentResponse.push({ 
-                    type: 'text', 
-                    text: `\n## Task-Specific Prompt Formatting\nTask Type: ${taskTypeName}\nPrompt Engineering: ${formattedPrompt.substring(0, formattedPrompt.indexOf(params.prompt_text))}...`
-                });
-            }
 
             return {
                 content: contentResponse,
@@ -450,11 +435,8 @@ server.tool(
 
 // --- Tool: double_compute (refactored) ---
 const doubleComputeParamsSchema = z.object({
-    prompt_text: z.string().max(10000, "Prompt text exceeds maximum length of 10000 characters.").describe("The main prompt/instruction for aider."),
-    task_type: z.enum(TASK_TYPES).optional().describe("Optional task type hint (research, docs, security, code, verify, progress) - currently informational."),
-    files: z.array(z.string()).optional().describe("Optional list of files for aider to consider or modify."),
-    cache_prompts: z.boolean().optional().default(true).describe("Whether to enable prompt caching to reduce token usage."),
-    cache_file: z.string().optional().describe("Optional path to store cached prompts. Defaults to .aider/prompt_cache.json")
+    prompt_text: z.string().max(10000, "Prompt text exceeds maximum length of 10000 characters.").describe("The prompt/instructions for Aider. This tool acts as a passthrough."),
+    files: z.array(z.string()).optional().describe("Optional list of files for aider to consider or modify.")
 });
 
 const doubleComputeOutputMetaSchema = z.object({
@@ -466,7 +448,7 @@ const doubleComputeOutputMetaSchema = z.object({
 
 server.tool(
     "double_compute",
-    "Executes the aider command TWICE with proven best-practice flags and model for robust, non-interactive code editing. Automatically selects the optimal edit format based on the model (architect, diff, diff-fenced, or whole) according to the Aider leaderboard performance data. Uses all necessary acceptance flags (--yes-always, --yes, etc.) for fully automated operation. All invocations use the base model with: --no-gui, --no-detect-urls, --no-auto-commit, --no-git, --no-pretty and other compatibility options. Useful for tasks requiring redundant computation or comparison.",
+    "Informs how to expertly craft an Aider prompt for complex or critical tasks requiring redundant computation for verification. This tool acts as a passthrough, providing strategic guidance on formulating effective prompts for situations where accuracy and reliability are paramount. Use this tool when double-checking important code modifications or complex problem-solving.",
     doubleComputeParamsSchema.shape,
     async (params): Promise<{
         content: { type: 'text'; text: string }[];
@@ -474,20 +456,16 @@ server.tool(
         isError?: boolean;
       }> => {
         // Format prompt based on task type
-        const formattedPrompt = formatPromptByTaskType(params.prompt_text, params.task_type);
-        const taskTypeName = params.task_type || 'general';
+        const formattedPrompt = params.prompt_text;
+        const taskTypeName = 'general';
         
         // Construct tool-specific arguments once
         const toolArgs: string[] = [
             '--message', formattedPrompt,
         ];
 
-        if (params.cache_prompts) {
-            toolArgs.push('--cache-prompts');
-            if (params.cache_file) {
-                toolArgs.push('--cache-file', params.cache_file);
-            }
-        }
+        // We always use prompt caching by default now
+        toolArgs.push('--cache-prompts');
 
         // Format file arguments correctly with --file flag
         const fileArgs: string[] = [];
@@ -516,14 +494,6 @@ server.tool(
                         + (guidance.apiKeyWarning ? `\n\n## ⚠️ Warning\n${guidance.apiKeyWarning}` : '')
                 }
             ];
-
-            // Add prompt information if task type is specified
-            if (params.task_type && params.task_type !== 'general') {
-                contentResponse.push({ 
-                    type: 'text', 
-                    text: `\n## Task-Specific Prompt Formatting\nTask Type: ${taskTypeName}\nPrompt Engineering: ${formattedPrompt.substring(0, formattedPrompt.indexOf(params.prompt_text))}...`
-                });
-            }
 
             return {
                 content: contentResponse,
