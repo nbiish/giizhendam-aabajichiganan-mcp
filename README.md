@@ -48,6 +48,10 @@ The server includes direct interfaces to the aider CLI for AI pair programming a
   - Comprehensive error handling and logging
   - Secure API key management
 
+## Recent Changes
+
+- **v0.3.34** - Fixed shebang line in the bundled output file to ensure proper execution via npx. This resolves issues with "Client closed" errors when running via MCP.
+
 ## Prerequisites
 
 - Node.js (v14 or higher) and npm/yarn
