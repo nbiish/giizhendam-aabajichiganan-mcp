@@ -13,6 +13,6 @@ publish to:
 - [critical.mdc](mdc:.cursor/rules/critical.mdc)
 - update [README.md](mdc:README.md) (changes, etc)
 - commit all changes before proceeding
-- [dual-publish.mdc](mdc:.cursor/rules/dual-publish.mdc)
+- [dual-publish.mdc](mdc:.cursor/rules/dual-publish.mdc) <-(runs 'npm run build')
 - make an appropriate @.gitignore that does not interfere with pair programmers
 - we use npx in our [mcp.json](mdc:Users/nbiish/.cursor/mcp.json) to install, test, and use our codebase's mcp server
