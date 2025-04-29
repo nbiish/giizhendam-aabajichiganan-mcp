@@ -8199,6 +8199,7 @@ var STANDARD_BOARD_ROLES = [
   "Lead Investor/Venture Capitalist",
   "Risk/Audit Committee Chair"
 ];
+var DEFAULT_AIDER_MODEL = "openrouter/google/gemini-2.5-pro-preview-03-25";
 var serverName = "giizhendam-aabajichiganan-mcp-script-interface";
 var serverVersion = "0.3.1";
 var server = new McpServer({
@@ -8239,11 +8240,10 @@ async function executeAider(toolArgs) {
   return new Promise((resolve, reject) => {
     log(`DEBUG executeAider: AIDER_MODEL=${process.env.AIDER_MODEL}`);
     log(`DEBUG executeAider: OPENROUTER_API_KEY present=${!!process.env.OPENROUTER_API_KEY}`);
-    const aiderModel = process.env.AIDER_MODEL;
+    let aiderModel = process.env.AIDER_MODEL;
     if (!aiderModel) {
-      const errorMsg = `Configuration Error: AIDER_MODEL environment variable is not set. Check MCP server configuration (mcp.json).`;
-      log(errorMsg);
-      return reject(new Error(errorMsg));
+      aiderModel = DEFAULT_AIDER_MODEL;
+      log(`AIDER_MODEL not set, using default: ${DEFAULT_AIDER_MODEL}`);
     }
     if (!process.env.OPENROUTER_API_KEY) {
       const errorMsg = `Configuration Error: OPENROUTER_API_KEY environment variable is not set. Check MCP server configuration (mcp.json).`;
@@ -8255,12 +8255,12 @@ async function executeAider(toolArgs) {
       aiderModel,
       "--no-detect-urls",
       "--no-gui",
-      "--yes-always"
+      "--yes-always",
+      "--no-auto-commit",
+      "--no-git",
+      "--yes",
+      "--no-pretty"
     ];
-    baseAiderArgs.push("--no-auto-commit");
-    baseAiderArgs.push("--no-git");
-    baseAiderArgs.push("--yes");
-    baseAiderArgs.push("--no-pretty");
     const finalArgs = [...baseAiderArgs, ...toolArgs];
     const executedCommand = `aider ${finalArgs.join(" ")}`;
     log(`Executing aider: ${executedCommand}`);
