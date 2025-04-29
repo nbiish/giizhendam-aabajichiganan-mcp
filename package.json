@@ -1,6 +1,6 @@
 {
   "name": "@nbiish/giizhendam-aabajichiganan-mcp",
-  "version": "0.3.42",
+  "version": "0.3.43",
   "description": "MCP Server providing AI-driven tools (aider wrapper, financial/board simulations)",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
