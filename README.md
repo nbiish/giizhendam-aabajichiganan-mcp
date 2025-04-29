@@ -305,6 +305,11 @@ npm test
 }
 ```
 
+## Release Notes
+
+### [Unreleased]
+- Bugfix: Fixed file argument handling in `prompt_aider` and `double_compute` tools. File paths are now passed as relative positional arguments, fully compatible with aider CLI expectations. This resolves previous errors with file argument recognition and enables robust file-based code editing and verification.
+
 ## License
 
 This project is licensed under the terms specified in the [LICENSE](LICENSE) file. This license is a COMPREHENSIVE RESTRICTED USE LICENSE FOR INDIGENOUS CREATIONS WITH TRIBAL SOVEREIGNTY, DATA SOVEREIGNTY, AND WEALTH RECLAMATION PROTECTIONS.

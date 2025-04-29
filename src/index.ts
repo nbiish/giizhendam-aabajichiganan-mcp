@@ -327,11 +327,10 @@ server.tool(
             }
         }
 
+        // Use file paths as provided (relative), and append as positional arguments at the end
         if (params.files && params.files.length > 0) {
-            // Convert relative paths to absolute paths
-            const absolutePaths = params.files.map(file => path.resolve(process.cwd(), file));
-            log(`Resolved file paths for aider (prompt_aider): ${absolutePaths.join(', ')}`);
-            toolArgs.push(...absolutePaths);
+            log(`Using relative file paths for aider (prompt_aider): ${params.files.join(', ')}`);
+            toolArgs.push(...params.files);
         }
 
         let result: { stdout: string; stderr: string; exitCode: number | null; executedCommand: string } | null = null;
@@ -446,11 +445,10 @@ server.tool(
             }
         }
 
+        // Use file paths as provided (relative), and append as positional arguments at the end
         if (params.files && params.files.length > 0) {
-            // Convert relative paths to absolute paths
-            const absolutePaths = params.files.map(file => path.resolve(process.cwd(), file));
-            log(`Resolved file paths for aider (double_compute): ${absolutePaths.join(', ')}`);
-            toolArgs.push(...absolutePaths);
+            log(`Using relative file paths for aider (double_compute): ${params.files.join(', ')}`);
+            toolArgs.push(...params.files);
         }
         log(`Preparing double_compute with tool args: ${toolArgs.join(' ')}`);
 

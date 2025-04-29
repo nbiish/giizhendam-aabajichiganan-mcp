@@ -13,6 +13,10 @@ BUILD_DIR="dist"
 
 echo "--- Dual Publish Script ---"
 
+# --- Early Build for Package 1 ---
+echo "Building Package 1 (early build before any version bump or publish)..."
+npm run build # Assumes 'build' script exists in package.json
+
 # --- Pre-Checks ---
 echo "Checking prerequisites..."
 
@@ -62,9 +66,6 @@ fi
 # --- Process Package 1 (Build, Commit, Publish) ---
 echo "Updating lockfile for Package 1..."
 npm install
-
-echo "Building Package 1..."
-npm run build # Assumes 'build' script exists in package.json
 
 echo "Staging and committing Package 1 changes..."
 # Add all files, including built files and changes

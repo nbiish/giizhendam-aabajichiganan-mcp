@@ -15,4 +15,5 @@ publish to:
 - commit all changes before proceeding
 - [dual-publish.mdc](mdc:.cursor/rules/dual-publish.mdc) <-(runs 'npm run build')
 - make an appropriate @.gitignore that does not interfere with pair programmers
+- update [MEMORY-BANK.mdc](mdc:.cursor/rules/MEMORY-BANK.mdc)
 - we use npx in our [mcp.json](mdc:Users/nbiish/.cursor/mcp.json) to install, test, and use our codebase's mcp server
