@@ -302,7 +302,7 @@ const simulationOutputMetaSchema = scriptExecutionOutputSchema.extend({
 
 server.tool(
     "prompt_aider",
-    "Executes the aider command with optimized settings for code editing. Uses unified diff format by default for more reliable edits. Supports prompt caching to reduce token usage. Requires models defined in environment variables (AIDER_MODEL, optional AIDER_EDITOR_MODEL). The tool will:\n\n1. Use unified diffs for code edits (more reliable than line-by-line)\n2. Focus on high-level edits (whole functions/blocks)\n3. Apply flexible matching for edit application\n4. Cache static prompt parts to reduce token usage",
+    "Executes the aider command with best-practice flags and model for robust, non-interactive code editing. Uses unified diff format by default for reliable edits. Supports prompt caching to reduce token usage. All invocations use: --model openrouter/google/gemini-2.5-pro-preview-03-25, --no-gui, --yes-always, --no-detect-urls, --no-auto-commit, --no-git, --yes, --no-pretty. The tool will:\n\n1. Use unified diffs for code edits (more reliable than line-by-line)\n2. Focus on high-level edits (whole functions/blocks)\n3. Apply flexible matching for edit application\n4. Cache static prompt parts to reduce token usage",
     promptAiderParamsSchema.shape,
     async (params): Promise<{ 
         content: { type: 'text'; text: string }[]; 
@@ -422,7 +422,7 @@ const doubleComputeOutputMetaSchema = z.object({
 
 server.tool(
     "double_compute",
-    "Executes the aider command TWICE with optimized settings for code editing. Uses unified diff format by default for more reliable edits. Supports prompt caching to reduce token usage. Useful for tasks requiring redundant computation or comparison. The tool will:\n\n1. Use unified diffs for code edits (more reliable than line-by-line)\n2. Focus on high-level edits (whole functions/blocks)\n3. Apply flexible matching for edit application\n4. Cache static prompt parts to reduce token usage\n5. Run the computation twice to verify results",
+    "Executes the aider command TWICE with best-practice flags and model for robust, non-interactive code editing. Uses unified diff format by default for reliable edits. Supports prompt caching to reduce token usage. Useful for tasks requiring redundant computation or comparison. All invocations use: --model openrouter/google/gemini-2.5-pro-preview-03-25, --no-gui, --yes-always, --no-detect-urls, --no-auto-commit, --no-git, --yes, --no-pretty. The tool will:\n\n1. Use unified diffs for code edits (more reliable than line-by-line)\n2. Focus on high-level edits (whole functions/blocks)\n3. Apply flexible matching for edit application\n4. Cache static prompt parts to reduce token usage\n5. Run the computation twice to verify results",
     doubleComputeParamsSchema.shape,
     async (params): Promise<{
         content: { type: 'text'; text: string }[];
@@ -706,8 +706,7 @@ const boardSimulationOutputMetaSchema = z.object({
 
 server.tool(
     "finance_experts",
-    // Updated Description:
-    "Simulates a deliberation between multiple internally-defined financial expert personas (Graham, Ackman, Wood, Munger, Burry, Lynch, Fisher) on a given financial topic/query related to a project or business situation using the Gemini API. Generates responses reflecting each expert's refocused principles and saves the aggregated result to './financial-experts/'. Also includes a collective deliberation on the optimal aider prompt for the topic. Requires GEMINI_API_KEY environment variable.",
+    "Simulates a deliberation between multiple internally-defined financial expert personas (Graham, Ackman, Wood, Munger, Burry, Lynch, Fisher) on a given financial topic/query related to a project or business situation using the Gemini API. Generates responses reflecting each expert's refocused principles and saves the aggregated result to './financial-experts/'. Also includes a collective deliberation on the optimal aider prompt for the topic.",
     financeExpertsParamsSchema.shape,
      async (params): Promise<{
         content: { type: 'text'; text: string }[];
@@ -957,8 +956,7 @@ const ceoBoardParamsSchema = z.object({
 
 server.tool(
     "ceo_and_board",
-    // Updated Description:
-    "Simulates a board discussion on a given topic with specified roles using the Gemini API. Constructs a prompt, executes the API call, and saves the output markdown to './ceo-and-board/'. Also includes a deliberation on the optimal aider prompt for the topic. Requires GEMINI_API_KEY environment variable.",
+    "Simulates a board discussion on a given topic with specified roles using the Gemini API. Constructs a prompt, executes the API call, and saves the output markdown to './ceo-and-board/'. Also includes a deliberation on the optimal aider prompt for the topic.",
     ceoBoardParamsSchema.shape,
     async (params): Promise<{
         content: { type: 'text'; text: string }[];
