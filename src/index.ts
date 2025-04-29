@@ -216,10 +216,6 @@ async function executeAider(
         baseAiderArgs.push('--no-auto-commit');
         baseAiderArgs.push('--no-git');
         
-        // Add additional flags to help with non-interactive mode
-        baseAiderArgs.push('--no-input');  // Add this flag to indicate we don't want interactive input
-        baseAiderArgs.push('--noninteractive');  // Another flag to reinforce non-interactive mode
-
         // Combine base args with tool-specific args
         const finalArgs = [...baseAiderArgs, ...toolArgs];
         const executedCommand = `aider ${finalArgs.join(' ')}`;

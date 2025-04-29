@@ -17,29 +17,30 @@
 6.  **Bundling Attempt:** Replaced `tsc` build with `esbuild` to bundle `src/index.ts` into `dist/index.js` based on forum suggestions for "Client closed" errors.
 7.  **MCP Launch Still Fails:** Reloading MCP client still results in "Client closed" error, even though `node dist/index.js` runs successfully manually.
 8.  **Diagnostic Log Added:** Added `console.error("--- MCP SCRIPT START ---")` at the top of `src/index.ts` (after shebang).
+9.  **Terminal Error Fix:** Identified "Input is not a terminal (fd=0)" error when running aider through MCP. Modified stdio configuration from `['pipe', 'pipe', 'pipe']` to `['ignore', 'pipe', 'pipe']`.
+10. **Invalid Flags Removed:** Attempted adding flags `--no-input` and `--noninteractive` to help with non-interactive mode, but found these aren't supported by aider. Removed these flags.
 
 
 **Current Status:**
 
-*   The `aider-and-experts` MCP server (`dist/index.js`) runs when executed manually.
-*   **Blocker:** MCP server **still fails to launch** correctly via Cursor ("Client closed"), even after bundling.
-*   Awaiting results from diagnostic log check.
-*   Documentation updated: LICENSE, QR code, and critical rules file downloaded; README.md formatting verified.
+*   The `aider-and-experts` MCP server launches and the tools are callable.
+*   **Blocker:** Tools still fail with the error: "aider: error: unrecognized arguments: --no-input --noninteractive" despite removing these flags from the source code and rebuilding.
+*   Hypothesis: The MCP server is not picking up the updated code from the build process and needs to be restarted.
+*   Documentation updated: activeContext.md and progress.md reflect current troubleshooting efforts.
 
 **Needs / Next Steps:**
 
-1.  **Verify Script Start:** User to run `npm run build`, reload MCP client, and check Cursor logs for `"--- MCP SCRIPT START ---"` message.
-2.  **If Log Appears:** Debug the script execution *after* the start message.
-3.  **If Log Doesn't Appear:** Investigate Cursor's MCP launch mechanism further (possible environment, stdio, or process management issue).
-4.  **(Pending) Debug `aider` File Modification:** Address the original issue once the server launches reliably via MCP.
-5.  **Memory Bank Files:** Draft initial versions of missing Memory Bank files (`projectbrief.md`, `productContext.md`, `systemPatterns.md`, `techContext.md`) with summaries of project vision, context, patterns, and technology.
+1.  **Restart MCP Server:** User needs to restart the MCP server (Cursor) to pick up the latest built code.
+2.  **Re-test Tools:** After restarting, test the `prompt_aider` tool again to see if our changes fixed the issue.
+3.  **If Error Persists:** Verify build process, check for other occurrences of the flags, and consider alternative approaches.
+4.  **Debug File Modification:** Once tools execute without error, address the original issue of file modification not working.
+5.  **Memory Bank Files:** Continue updating Memory Bank files with the latest progress and findings.
 
-## Current Blocker: MCP Connection Error (2025-04-28)
+## Current Blocker: MCP Still Using Old Code (2025-04-28)
 
-- **Issue:** MCP failed to connect to `@nbiish/giizhendam-aabajichiganan-mcp` (Error -32000: Connection closed, based on logs from 2025-04-28 21:10:32).
-- **Impact:** Tools `prompt_aider` and `double_compute` are unavailable.
-- **Blocked Goal:** Generation of expert `aider` CLI prompts via agent deliberation (ceo/board, finance experts) is currently blocked.
-- **Fix Applied:** Modified the build script in package.json to add a proper shebang line (`#!/usr/bin/env node`) to the bundled output using esbuild's banner option. The absence of a shebang line at the top of the bundled file likely caused execution issues with npx.
-- **Next Step:** Rebuild the package using `npm run build` and test with `npx -y @nbiish/giizhendam-aabajichiganan-mcp`.
+- **Issue:** Despite removing invalid flags from source and rebuilding, the MCP server is still showing errors about unrecognized arguments: `--no-input` and `--noninteractive`.
+- **Impact:** The `prompt_aider` and `double_compute` tools still fail to execute properly.
+- **Fix Applied:** Changed stdio configuration to `['ignore', 'pipe', 'pipe']` and removed invalid flags from the source code.
+- **Next Step:** Restart Cursor/MCP server to pick up the new code, then test the tools again.
 
 --- 
