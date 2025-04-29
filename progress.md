@@ -22,17 +22,16 @@
 **Current Status:**
 
 *   The `aider-and-experts` MCP server launches and the tools are callable.
-*   **Blocker:** Tools still fail with the error: "aider: error: unrecognized arguments: --no-input --noninteractive" despite removing these flags from the source code and rebuilding.
-*   Hypothesis: The MCP server is not picking up the updated code from the build process and needs to be restarted.
-*   Documentation updated: activeContext.md and progress.md reflect current troubleshooting efforts.
+*   **Recent Changes:** Added proper non-interactive mode flags (`--yes` and `--no-pretty`) to help aider work better in programmatic environments.
+*   **Next Test:** Need to verify if these changes resolve the file modification issues.
+*   Documentation updated: activeContext.md and progress.md reflect current improvements.
 
 **Needs / Next Steps:**
 
-1.  **Restart MCP Server:** User needs to restart the MCP server (Cursor) to pick up the latest built code.
-2.  **Re-test Tools:** After restarting, test the `prompt_aider` tool again to see if our changes fixed the issue.
-3.  **If Error Persists:** Verify build process, check for other occurrences of the flags, and consider alternative approaches.
-4.  **Debug File Modification:** Once tools execute without error, address the original issue of file modification not working.
-5.  **Memory Bank Files:** Continue updating Memory Bank files with the latest progress and findings.
+1.  **Test MCP Server:** Test the `prompt_aider` tool with the updated package to see if our changes fixed the issue.
+2.  **Verify File Modifications:** Check if aider can now successfully modify files when called through the MCP server.
+3.  **If Error Persists:** Consider more radical approaches, such as using the `--message` flag for a fully scripted interaction.
+4.  **Memory Bank Files:** Continue updating Memory Bank files with the latest progress and findings.
 
 ---
 
@@ -60,5 +59,15 @@
 - **Solution Attempted:** Modified stdio configuration from `['pipe', 'pipe', 'pipe']` to `['ignore', 'pipe', 'pipe']` and tried adding flags `--no-input` and `--noninteractive`.
 - **Result:** MCP server still showing errors about unrecognized arguments despite removing flags from source and rebuilding.
 - **Next Step:** Restart Cursor/MCP server to pick up the new code, then test again.
+
+---
+
+- **Date:** 2025-04-29
+- **Status:** IMPROVED (PENDING VERIFICATION)
+- **Task:** Enhance aider non-interactive support in MCP server tools.
+- **Issue Addressed:** "Input is not a terminal (fd=0)" error affecting aider's ability to modify files.
+- **Solution Applied:** Added appropriate flags for non-interactive execution: `--yes` to automatically accept confirmations and `--no-pretty` to disable terminal formatting.
+- **Package Update:** Published version 0.3.37 with these improvements.
+- **Next Step:** Test the updated package to verify if file modifications now work correctly.
 
 ---

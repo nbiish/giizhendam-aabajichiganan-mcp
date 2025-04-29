@@ -50,6 +50,12 @@ const STANDARD_BOARD_ROLES = [
   "Risk/Audit Committee Chair"
 ];
 
+// --- Best-practice Aider CLI flags (per EXAMPLES, docs, leaderboards) ---
+// Always use these flags for non-interactive, programmatic use:
+// --model (from env or default), --no-gui, --yes-always, --no-detect-urls, --message, --no-auto-commit, --no-git, --yes, --no-pretty
+// Default model: openrouter/google/gemini-2.5-pro-preview-03-25
+const DEFAULT_AIDER_MODEL = 'openrouter/google/gemini-2.5-pro-preview-03-25';
+
 // --- Server Setup ---
 const serverName = "giizhendam-aabajichiganan-mcp-script-interface";
 const serverVersion = "0.3.1"; // Incremented version
@@ -189,36 +195,30 @@ async function executeAider(
         log(`DEBUG executeAider: OPENROUTER_API_KEY present=${!!process.env.OPENROUTER_API_KEY}`);
 
         // --- START Environment Variable Validation ---
-        const aiderModel = process.env.AIDER_MODEL;
-
+        let aiderModel = process.env.AIDER_MODEL;
         if (!aiderModel) {
-            const errorMsg = `Configuration Error: AIDER_MODEL environment variable is not set. Check MCP server configuration (mcp.json).`;
+            aiderModel = DEFAULT_AIDER_MODEL;
+            log(`AIDER_MODEL not set, using default: ${DEFAULT_AIDER_MODEL}`);
+        }
+        if (!process.env.OPENROUTER_API_KEY) {
+            // Also check for OpenRouter key if using OpenRouter models - adjust if other providers are used
+            const errorMsg = `Configuration Error: OPENROUTER_API_KEY environment variable is not set. Check MCP server configuration (mcp.json).`;
             log(errorMsg);
             return reject(new Error(errorMsg)); // Reject the promise directly
         }
-         if (!process.env.OPENROUTER_API_KEY) {
-             // Also check for OpenRouter key if using OpenRouter models - adjust if other providers are used
-             const errorMsg = `Configuration Error: OPENROUTER_API_KEY environment variable is not set. Check MCP server configuration (mcp.json).`;
-             log(errorMsg);
-             return reject(new Error(errorMsg));
-         }
         // --- END Environment Variable Validation ---
 
-        // Build the base args - match EXAMPLES-aider-cli-commands.sh BASE_CONFIG
+        // Build the base args - match EXAMPLES-aider-cli-commands.sh BASE_CONFIG and leaderboard best practices
         const baseAiderArgs: string[] = [
             '--model', aiderModel,
             '--no-detect-urls',
             '--no-gui',
-            '--yes-always'
+            '--yes-always',
+            '--no-auto-commit',
+            '--no-git',
+            '--yes',
+            '--no-pretty'
         ];
-
-        // Additional recommended flags for programmatic execution
-        baseAiderArgs.push('--no-auto-commit');
-        baseAiderArgs.push('--no-git');
-        
-        // Add flags to help with non-interactive mode
-        baseAiderArgs.push('--yes');  // Automatically accept all confirmations
-        baseAiderArgs.push('--no-pretty');  // Disable formatting that might not work in non-interactive environments
 
         // Combine base args with tool-specific args
         const finalArgs = [...baseAiderArgs, ...toolArgs];

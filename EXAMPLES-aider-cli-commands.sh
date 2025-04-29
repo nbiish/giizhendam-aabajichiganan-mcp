@@ -2,10 +2,11 @@
 
 # Base configuration for autonomous tasks
 # Uses high-reasoning model and architect mode for complex operations
-BASE_CONFIG="aider \\
-    --model openrouter/google/gemini-2.5-flash-preview \\
-    --no-detect-urls \\
-    --no-gui \\
+# Recommended model and flags per Aider Leaderboards: https://aider.chat/docs/leaderboards/edit.html
+BASE_CONFIG="aider \
+    --model openrouter/google/gemini-2.5-pro-preview-03-25 \
+    --no-detect-urls \
+    --no-gui \
     --yes-always"
 
 # Check if prompt and tag are provided
