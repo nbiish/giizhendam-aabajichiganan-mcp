@@ -1,9 +1,4 @@
 ---
-description: 
-globs: *.md,package*json,*.ts,*.sh
-alwaysApply: false
----
----
 
 # Chain-of-Draft Agile Memory Prompt for AI Pair Programming
 
@@ -93,7 +88,7 @@ alwaysApply: false
 
 ---
 
-## [2025-04-29] Architectural Refactoring & Bugfix Summary
+## [2025-04-XX] Architectural Refactoring & Bugfix Summary <--(VERIFY and use CURRENT TIME using mcp_time_get_current_time)
 - **Major Refactoring**: Changed architecture of `prompt_aider` and `double_compute` tools to act as advisors rather than executors
   - Tools now provide expert guidance on optimal aider commands with proper edit formats
   - Automatically selects best edit format based on aider leaderboard data for current model

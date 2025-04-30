@@ -11,13 +11,28 @@ PKG2_DIR="../ai-tool-mcp-pkg"
 # Build output directory name (assumed to be the same for both)
 BUILD_DIR="dist"
 
-echo "--- Dual Publish Script ---"
+echo "
+╭──────────────────────────────────────────────╮
+│  ᐴ MAAJITAAWIN ᔔ [ BEGINNING THE JOURNEY ]   │
+│  ◈──◆──◇─◈ DUAL PUBLISH SYSTEM ◈─◇──◆──◈     │
+╰──────────────────────────────────────────────╯
+"
 
-# --- Early Build for Package 1 ---
+echo "
+╭──────────────────────────────────────────────╮
+│  ᐴ OZHITOON ᔔ [ BUILDING THE PATH ]          │
+│  ◈──◆──◇─◈ EARLY BUILD PROCESS ◈─◇──◆──◈     │
+╰──────────────────────────────────────────────╯
+"
 echo "Building Package 1 (early build before any version bump or publish)..."
 npm run build # Assumes 'build' script exists in package.json
 
-# --- Pre-Checks ---
+echo "
+╭──────────────────────────────────────────────╮
+│  ᐴ GANAWAABANDAAN ᔔ [ EXAMINING WITH CARE ]  │
+│  ◈──◆──◇─◈ SYSTEM PRE-CHECKS ◈─◇──◆──◈       │
+╰──────────────────────────────────────────────╯
+"
 echo "Checking prerequisites..."
 
 # Check if the second package directory exists
@@ -40,7 +55,12 @@ if ! git diff --quiet HEAD -- "$PKG1_DIR"; then
 fi
 echo "Ready to proceed with version bump."
 
-# --- Version Bump (in PKG1) ---
+echo "
+╭──────────────────────────────────────────────╮
+│  ᐴ ISHKWAAJAANIIKE ᔔ [ UPGRADING ]           │
+│  ◈──◆──◇─◈ VERSION MANAGEMENT ◈─◇──◆──◈      │
+╰──────────────────────────────────────────────╯
+"
 echo "Processing Package 1 ($PKG1_DIR)..."
 cd "$PKG1_DIR"
 CURRENT_VERSION=$(npm pkg get version | tr -d '"')
@@ -55,7 +75,12 @@ if [ -z "$NEW_VERSION" ]; then
 fi
 echo "New version set to: $NEW_VERSION"
 
-# --- OTP Prompt ---
+echo "
+╭──────────────────────────────────────────────╮
+│  ᐴ GANAWENDAAGWAD ᔔ [ SECURING THE PATH ]    │
+│  ◈──◆──◇─◈ AUTHORIZATION REQUIRED ◈─◇──◆──◈  │
+╰──────────────────────────────────────────────╯
+"
 read -sp "Enter NPM OTP for publishing version $NEW_VERSION: " NPM_OTP
 echo # Add a newline for cleaner output
 if [ -z "$NPM_OTP" ]; then
@@ -63,7 +88,12 @@ if [ -z "$NPM_OTP" ]; then
     exit 1
 fi
 
-# --- Process Package 1 (Build, Commit, Publish) ---
+echo "
+╭──────────────────────────────────────────────╮
+│  ᐴ NITAM MIIGIWEWIN ᔔ [ FIRST OFFERING ]     │
+│  ◈──◆──◇─◈ PACKAGE ONE PUBLISH ◈─◇──◆──◈     │
+╰──────────────────────────────────────────────╯
+"
 echo "Updating lockfile for Package 1..."
 npm install
 
@@ -76,8 +106,12 @@ echo "Publishing Package 1 (@nbiish/giizhendam-aabajichiganan-mcp) version $NEW_
 npm publish --otp="$NPM_OTP" --access public # Added --access public, adjust if needed
 echo "Package 1 published successfully."
 
-# --- Process Package 2 (Update Version, Build, Commit, Publish) ---
-echo "-----------------------------"
+echo "
+╭──────────────────────────────────────────────╮
+│  ᐴ NIIZH MIIGIWEWIN ᔔ [ SECOND OFFERING ]    │
+│  ◈──◆──◇─◈ PACKAGE TWO PUBLISH ◈─◇──◆──◈     │
+╰──────────────────────────────────────────────╯
+"
 echo "Processing Package 2 ($PKG2_DIR)..."
 ORIGINAL_DIR=$(pwd) # Save current dir before changing
 cd "$PKG2_DIR"
@@ -119,8 +153,12 @@ echo "Publishing Package 2 (@nbiish/ai-tool-mcp) version $NEW_VERSION..." # Assu
 npm publish --otp="$NPM_OTP" --access public # Added --access public, adjust if needed
 echo "Package 2 published successfully."
 
-# --- Completion ---
-echo "-----------------------------"
+echo "
+╭──────────────────────────────────────────────╮
+│  ᐴ GIIZHIITAA ᔔ [ MISSION ACCOMPLISHED ]     │
+│  ◈──◆──◇─◈ DEPLOYMENT COMPLETE ◈─◇──◆──◈     │
+╰──────────────────────────────────────────────╯
+"
 cd "$ORIGINAL_DIR" # Return to the starting directory
 echo "Dual publish complete for version $NEW_VERSION."
 echo "Packages published:"

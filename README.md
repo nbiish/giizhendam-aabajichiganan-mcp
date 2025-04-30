@@ -1,4 +1,4 @@
-# Giizhendam Aabajichiganan MCP Server
+# ◈──◆──◇ GIIZHENDAM AABAJICHIGANAN MCP SERVER ◇──◆──◈
 
 *"Giizhendam Aabajichiganan"* (Ojibwe: Decision-Making Tools) - An MCP server providing AI-assisted programming and decision-making tools.
 
@@ -20,50 +20,74 @@
   <hr width="50%">
 </div>
 
-## Overview
+<div align="center">
+╭──────────────[ ◈◆◇ SYSTEM OVERVIEW ◇◆◈ ]──────────────╮
+</div>
+
+## ᐴ WAAWIINDAMAAGEWIN ᔔ [OVERVIEW] ◈──◆──◇──◆──◈
 
 This project implements a Model Context Protocol (MCP) server that provides various AI-powered tools for developers and decision-makers. It serves as a bridge between different AI models and provides specialized tools for code assistance, financial analysis, and collaborative decision simulation.
 
 The server includes interfaces to guide the use of aider CLI for AI pair programming and the Gemini API for specialized simulations, all within a secure TypeScript implementation.
 
-## Features
+<div align="center">
+◈──◆──◇─────────────────────────────────────────────────◇──◆──◈
+</div>
 
-- **AI-assisted Programming Guidance**
+## ᐴ GASHKITOONAN ᔔ [CAPABILITIES] ◈──◆──◇──◆──◈
+
+- **◇ AI-assisted Programming Guidance ◇**
   - Expert guidance on using aider CLI for code assistance
   - Automatic selection of optimal edit formats based on model type
   - Recommendations for both standard and redundant computation approaches
   
-- **Financial Expert Simulation**
+- **◇ Financial Expert Simulation ◇**
   - Simulates deliberation between 7 financial expert personas
   - Generates analysis from different financial perspectives
   - Includes perspectives from Graham, Ackman, Wood, Munger, Burry, Lynch, and Fisher
   
-- **CEO & Board Meeting Simulation**
+- **◇ CEO & Board Meeting Simulation ◇**
   - Simulates realistic board discussions on specified topics
   - Customizable roles and discussion parameters
   - Useful for planning and decision-making exercises
   
-- **Security & Reliability**
+- **◇ Security & Reliability ◇**
   - Built-in security checks for file operations and URL validation
   - Comprehensive error handling and logging
   - Secure API key management
 
-## Recent Changes
+<div align="center">
+◈──◆──◇─────────────────────────────────────────────────◇──◆──◈
+</div>
+
+## ᐴ OSHKI-AABAJICHIGANAN ᔔ [RECENT CHANGES] ◈──◆──◇──◆──◈
 
 - **v0.3.34** - Fixed shebang line in the bundled output file to ensure proper execution via npx. This resolves issues with "Client closed" errors when running via MCP.
 
-## Prerequisites
+<div align="center">
+◈──◆──◇─────────────────────────────────────────────────◇──◆──◈
+</div>
+
+## ᐴ NITAM-AABAJICHIGANAN ᔔ [PREREQUISITES] ◈──◆──◇──◆──◈
 
 - Node.js (v14 or higher) and npm/yarn
 - Aider CLI installed and accessible in PATH
 - API keys for required services
 - Git (for aider functionality)
 
-## Installation
+<div align="center">
+╭──────────────[ ◈◆◇ SYSTEM INSTALLATION ◇◆◈ ]──────────────╮
+</div>
+
+## ᐴ AABAJITOOWINAN ᔔ [INSTALLATION] ◈──◆──◇──◆──◈
 
 ### Global Installation (Recommended)
 
 ```bash
+╭──────────────────────────────────────────────────────────────────────╮
+│  ᐴ AABAJITOOWINAN ᔔ [ IMPLEMENTATION COMMANDS ]                      │
+╰──────────────────────────────────────────────────────────────────────╯
+
 # First uninstall any existing versions
 npm uninstall -g @nbiish/giizhendam-aabajichiganan-mcp
 npm uninstall -g @nbiish/ai-tool-mcp
@@ -81,31 +105,39 @@ npm install -g @nbiish/ai-tool-mcp
 
 If you encounter issues with the executable script (e.g., "command not found" or shell syntax errors), try these steps:
 
-1. Check if the installed script has the proper shebang line:
-   ```bash
-   cat $(which aider-mcp-server)
-   ```
+```bash
+╭──────────────────────────────────────────────────────────────────────╮
+│  ᐴ NANAA'ITOOWIN ᔔ [ TROUBLESHOOTING COMMANDS ]                      │
+╰──────────────────────────────────────────────────────────────────────╯
 
-2. If the shebang line is missing or incorrect, fix it manually:
-   ```bash
-   echo '#!/usr/bin/env node' > /tmp/fixed-script
-   cat $(which aider-mcp-server) >> /tmp/fixed-script
-   sudo mv /tmp/fixed-script $(which aider-mcp-server)
-   sudo chmod +x $(which aider-mcp-server)
-   ```
+# Check if the installed script has the proper shebang line:
+cat $(which aider-mcp-server)
 
-3. Alternatively, reinstall after clearing npm cache:
-   ```bash
-   npm cache clean --force
-   npm uninstall -g @nbiish/giizhendam-aabajichiganan-mcp
-   npm install -g .
-   ```
+# If the shebang line is missing or incorrect, fix it manually:
+echo '#!/usr/bin/env node' > /tmp/fixed-script
+cat $(which aider-mcp-server) >> /tmp/fixed-script
+sudo mv /tmp/fixed-script $(which aider-mcp-server)
+sudo chmod +x $(which aider-mcp-server)
 
-## Configuration
+# Alternatively, reinstall after clearing npm cache:
+npm cache clean --force
+npm uninstall -g @nbiish/giizhendam-aabajichiganan-mcp
+npm install -g .
+```
+
+<div align="center">
+╭──────────────[ ◈◆◇ SYSTEM CONFIGURATION ◇◆◈ ]──────────────╮
+</div>
+
+## ᐴ ONAAKONIGE ᔔ [CONFIGURATION] ◈──◆──◇──◆──◈
 
 You can configure the server settings within your `mcp.json` file when defining the server:
 
 ```json
+╭──────────────────────────────────────────────────────────────────────╮
+│  ᐴ ONAAKONIGE ᔔ [ CONFIGURATION SETTINGS ]                           │
+╰──────────────────────────────────────────────────────────────────────╯
+
 "ai-tool-mcp": { // Or whatever you name this server instance
   "command": "npx",
   "args": [
@@ -141,13 +173,21 @@ The server uses the following internal defaults if environment variables are not
 
 For more information on edit formats, see [Aider Edit Formats](https://aider.chat/docs/more/edit-formats.html).
 
-## Usage
+<div align="center">
+╭──────────────[ ◈◆◇ SYSTEM OPERATION ◇◆◈ ]──────────────╮
+</div>
+
+## ᐴ INAABAJICHIGAN ᔔ [USAGE] ◈──◆──◇──◆──◈
 
 ### Aider Code Assistance
 
 Use the `prompt_aider` tool to get expert guidance on using the aider CLI:
 
 ```typescript
+╭──────────────────────────────────────────────────────────────────────╮
+│  ᐴ WIIDOOKAAZOWIN ᔔ [ CODE ASSISTANCE ]                              │
+╰──────────────────────────────────────────────────────────────────────╯
+
 // Example using prompt_aider
 const result = await server.execute("prompt_aider", {
   prompt_text: "Create a React component that displays a counter with increment and decrement buttons",
@@ -173,6 +213,10 @@ const result = await server.execute("prompt_aider", {
 For tasks requiring verification through redundant computation:
 
 ```typescript
+╭──────────────────────────────────────────────────────────────────────╮
+│  ᐴ NAANAAGADAWENINDIZOWIN ᔔ [ VERIFICATION ]                         │
+╰──────────────────────────────────────────────────────────────────────╯
+
 const result = await server.execute("double_compute", {
   prompt_text: "Calculate the optimal path for this algorithm and explain your reasoning",
   files: ["src/algorithms/pathfinder.ts"]
@@ -187,6 +231,10 @@ const result = await server.execute("double_compute", {
 Simulate a financial analysis from multiple expert perspectives:
 
 ```typescript
+╭──────────────────────────────────────────────────────────────────────╮
+│  ᐴ ZHOONIYAAWICHIGEWIN ᔔ [ FINANCIAL EXPERTISE ]                     │
+╰──────────────────────────────────────────────────────────────────────╯
+
 const result = await server.execute("finance_experts", {
   topic: "Funding strategy for our new AI product line",
   output_filename: "ai_product_funding_analysis"  // Optional: custom filename
@@ -200,6 +248,10 @@ const result = await server.execute("finance_experts", {
 Simulate a board discussion on a specific topic:
 
 ```typescript
+╭──────────────────────────────────────────────────────────────────────╮
+│  ᐴ MAAWANJIDIWIN ᔔ [ BOARD MEETING ]                                 │
+╰──────────────────────────────────────────────────────────────────────╯
+
 const result = await server.execute("ceo_and_board", {
   topic: "Q3 Strategy Review: Expansion into European Markets",
   output_filename: "q3_europe_expansion_board_meeting"  // Optional: custom filename
@@ -218,11 +270,21 @@ const result = await server.execute("ceo_and_board", {
 // Results saved to the configured output directory or default ./ceo-and-board/
 ```
 
+<div align="center">
+╭──────────────[ ◈◆◇ ANISHINAABE APPLICATIONS ◇◆◈ ]──────────────╮
+</div>
+
+## ᐴ WAABANDA'IWEWIN ᔔ [EXAMPLES] ◈──◆──◇──◆──◈
+
 ### Anishinaabe Cultural Examples
 
 Here are some examples of how these tools could be applied in contexts relevant to Anishinaabe culture and communities:
 
 ```typescript
+╭──────────────────────────────────────────────────────────────────────╮
+│  ᐴ ANISHINAABE INAADIZIWIN ᔔ [ CULTURAL APPLICATIONS ]               │
+╰──────────────────────────────────────────────────────────────────────╯
+
 // Example using prompt_aider for language revitalization
 const result = await server.execute("prompt_aider", {
   prompt_text: "Help draft an Ojibwe language localization file (oj.json) for our UI based on this English template file. Ensure respectful and accurate translations.",
