@@ -8293,8 +8293,10 @@ async function generateAiderCommandGuidance(toolArgs, isDoubleCompute = false, f
         }
         if (fs.existsSync(fullPath)) {
           const stats = fs.statSync(fullPath);
-          if (stats.isFile()) {
-            log(`File exists and is a file, adding --file flag for: ${file}`);
+          const isFile = stats.isFile();
+          log(`Checked path: ${fullPath}, exists: true, isFile: ${isFile}`);
+          if (isFile) {
+            log(`CONFIRMED: File exists and is a file. Adding --file flag for: ${file}`);
             finalArgs.push("--file", file);
             passedFileArgs.push(file);
           } else {
