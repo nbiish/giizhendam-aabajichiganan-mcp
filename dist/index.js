@@ -7286,7 +7286,7 @@ var GoogleGenerativeAIAbortError = class extends GoogleGenerativeAIError {
 };
 var DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com";
 var DEFAULT_API_VERSION = "v1beta";
-var PACKAGE_VERSION = "0.24.0";
+var PACKAGE_VERSION = "0.24.1";
 var PACKAGE_LOG_HEADER = "genai-js";
 var Task;
 (function(Task2) {
@@ -7970,6 +7970,9 @@ var ChatSession = class {
         }
       }
       finalResult = result;
+    }).catch((e) => {
+      this._sendPromise = Promise.resolve();
+      throw e;
     });
     await this._sendPromise;
     return finalResult;
@@ -8233,7 +8236,7 @@ function getBestEditFormatForModel(modelName) {
   }
   return "whole";
 }
-async function generateAiderCommandGuidance(toolArgs, isDoubleCompute = false) {
+async function generateAiderCommandGuidance(toolArgs, isDoubleCompute = false, files) {
   let aiderModel = process.env.AIDER_MODEL;
   if (!aiderModel) {
     aiderModel = DEFAULT_AIDER_MODEL;
@@ -8278,6 +8281,33 @@ async function generateAiderCommandGuidance(toolArgs, isDoubleCompute = false) {
     baseAiderArgs.push("--editor-edit-format", editorEditFormat);
   }
   const finalArgs = [...baseAiderArgs, ...toolArgs];
+  const passedFileArgs = [];
+  if (files && files.length > 0) {
+    log(`Checking existence for potential file args: ${files.join(", ")}`);
+    files.forEach((file) => {
+      try {
+        const fullPath = path.resolve(process.cwd(), file);
+        if (!fullPath.startsWith(process.cwd())) {
+          log(`Security Warning: Skipping file outside CWD: ${file}`);
+          return;
+        }
+        if (fs.existsSync(fullPath)) {
+          const stats = fs.statSync(fullPath);
+          if (stats.isFile()) {
+            log(`File exists and is a file, adding --file flag for: ${file}`);
+            finalArgs.push("--file", file);
+            passedFileArgs.push(file);
+          } else {
+            log(`Path exists but is not a file, skipping --file flag for: ${file}`);
+          }
+        } else {
+          log(`File does not exist, skipping --file flag for: ${file}. Aider will rely on prompt.`);
+        }
+      } catch (err) {
+        log(`Error checking file existence for ${file}: ${err.message}. Skipping --file flag.`);
+      }
+    });
+  }
   const recommendedCommand = `aider ${finalArgs.join(" ")}`;
   const finalRecommendedCommand = isDoubleCompute ? `# Run this command twice for redundant computation/comparison:
 ${recommendedCommand}` : recommendedCommand;
@@ -8287,6 +8317,8 @@ ${recommendedCommand}` : recommendedCommand;
     editFormatReasoning,
     baseArgs: baseAiderArgs,
     modelName: aiderModel,
+    passedFileArgs,
+    // Return the list of files actually passed
     apiKeyWarning
   };
 }
@@ -8297,7 +8329,8 @@ var aiderGuidanceOutputSchema = z.object({
   taskType: z.string().optional().describe("The task type used for prompt formatting."),
   formattedPrompt: z.string().optional().describe("The prompt after task-specific formatting."),
   modelName: z.string().describe("The aider model that will be used."),
-  fileArgs: z.array(z.string()).optional().describe("File arguments to be passed to aider."),
+  fileArgs: z.array(z.string()).optional().describe("File arguments potentially relevant to the command (some may not be passed with --file if they dont exist)."),
+  passedFileArgs: z.array(z.string()).optional().describe("File arguments actually passed to aider using the --file flag."),
   apiKeyWarning: z.string().optional().describe("Warning about missing API keys needed for the model.")
 });
 var doubleComputeGuidanceOutputSchema = aiderGuidanceOutputSchema.extend({
@@ -8372,6 +8405,7 @@ ${guidance.apiKeyWarning}` : "")
           formattedPrompt,
           modelName: guidance.modelName,
           fileArgs: fileArgs.length > 0 ? fileArgs : void 0,
+          passedFileArgs: guidance.passedFileArgs.length > 0 ? guidance.passedFileArgs : void 0,
           apiKeyWarning: guidance.apiKeyWarning
         }
       };
@@ -8390,6 +8424,8 @@ ${guidance.apiKeyWarning}` : "")
           editFormatReasoning: "Could not determine optimal edit format due to error.",
           taskType: taskTypeName,
           modelName: process.env.AIDER_MODEL || DEFAULT_AIDER_MODEL,
+          fileArgs: fileArgs.length > 0 ? fileArgs : void 0,
+          passedFileArgs: void 0,
           apiKeyWarning: void 0
         }
       };
@@ -8415,20 +8451,17 @@ server.tool(
     const taskTypeName = "general";
     const toolArgs = [
       "--message",
-      formattedPrompt
+      formattedPrompt,
+      "--cache-prompts"
+      // Always use prompt caching
     ];
-    toolArgs.push("--cache-prompts");
-    const fileArgs = [];
-    if (params.files && params.files.length > 0) {
-      params.files.forEach((file) => {
-        toolArgs.push("--file", file);
-        fileArgs.push(file);
-      });
-      log(`Using --file flags for aider (double_compute): ${params.files.join(", ")}`);
+    const requestedFiles = params.files || [];
+    if (requestedFiles.length > 0) {
+      log(`Files requested for double_compute context: ${requestedFiles.join(", ")}`);
     }
-    log(`Preparing double_compute guidance with tool args: ${toolArgs.join(" ")}`);
+    log(`Preparing double_compute guidance base args: ${toolArgs.join(" ")}`);
     try {
-      const guidance = await generateAiderCommandGuidance(toolArgs, true);
+      const guidance = await generateAiderCommandGuidance(toolArgs, true, requestedFiles);
       const contentResponse = [
         {
           type: "text",
@@ -8461,7 +8494,10 @@ ${guidance.apiKeyWarning}` : "")
           taskType: taskTypeName,
           formattedPrompt,
           modelName: guidance.modelName,
-          fileArgs: fileArgs.length > 0 ? fileArgs : void 0,
+          fileArgs: requestedFiles.length > 0 ? requestedFiles : void 0,
+          // Still show requested files
+          passedFileArgs: guidance.passedFileArgs.length > 0 ? guidance.passedFileArgs : void 0,
+          // Show actually passed files
           isDoubleCompute: true,
           apiKeyWarning: guidance.apiKeyWarning
         }
@@ -8481,6 +8517,9 @@ ${guidance.apiKeyWarning}` : "")
           editFormatReasoning: "Could not determine optimal edit format due to error.",
           taskType: taskTypeName,
           modelName: process.env.AIDER_MODEL || DEFAULT_AIDER_MODEL,
+          fileArgs: requestedFiles.length > 0 ? requestedFiles : void 0,
+          // Show requested files even on error
+          passedFileArgs: void 0,
           isDoubleCompute: true,
           apiKeyWarning: void 0
         }

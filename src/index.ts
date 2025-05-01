@@ -226,14 +226,16 @@ function formatPromptByTaskType(prompt: string, taskType?: TaskType): string {
 
 // --- Function to generate aider command guidance (replacing executeAider) ---
 async function generateAiderCommandGuidance(
-    toolArgs: string[], // Args specific to the tool, e.g., ['--message', 'prompt', 'file1.ts']
-    isDoubleCompute: boolean = false
-): Promise<{ 
+    toolArgs: string[], // Base args like --message prompt, --cache-prompts
+    isDoubleCompute: boolean = false,
+    files?: string[] // Optional list of files to potentially include
+): Promise<{
     recommendedCommand: string;
     editFormat: string;
     editFormatReasoning: string;
     baseArgs: string[];
     modelName: string;
+    passedFileArgs: string[]; // Files actually passed with --file
     apiKeyWarning?: string;
 }> {
     // Get model from environment or use default
@@ -291,11 +293,46 @@ async function generateAiderCommandGuidance(
         baseAiderArgs.push('--editor-edit-format', editorEditFormat);
     }
 
-    // Combine base args with tool-specific args
+    // Combine base args with tool-specific args from input
     const finalArgs = [...baseAiderArgs, ...toolArgs];
+    const passedFileArgs: string[] = []; // Track files actually added
+
+    // Conditionally add --file flags ONLY for existing files
+    if (files && files.length > 0) {
+        log(`Checking existence for potential file args: ${files.join(', ')}`);
+        files.forEach(file => {
+            try {
+                const fullPath = path.resolve(process.cwd(), file);
+                // Security Validation (already done in tool usually, but double-check is good)
+                // Basic check: Ensure it resolves within cwd. More robust validation needed if paths are complex.
+                if (!fullPath.startsWith(process.cwd())) {
+                     log(`Security Warning: Skipping file outside CWD: ${file}`);
+                     return; // Skip this file
+                }
+
+                if (fs.existsSync(fullPath)) {
+                    // Check if it's a file, not a directory (aider might handle dirs differently)
+                    const stats = fs.statSync(fullPath);
+                    if (stats.isFile()) {
+                        log(`File exists and is a file, adding --file flag for: ${file}`);
+                        finalArgs.push('--file', file);
+                        passedFileArgs.push(file);
+                    } else {
+                        log(`Path exists but is not a file, skipping --file flag for: ${file}`);
+                        // Maybe handle git repo dir case here in future if needed
+                    }
+                } else {
+                    log(`File does not exist, skipping --file flag for: ${file}. Aider will rely on prompt.`);
+                }
+            } catch (err: any) {
+                 log(`Error checking file existence for ${file}: ${err.message}. Skipping --file flag.`);
+            }
+        });
+    }
+
     const recommendedCommand = `aider ${finalArgs.join(' ')}`;
 
-    // If it's double compute, we should run the command twice
+    // If it's double compute, prepend the note
     const finalRecommendedCommand = isDoubleCompute 
         ? `# Run this command twice for redundant computation/comparison:\n${recommendedCommand}` 
         : recommendedCommand;
@@ -306,6 +343,7 @@ async function generateAiderCommandGuidance(
         editFormatReasoning,
         baseArgs: baseAiderArgs,
         modelName: aiderModel,
+        passedFileArgs, // Return the list of files actually passed
         apiKeyWarning
     };
 }
@@ -318,7 +356,8 @@ const aiderGuidanceOutputSchema = z.object({
     taskType: z.string().optional().describe('The task type used for prompt formatting.'),
     formattedPrompt: z.string().optional().describe('The prompt after task-specific formatting.'),
     modelName: z.string().describe('The aider model that will be used.'),
-    fileArgs: z.array(z.string()).optional().describe('File arguments to be passed to aider.'),
+    fileArgs: z.array(z.string()).optional().describe('File arguments potentially relevant to the command (some may not be passed with --file if they dont exist).'),
+    passedFileArgs: z.array(z.string()).optional().describe('File arguments actually passed to aider using the --file flag.'),
     apiKeyWarning: z.string().optional().describe('Warning about missing API keys needed for the model.'),
 });
 
@@ -406,6 +445,7 @@ server.tool(
                     formattedPrompt: formattedPrompt,
                     modelName: guidance.modelName,
                     fileArgs: fileArgs.length > 0 ? fileArgs : undefined,
+                    passedFileArgs: guidance.passedFileArgs.length > 0 ? guidance.passedFileArgs : undefined,
                     apiKeyWarning: guidance.apiKeyWarning
                 }
             };
@@ -426,6 +466,8 @@ server.tool(
                     editFormatReasoning: 'Could not determine optimal edit format due to error.',
                     taskType: taskTypeName,
                     modelName: process.env.AIDER_MODEL || DEFAULT_AIDER_MODEL,
+                    fileArgs: fileArgs.length > 0 ? fileArgs : undefined,
+                    passedFileArgs: undefined,
                     apiKeyWarning: undefined
                 }
             };
@@ -459,28 +501,23 @@ server.tool(
         const formattedPrompt = params.prompt_text;
         const taskTypeName = 'general';
         
-        // Construct tool-specific arguments once
+        // Construct tool-specific arguments for aider (message, cache)
         const toolArgs: string[] = [
             '--message', formattedPrompt,
+            '--cache-prompts' // Always use prompt caching
         ];
 
-        // We always use prompt caching by default now
-        toolArgs.push('--cache-prompts');
-
-        // Format file arguments correctly with --file flag
-        const fileArgs: string[] = [];
-        if (params.files && params.files.length > 0) {
-            params.files.forEach(file => {
-                toolArgs.push('--file', file);
-                fileArgs.push(file);
-            });
-            log(`Using --file flags for aider (double_compute): ${params.files.join(', ')}`);
-        }
-        log(`Preparing double_compute guidance with tool args: ${toolArgs.join(' ')}`);
+        // We no longer add --file flags here. They are handled in generateAiderCommandGuidance.
+        // Keep track of original file list for logging and metadata.
+        const requestedFiles = params.files || [];
+         if (requestedFiles.length > 0) {
+             log(`Files requested for double_compute context: ${requestedFiles.join(', ')}`);
+         }
+        log(`Preparing double_compute guidance base args: ${toolArgs.join(' ')}`);
 
         try {
-            // Generate command guidance with isDoubleCompute flag
-            const guidance = await generateAiderCommandGuidance(toolArgs, true);
+            // Generate command guidance with isDoubleCompute flag, passing files separately
+            const guidance = await generateAiderCommandGuidance(toolArgs, true, requestedFiles);
             
             // Prepare content array with guidance for double compute
             const contentResponse: { type: 'text'; text: string }[] = [
@@ -504,7 +541,8 @@ server.tool(
                     taskType: taskTypeName,
                     formattedPrompt: formattedPrompt,
                     modelName: guidance.modelName,
-                    fileArgs: fileArgs.length > 0 ? fileArgs : undefined,
+                    fileArgs: requestedFiles.length > 0 ? requestedFiles : undefined, // Still show requested files
+                    passedFileArgs: guidance.passedFileArgs.length > 0 ? guidance.passedFileArgs : undefined, // Show actually passed files
                     isDoubleCompute: true,
                     apiKeyWarning: guidance.apiKeyWarning
                 }
@@ -526,6 +564,8 @@ server.tool(
                     editFormatReasoning: 'Could not determine optimal edit format due to error.',
                     taskType: taskTypeName,
                     modelName: process.env.AIDER_MODEL || DEFAULT_AIDER_MODEL,
+                    fileArgs: requestedFiles.length > 0 ? requestedFiles : undefined, // Show requested files even on error
+                    passedFileArgs: undefined,
                     isDoubleCompute: true,
                     apiKeyWarning: undefined
                 }
