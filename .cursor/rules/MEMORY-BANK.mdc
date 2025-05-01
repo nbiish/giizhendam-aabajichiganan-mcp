@@ -1,21 +1,7 @@
 ---
-
-# Chain-of-Draft Agile Memory Prompt for AI Pair Programming
-
-## 1. Core Principles
-
-- **Minimalism:** Capture only the critical information—no redundancy.
-- **Chain of Draft:** For every user request, generate minimal intermediate drafts (reasoning steps) before producing the final answer or code.
-- **Condensed Reasoning:** Summarize reasoning, focusing on essential insights and next actions.
-
----
-
-## 2. Project Context via Memory Bank
-
-- **ALWAYS** begin by reading all Memory Bank files (`projectbrief.md`, `productContext.md`, `systemPatterns.md`, `techContext.md`, `activeContext.md`, `progress.md`).  
-- **After each session or major change**, update relevant files, especially `activeContext.md` and `progress.md`.
-- **If a user requests "update memory bank",** review every file and clarify current state, next steps, and any new patterns or learnings in draft form before finalizing.
-
+description: 
+globs: 
+alwaysApply: false
 ---
 
 ## 3. Agile MVP Requirement Drafting
@@ -88,12 +74,33 @@
 
 ---
 
-## [2025-04-XX] Architectural Refactoring & Bugfix Summary <--(VERIFY and use CURRENT TIME using mcp_time_get_current_time)
+## [2025-04-XX] Architectural Refactoring & Bugfix Summary
 - **Major Refactoring**: Changed architecture of `prompt_aider` and `double_compute` tools to act as advisors rather than executors
   - Tools now provide expert guidance on optimal aider commands with proper edit formats
   - Automatically selects best edit format based on aider leaderboard data for current model
   - Includes warnings for missing API keys and dependencies
 - Fixed file argument handling in `prompt_aider` and `double_compute` (now uses `--file` flags rather than positional arguments)
+- Updated README.md with detailed explanation of architectural changes and improved examples
+- Committed all changes and ran dual-publish.sh, successfully building and publishing:
+  - @nbiish/giizhendam-aabajichiganan-mcp@0.3.XX
+  - @nbiish/ai-tool-mcp@0.3.XX
+- The refactored tools now function similar to the `deliberate` MCP tool, providing guidance rather than direct execution
+- Project is now compliant with dual-publish.mdc and critical.mdc requirements
+
+---
+
+## [2025-04-30] Anishinaabe Language Verification & Style Guide Compliance
+- **Cultural Verification**: Verified Anishinaabe terms used in the project against the Ojibwe People's Dictionary
+  - Confirmed authenticity of key terms like GIIZHENDAM, AABAJICHIGANAN, GASHKITOONAN, WAAWIINDAMAAGEWIN, etc.
+  - Verified linguistic accuracy of terms used in section headers and documentation
+  - Confirmed appropriate translations of Anishinaabe terms to English (e.g., OZHITOON = "make, build, form it")
+- **Style Guide Corrections**:
+  - Updated dual-publish.sh to properly use 'ᐴ' (CANADIAN SYLLABICS PUU) on the left side and 'ᔔ' (CANADIAN SYLLABICS SHOO) on the right side of all Anishinaabe terms
+  - Previous version incorrectly used 'ᑫ' on both sides of terms in dual-publish.sh
+  - Confirmed README.md was already correctly using the syllabic characters per style guide
+- Current version: @nbiish/giizhendam-aabajichiganan-mcp@0.3.44 and @nbiish/ai-tool-mcp@0.3.44
+- Project now has improved cultural accuracy and style guide compliance across documentation and script files
+- Project now has improved cultural accuracy and style guide compliance across documentation and script files
 - Updated README.md with detailed explanation of architectural changes and improved examples
 - Committed all changes and ran dual-publish.sh, successfully building and publishing:
   - @nbiish/giizhendam-aabajichiganan-mcp@0.3.XX
