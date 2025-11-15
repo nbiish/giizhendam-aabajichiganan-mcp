@@ -26,9 +26,9 @@
 
 ## ᐴ WAAWIINDAMAAGEWIN ᔔ [OVERVIEW] ◈──◆──◇──◆──◈
 
-This project implements a Model Context Protocol (MCP) server that provides various AI-powered tools for developers and decision-makers. It serves as a bridge between different AI models and provides specialized tools for code assistance, financial analysis, and collaborative decision simulation.
+This project implements a Model Context Protocol (MCP) server that provides multi-agent CLI orchestration for developers and decision-makers. It serves as a bridge between different AI models and external CLI agents, and provides specialized tools for financial analysis and collaborative decision simulation.
 
-The server includes interfaces to guide the use of aider CLI for AI pair programming and the Gemini API for specialized simulations, all within a secure TypeScript implementation.
+The server includes a multi-agent orchestrator tool (`orchestrate_agents`) that loads CLI agents from `CLI_AGENTS_JSON` or `llms.txt`, uses Gemini 2.5 Pro via OpenRouter to decide between sequential or parallel execution, executes the agents, and synthesizes a consolidated markdown report.
 
 <div align="center">
 ◈──◆──◇─────────────────────────────────────────────────◇──◆──◈
@@ -36,10 +36,10 @@ The server includes interfaces to guide the use of aider CLI for AI pair program
 
 ## ᐴ GASHKITOONAN ᔔ [CAPABILITIES] ◈──◆──◇──◆──◈
 
-- **◇ AI-assisted Programming Guidance ◇**
-  - Expert guidance on using aider CLI for code assistance
-  - Automatic selection of optimal edit formats based on model type
-  - Recommendations for both standard and redundant computation approaches
+- **◇ Multi-Agent Orchestrator ◇**
+  - Load CLI agents from CLI_AGENTS_JSON or llms.txt
+  - Model-chosen sequential or parallel execution
+  - Consolidated markdown synthesis of agent outputs
   
 - **◇ Financial Expert Simulation ◇**
   - Simulates deliberation between 7 financial expert personas
@@ -71,9 +71,8 @@ The server includes interfaces to guide the use of aider CLI for AI pair program
 ## ᐴ NITAM-AABAJICHIGANAN ᔔ [PREREQUISITES] ◈──◆──◇──◆──◈
 
 - Node.js (v14 or higher) and npm/yarn
-- Aider CLI installed and accessible in PATH
-- API keys for required services
-- Git (for aider functionality)
+- CLI tools for agents you plan to run (e.g., qwen, gemini, cursor, goose, opencode, crush) available in PATH
+- API keys for required services (e.g., OpenRouter)
 
 <div align="center">
 ╭──────────────[ ◈◆◇ SYSTEM INSTALLATION ◇◆◈ ]──────────────╮
@@ -111,13 +110,13 @@ If you encounter issues with the executable script (e.g., "command not found" or
 ╰──────────────────────────────────────────────────────────────────────╯
 
 # Check if the installed script has the proper shebang line:
-cat $(which aider-mcp-server)
+cat $(which giizhendam-mcp)
 
 # If the shebang line is missing or incorrect, fix it manually:
 echo '#!/usr/bin/env node' > /tmp/fixed-script
-cat $(which aider-mcp-server) >> /tmp/fixed-script
-sudo mv /tmp/fixed-script $(which aider-mcp-server)
-sudo chmod +x $(which aider-mcp-server)
+cat $(which giizhendam-mcp) >> /tmp/fixed-script
+sudo mv /tmp/fixed-script $(which giizhendam-mcp)
+sudo chmod +x $(which giizhendam-mcp)
 
 # Alternatively, reinstall after clearing npm cache:
 npm cache clean --force
@@ -138,40 +137,27 @@ You can configure the server settings within your `mcp.json` file when defining 
 │  ᐴ ONAAKONIGE ᔔ [ CONFIGURATION SETTINGS ]                           │
 ╰──────────────────────────────────────────────────────────────────────╯
 
-"ai-tool-mcp": { // Or whatever you name this server instance
+"ai-tool-mcp": {
   "command": "npx",
-  "args": [
-    "-y", 
-    "@nbiish/ai-tool-mcp" // Or @nbiish/giizhendam-aabajichiganan-mcp
-  ],
+  "args": ["-y", "@nbiish/giizhendam-aabajichiganan-mcp"],
   "env": {
-    "AIDER_MODEL": "openrouter/google/gemini-2.5-pro-preview-03-25", // Default if not set
-    "AIDER_EDITOR_MODEL": "openrouter/google/gemini-2.5-pro-preview-03-25", // Default if not set
-    "GEMINI_API_KEY": "YOUR_GEMINI_API_KEY", // Required for simulations
-    "FINANCE_EXPERTS_OUTPUT_DIR": "/path/to/finance-experts-output", // Optional, defaults to ./output/finance-experts relative to server CWD
-    "CEO_BOARD_OUTPUT_DIR": "/path/to/ceo-board-output" // Optional, defaults to ./output/ceo-and-board relative to server CWD
+    "OPENROUTER_API_KEY": "YOUR_OPENROUTER_API_KEY",
+    "ORCHESTRATOR_MODEL": "google/gemini-2.5-pro",
+    "CLI_AGENTS_JSON": "[ {\"name\":\"Qwen\",\"cmd\":\"qwen -y {prompt}\"} ]",
+    "AGENT_OUTPUT_DIR": "./output/agents",
+    "EXECUTION_STYLE": "auto", // or sequential | parallel
+    "FINANCE_EXPERTS_OUTPUT_DIR": "./output/finance-experts",
+    "CEO_BOARD_OUTPUT_DIR": "./output/ceo-and-board"
   },
-  "cwd": "/path/to/your/project" // Set the working directory if needed
+  "cwd": "/path/to/your/project"
 }
 ```
 
 The server uses the following internal defaults if environment variables are not provided via `mcp.json`:
-- `AIDER_MODEL`: `openrouter/google/gemini-2.5-pro-preview-03-25` (recommended, per Aider Leaderboards and EXAMPLES-aider-cli-commands.sh)
-- `AIDER_EDITOR_MODEL`: Same as `AIDER_MODEL`
-- Aider Flags: `--no-detect-urls`, `--no-gui`, `--yes-always`, `--no-auto-commit`, `--no-git`, `--yes`, `--no-pretty` (all required for robust non-interactive use)
+- `ORCHESTRATOR_MODEL`: `google/gemini-2.5-pro`
 - Output Directories: Relative to the server's Current Working Directory (`cwd`) specified in `mcp.json`, defaulting to `./output/finance-experts` and `./output/ceo-and-board`.
 
-**Note:** All aider invocations (including prompt_aider, double_compute, etc.) use these flags and model settings by default. See `EXAMPLES-aider-cli-commands.sh` and [Aider Leaderboards](https://aider.chat/docs/leaderboards/edit.html) for best-practice references.
-
-**Note:** All aider invocations (including prompt_aider, double_compute, etc.) use these flags and model settings by default. We specifically use the `whole` edit format (not `udiff`/`diff`) as it provides maximum reliability with Gemini models. See `EXAMPLES-aider-cli-commands.sh`, [Aider Leaderboards](https://aider.chat/docs/leaderboards/edit.html) and [Edit Formats](https://aider.chat/docs/more/edit-formats.html) for references.
-
-**Edit Format Selection:** The system automatically selects the optimal edit format for each model based on the [Aider Leaderboards](https://aider.chat/docs/leaderboards/edit.html) performance data:
-  - `architect` format for architect-mode models and DeepSeek R1
-  - `diff-fenced` format for Gemini 2.5 Pro Preview models
-  - `diff` format for Claude and OpenAI models
-  - `whole` format as a safe fallback for unknown models
-
-For more information on edit formats, see [Aider Edit Formats](https://aider.chat/docs/more/edit-formats.html).
+Note: The orchestrator decides sequential vs parallel automatically unless you set `EXECUTION_STYLE` to force a style. Agent outputs and the final synthesis markdown are written to `AGENT_OUTPUT_DIR`.
 
 <div align="center">
 ╭──────────────[ ◈◆◇ SYSTEM OPERATION ◇◆◈ ]──────────────╮
@@ -179,52 +165,25 @@ For more information on edit formats, see [Aider Edit Formats](https://aider.cha
 
 ## ᐴ INAABAJICHIGAN ᔔ [USAGE] ◈──◆──◇──◆──◈
 
-### Aider Code Assistance
+### Orchestrate CLI Agents
 
-Use the `prompt_aider` tool to get expert guidance on using the aider CLI:
-
-```typescript
-╭──────────────────────────────────────────────────────────────────────╮
-│  ᐴ WIIDOOKAAZOWIN ᔔ [ CODE ASSISTANCE ]                              │
-╰──────────────────────────────────────────────────────────────────────╯
-
-// Example using prompt_aider
-const result = await server.execute("prompt_aider", {
-  prompt_text: "Create a React component that displays a counter with increment and decrement buttons",
-  files: ["src/components/Counter.tsx"]  // Optional: specific files to consider
-});
-
-// The result includes detailed guidance on:
-// - The recommended aider command to run
-// - The optimal edit format for your model
-// - Reasoning for the format recommendation
-// - Any relevant warnings about API keys or configuration
-
-// Optional: specify task type
-const result = await server.execute("prompt_aider", {
-  prompt_text: "Analyze this code for security vulnerabilities",
-  task_type: "security",
-  files: ["src/auth.ts"]
-});
-```
-
-### Double Computation
-
-For tasks requiring verification through redundant computation:
+Use the `orchestrate_agents` tool to run your configured CLI agents and produce a consolidated report:
 
 ```typescript
 ╭──────────────────────────────────────────────────────────────────────╮
-│  ᐴ NAANAAGADAWENINDIZOWIN ᔔ [ VERIFICATION ]                         │
+│  ᐴ WIIDOOKAAZOWIN ᔔ [ CODE ASSISTANCE ]                           │
 ╰──────────────────────────────────────────────────────────────────────╯
 
-const result = await server.execute("double_compute", {
-  prompt_text: "Calculate the optimal path for this algorithm and explain your reasoning",
-  files: ["src/algorithms/pathfinder.ts"]
+const result = await server.execute("orchestrate_agents", {
+  prompt_text: "Create a React component that displays a counter with increment and decrement buttons"
 });
 
-// The result includes guidance on running the aider command twice
-// for redundant computation and verification
+// Returns a summary with execution style, per-agent outputs, and synthesis markdown path in _meta
 ```
+
+### Notes
+
+The former double computation tool has been removed. If you need redundant verification, you can invoke `orchestrate_agents` multiple times and compare outputs.
 
 ### Financial Expert Simulation
 
@@ -285,16 +244,14 @@ Here are some examples of how these tools could be applied in contexts relevant 
 │  ᐴ ANISHINAABE INAADIZIWIN ᔔ [ CULTURAL APPLICATIONS ]               │
 ╰──────────────────────────────────────────────────────────────────────╯
 
-// Example using prompt_aider for language revitalization
-const result = await server.execute("prompt_aider", {
+// Example using orchestrator for language revitalization
+const result = await server.execute("orchestrate_agents", {
   prompt_text: "Help draft an Ojibwe language localization file (oj.json) for our UI based on this English template file. Ensure respectful and accurate translations.",
-  files: ["locales/en.json", "locales/oj.json"]
 });
 
-// Example using double_compute for resource management simulation
-const result = await server.execute("double_compute", {
-  prompt_text: "Verify the logic in wild_rice_harvest_simulation.js for sustainable yield calculations reflecting traditional ecological knowledge principles, running it twice to ensure consistency.",
-  files: ["simulations/wild_rice_harvest_simulation.js"]
+// Example: run orchestrator for resource management simulation
+const result2 = await server.execute("orchestrate_agents", {
+  prompt_text: "Verify the logic in wild_rice_harvest_simulation.js for sustainable yield calculations reflecting traditional ecological knowledge principles."
 });
 
 // Example using finance_experts for community project planning
@@ -313,20 +270,11 @@ const result = await server.execute("ceo_and_board", {
 
 ## Tool Reference
 
-### prompt_aider
+### orchestrate_agents
 
 | Parameter | Type | Description | Required |
 |-----------|------|-------------|----------|
-| prompt_text | string | The main prompt/instruction for aider | Yes |
-| task_type | string | Optional task type hint (research, docs, security, code, verify, progress) | No |
-| files | string[] | Optional list of files for aider to consider or modify | No |
-
-### double_compute
-
-| Parameter | Type | Description | Required |
-|-----------|------|-------------|----------|
-| prompt_text | string | The main prompt/instruction for aider | Yes |
-| files | string[] | Optional list of files for aider to consider or modify | No |
+| prompt_text | string | The main prompt/instruction that is passed to each CLI agent’s command template | Yes |
 
 ### finance_experts
 
@@ -351,6 +299,7 @@ giizhendam-aabajichiganan-mcp/
 │   └── index.ts            # Main server implementation
 ├── dist/                   # Compiled JavaScript output
 ├── output/                 # Configurable output directory (example)
+│   ├── agents/             # Per-agent outputs and synthesis markdown
 │   ├── finance-experts/    # Financial expert simulation output
 │   └── ceo-and-board/      # Board simulation output
 ├── package.json            # Project metadata and dependencies
@@ -370,6 +319,25 @@ npm run build
 npm test
 ```
 
+## Local Testing Plan
+
+- **Prepare env**
+  - Set `OPENROUTER_API_KEY` in your MCP config env or shell.
+  - Optionally set `CLI_AGENTS_JSON` or populate `llms.txt`.
+  - Ensure agent CLIs (qwen, gemini, cursor, goose, opencode, crush) are installed and in PATH.
+- **Start server**
+  - `npm run build`
+  - Launch via your MCP client using the `mcp.json` example above.
+- **Invoke orchestrator**
+  - Call `orchestrate_agents` with a short `prompt_text`.
+  - Expected: The server selects `parallel` or `sequential`, executes agents, writes per-agent files under `AGENT_OUTPUT_DIR`, and creates a synthesis markdown file.
+- **Verify outputs**
+  - Confirm files exist in `AGENT_OUTPUT_DIR` and review the synthesis report.
+  - Adjust `EXECUTION_STYLE` to `sequential` or `parallel` to force behavior.
+- **Troubleshoot**
+  - If timeouts occur, tune `OPENROUTER_TIMEOUT_MS`, `SYNTH_MAX_PER_AGENT_CHARS`, `SYNTH_MAX_TOTAL_CHARS`.
+  - Ensure each agent’s command runs successfully from your shell with a sample prompt.
+
 ## Citation
 
 ```bibtex
@@ -384,14 +352,18 @@ npm test
 }
 ```
 
-## Release Notes
-
-### [Unreleased]
-- **Major Refactoring**: Changed the architecture of `prompt_aider` and `double_compute` tools to act as advisors rather than executors. Tools now provide expert guidance on crafting optimal aider commands with the best edit format for your model, instead of directly executing aider. This change gives users more control while still providing all the expertise needed for effective aider use.
-- Bugfix: Fixed file argument handling, switching from positional arguments to using `--file` flags. This resolves previous errors with file argument recognition and enables robust file-based code editing and verification.
-
 ## License
 
 This project is licensed under the terms specified in the [LICENSE](LICENSE) file. This license is a COMPREHENSIVE RESTRICTED USE LICENSE FOR INDIGENOUS CREATIONS WITH TRIBAL SOVEREIGNTY, DATA SOVEREIGNTY, AND WEALTH RECLAMATION PROTECTIONS.
 
+## Contributing
+
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
+
 Copyright © 2025 ᓂᐲᔥ ᐙᐸᓂᒥᑮ-ᑭᓇᐙᐸᑭᓯ (Nbiish Waabanimikii-Kinawaabakizi), also known legally as JUSTIN PAUL KENWABIKISE, professionally documented as Nbiish-Justin Paul Kenwabikise, Anishinaabek Dodem (Anishinaabe Clan): Animikii (Thunder), a descendant of Chief ᑭᓇᐙᐸᑭᓯ (Kinwaabakizi) of the Beaver Island Band, and an enrolled member of the sovereign Grand Traverse Band of Ottawa and Chippewa Indians. This work embodies Traditional Knowledge and Traditional Cultural Expressions. All rights reserved.
+
+## Release Notes
+
+### [Unreleased]
+- Major Refactor: Removed Aider tooling and introduced `orchestrate_agents` for multi-agent CLI orchestration using Gemini 2.5 Pro (OpenRouter) to decide execution style and synthesize outputs.
+- Added environment variables: `OPENROUTER_API_KEY`, `ORCHESTRATOR_MODEL`, `CLI_AGENTS_JSON`, `AGENT_OUTPUT_DIR`, `EXECUTION_STYLE`, and synthesis/timeout caps.

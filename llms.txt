@@ -1,0 +1,29 @@
+- Qwen
+```bash
+qwen -y "{prompt}"
+```
+
+- Gemini
+```bash
+gemini -y "{prompt}"
+```
+
+- Cursor
+```bash
+cursor agent --print --approve-mcps "{prompt}"
+```
+
+- Goose
+```bash
+echo "{prompt}" | goose
+```
+
+- Opencode
+```bash
+opencode run "{prompt}"
+```
+
+- Crush
+```bash
+crush run "{prompt}"
+```
