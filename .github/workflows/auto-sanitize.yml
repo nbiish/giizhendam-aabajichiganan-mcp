@@ -41,6 +41,7 @@ jobs:
                 # Remove API keys
                 if has("BRAVE_API_KEY") then .BRAVE_API_KEY = "YOUR_BRAVE_API_KEY_HERE" else . end |
                 if has("TAVILY_API_KEY") then .TAVILY_API_KEY = "YOUR_TAVILY_API_KEY_HERE" else . end |
+                if has("OPENROUTER_API_KEY") then .OPENROUTER_API_KEY = "YOUR_OPENROUTER_API_KEY_HERE" else . end |
                 # Replace absolute paths with placeholders
                 if has("cwd") and (.cwd | startswith("/Volumes/") or startswith("/Users/")) then 
                   .cwd = "/path/to/your/mcp/servers" 
@@ -59,7 +60,8 @@ jobs:
               if type == "string" then
                 # Replace any remaining API key patterns
                 gsub("BSA[a-zA-Z0-9]{27}"; "YOUR_BRAVE_API_KEY_HERE") |
-                gsub("tvly-[a-zA-Z0-9-]{30,}"; "YOUR_TAVILY_API_KEY_HERE")
+                gsub("tvly-[a-zA-Z0-9-]{30,}"; "YOUR_TAVILY_API_KEY_HERE") |
+                gsub("sk-or-v1-[a-zA-Z0-9]{60,}"; "YOUR_OPENROUTER_API_KEY_HERE")
               else . end
             )' "$file" > "$file.tmp" && mv "$file.tmp" "$file"
             

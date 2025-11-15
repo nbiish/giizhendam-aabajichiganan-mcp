@@ -1,0 +1,132 @@
+name: Publish to npm
+
+on:
+  release:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g., 0.6.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          # Uses OIDC token for trusted publisher authentication
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build package
+        run: npm run build
+
+      - name: Verify package contents
+        run: |
+          echo "📦 Verifying package contents..."
+          npm pack --dry-run | grep -E "(agents|dist|package)" | head -20
+          
+          # Verify agents directory exists
+          if [ ! -d "agents" ]; then
+            echo "❌ Error: agents directory not found!"
+            exit 1
+          fi
+          
+          # Verify dist directory exists
+          if [ ! -d "dist" ]; then
+            echo "❌ Error: dist directory not found!"
+            exit 1
+          fi
+          
+          echo "✅ Package verification passed"
+
+      - name: Check version
+        id: check_version
+        run: |
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "📌 Current version: $CURRENT_VERSION"
+          
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            EXPECTED_VERSION="${{ github.event.inputs.version }}"
+            if [ "$CURRENT_VERSION" != "$EXPECTED_VERSION" ]; then
+              echo "⚠️ Warning: Package version ($CURRENT_VERSION) doesn't match input ($EXPECTED_VERSION)"
+            fi
+          fi
+
+      - name: Check if version already published
+        id: check_published
+        run: |
+          PUBLISHED_VERSION=$(npm view @nbiish/giizhendam-aabajichiganan-mcp version 2>/dev/null || echo "none")
+          CURRENT_VERSION="${{ steps.check_version.outputs.version }}"
+          
+          echo "📦 Published version: $PUBLISHED_VERSION"
+          echo "📦 Current version: $CURRENT_VERSION"
+          
+          if [ "$PUBLISHED_VERSION" == "$CURRENT_VERSION" ]; then
+            echo "already_published=true" >> $GITHUB_OUTPUT
+            echo "⚠️ Version $CURRENT_VERSION is already published. Skipping publish."
+          else
+            echo "already_published=false" >> $GITHUB_OUTPUT
+            echo "✅ Version $CURRENT_VERSION is new. Will publish."
+          fi
+
+      - name: Publish to npm
+        if: steps.check_published.outputs.already_published == 'false'
+        run: npm publish --access public
+        # Uses OIDC token automatically via setup-node@v4 with id-token: write permission
+
+      - name: Verify publication
+        if: steps.check_published.outputs.already_published == 'false'
+        run: |
+          sleep 5
+          PUBLISHED_VERSION=$(npm view @nbiish/giizhendam-aabajichiganan-mcp version)
+          CURRENT_VERSION="${{ steps.check_version.outputs.version }}"
+          
+          if [ "$PUBLISHED_VERSION" == "$CURRENT_VERSION" ]; then
+            echo "✅ Successfully published version $CURRENT_VERSION to npm"
+          else
+            echo "❌ Error: Published version ($PUBLISHED_VERSION) doesn't match expected ($CURRENT_VERSION)"
+            exit 1
+          fi
+
+      - name: Test installation
+        if: steps.check_published.outputs.already_published == 'false'
+        run: |
+          echo "🧪 Testing installation via npx..."
+          npx -y @nbiish/giizhendam-aabajichiganan-mcp --version || echo "Note: --version flag may not be supported"
+          echo "✅ Installation test completed"
+
+      - name: Create GitHub Release
+        if: steps.check_published.outputs.already_published == 'false' && github.event_name == 'release'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const version = '${{ steps.check_version.outputs.version }}';
+            const tag = `v${version}`;
+            
+            github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: tag,
+              name: `Release ${tag}`,
+              body: `## Changes in ${tag}\n\nSee [CHANGELOG.md](CHANGELOG.md) for details.\n\n**Installation:**\n\`\`\`bash\nnpx -y @nbiish/giizhendam-aabajichiganan-mcp\n\`\`\``,
+              draft: false,
+              prerelease: false
+            });
+

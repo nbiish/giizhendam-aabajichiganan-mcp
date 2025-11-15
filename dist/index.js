@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-#!/usr/bin/env node
 "use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -7195,1015 +7194,6 @@ var StdioServerTransport = class {
 var import_fs = __toESM(require("fs"));
 var import_path = __toESM(require("path"));
 var import_promises = __toESM(require("fs/promises"));
-
-// node_modules/@google/generative-ai/dist/index.mjs
-var SchemaType;
-(function(SchemaType2) {
-  SchemaType2["STRING"] = "string";
-  SchemaType2["NUMBER"] = "number";
-  SchemaType2["INTEGER"] = "integer";
-  SchemaType2["BOOLEAN"] = "boolean";
-  SchemaType2["ARRAY"] = "array";
-  SchemaType2["OBJECT"] = "object";
-})(SchemaType || (SchemaType = {}));
-var ExecutableCodeLanguage;
-(function(ExecutableCodeLanguage2) {
-  ExecutableCodeLanguage2["LANGUAGE_UNSPECIFIED"] = "language_unspecified";
-  ExecutableCodeLanguage2["PYTHON"] = "python";
-})(ExecutableCodeLanguage || (ExecutableCodeLanguage = {}));
-var Outcome;
-(function(Outcome2) {
-  Outcome2["OUTCOME_UNSPECIFIED"] = "outcome_unspecified";
-  Outcome2["OUTCOME_OK"] = "outcome_ok";
-  Outcome2["OUTCOME_FAILED"] = "outcome_failed";
-  Outcome2["OUTCOME_DEADLINE_EXCEEDED"] = "outcome_deadline_exceeded";
-})(Outcome || (Outcome = {}));
-var POSSIBLE_ROLES = ["user", "model", "function", "system"];
-var HarmCategory;
-(function(HarmCategory2) {
-  HarmCategory2["HARM_CATEGORY_UNSPECIFIED"] = "HARM_CATEGORY_UNSPECIFIED";
-  HarmCategory2["HARM_CATEGORY_HATE_SPEECH"] = "HARM_CATEGORY_HATE_SPEECH";
-  HarmCategory2["HARM_CATEGORY_SEXUALLY_EXPLICIT"] = "HARM_CATEGORY_SEXUALLY_EXPLICIT";
-  HarmCategory2["HARM_CATEGORY_HARASSMENT"] = "HARM_CATEGORY_HARASSMENT";
-  HarmCategory2["HARM_CATEGORY_DANGEROUS_CONTENT"] = "HARM_CATEGORY_DANGEROUS_CONTENT";
-  HarmCategory2["HARM_CATEGORY_CIVIC_INTEGRITY"] = "HARM_CATEGORY_CIVIC_INTEGRITY";
-})(HarmCategory || (HarmCategory = {}));
-var HarmBlockThreshold;
-(function(HarmBlockThreshold2) {
-  HarmBlockThreshold2["HARM_BLOCK_THRESHOLD_UNSPECIFIED"] = "HARM_BLOCK_THRESHOLD_UNSPECIFIED";
-  HarmBlockThreshold2["BLOCK_LOW_AND_ABOVE"] = "BLOCK_LOW_AND_ABOVE";
-  HarmBlockThreshold2["BLOCK_MEDIUM_AND_ABOVE"] = "BLOCK_MEDIUM_AND_ABOVE";
-  HarmBlockThreshold2["BLOCK_ONLY_HIGH"] = "BLOCK_ONLY_HIGH";
-  HarmBlockThreshold2["BLOCK_NONE"] = "BLOCK_NONE";
-})(HarmBlockThreshold || (HarmBlockThreshold = {}));
-var HarmProbability;
-(function(HarmProbability2) {
-  HarmProbability2["HARM_PROBABILITY_UNSPECIFIED"] = "HARM_PROBABILITY_UNSPECIFIED";
-  HarmProbability2["NEGLIGIBLE"] = "NEGLIGIBLE";
-  HarmProbability2["LOW"] = "LOW";
-  HarmProbability2["MEDIUM"] = "MEDIUM";
-  HarmProbability2["HIGH"] = "HIGH";
-})(HarmProbability || (HarmProbability = {}));
-var BlockReason;
-(function(BlockReason2) {
-  BlockReason2["BLOCKED_REASON_UNSPECIFIED"] = "BLOCKED_REASON_UNSPECIFIED";
-  BlockReason2["SAFETY"] = "SAFETY";
-  BlockReason2["OTHER"] = "OTHER";
-})(BlockReason || (BlockReason = {}));
-var FinishReason;
-(function(FinishReason2) {
-  FinishReason2["FINISH_REASON_UNSPECIFIED"] = "FINISH_REASON_UNSPECIFIED";
-  FinishReason2["STOP"] = "STOP";
-  FinishReason2["MAX_TOKENS"] = "MAX_TOKENS";
-  FinishReason2["SAFETY"] = "SAFETY";
-  FinishReason2["RECITATION"] = "RECITATION";
-  FinishReason2["LANGUAGE"] = "LANGUAGE";
-  FinishReason2["BLOCKLIST"] = "BLOCKLIST";
-  FinishReason2["PROHIBITED_CONTENT"] = "PROHIBITED_CONTENT";
-  FinishReason2["SPII"] = "SPII";
-  FinishReason2["MALFORMED_FUNCTION_CALL"] = "MALFORMED_FUNCTION_CALL";
-  FinishReason2["OTHER"] = "OTHER";
-})(FinishReason || (FinishReason = {}));
-var TaskType;
-(function(TaskType2) {
-  TaskType2["TASK_TYPE_UNSPECIFIED"] = "TASK_TYPE_UNSPECIFIED";
-  TaskType2["RETRIEVAL_QUERY"] = "RETRIEVAL_QUERY";
-  TaskType2["RETRIEVAL_DOCUMENT"] = "RETRIEVAL_DOCUMENT";
-  TaskType2["SEMANTIC_SIMILARITY"] = "SEMANTIC_SIMILARITY";
-  TaskType2["CLASSIFICATION"] = "CLASSIFICATION";
-  TaskType2["CLUSTERING"] = "CLUSTERING";
-})(TaskType || (TaskType = {}));
-var FunctionCallingMode;
-(function(FunctionCallingMode2) {
-  FunctionCallingMode2["MODE_UNSPECIFIED"] = "MODE_UNSPECIFIED";
-  FunctionCallingMode2["AUTO"] = "AUTO";
-  FunctionCallingMode2["ANY"] = "ANY";
-  FunctionCallingMode2["NONE"] = "NONE";
-})(FunctionCallingMode || (FunctionCallingMode = {}));
-var DynamicRetrievalMode;
-(function(DynamicRetrievalMode2) {
-  DynamicRetrievalMode2["MODE_UNSPECIFIED"] = "MODE_UNSPECIFIED";
-  DynamicRetrievalMode2["MODE_DYNAMIC"] = "MODE_DYNAMIC";
-})(DynamicRetrievalMode || (DynamicRetrievalMode = {}));
-var GoogleGenerativeAIError = class extends Error {
-  constructor(message) {
-    super(`[GoogleGenerativeAI Error]: ${message}`);
-  }
-};
-var GoogleGenerativeAIResponseError = class extends GoogleGenerativeAIError {
-  constructor(message, response) {
-    super(message);
-    this.response = response;
-  }
-};
-var GoogleGenerativeAIFetchError = class extends GoogleGenerativeAIError {
-  constructor(message, status, statusText, errorDetails) {
-    super(message);
-    this.status = status;
-    this.statusText = statusText;
-    this.errorDetails = errorDetails;
-  }
-};
-var GoogleGenerativeAIRequestInputError = class extends GoogleGenerativeAIError {
-};
-var GoogleGenerativeAIAbortError = class extends GoogleGenerativeAIError {
-};
-var DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com";
-var DEFAULT_API_VERSION = "v1beta";
-var PACKAGE_VERSION = "0.24.1";
-var PACKAGE_LOG_HEADER = "genai-js";
-var Task;
-(function(Task2) {
-  Task2["GENERATE_CONTENT"] = "generateContent";
-  Task2["STREAM_GENERATE_CONTENT"] = "streamGenerateContent";
-  Task2["COUNT_TOKENS"] = "countTokens";
-  Task2["EMBED_CONTENT"] = "embedContent";
-  Task2["BATCH_EMBED_CONTENTS"] = "batchEmbedContents";
-})(Task || (Task = {}));
-var RequestUrl = class {
-  constructor(model, task, apiKey, stream, requestOptions) {
-    this.model = model;
-    this.task = task;
-    this.apiKey = apiKey;
-    this.stream = stream;
-    this.requestOptions = requestOptions;
-  }
-  toString() {
-    var _a, _b;
-    const apiVersion = ((_a = this.requestOptions) === null || _a === void 0 ? void 0 : _a.apiVersion) || DEFAULT_API_VERSION;
-    const baseUrl = ((_b = this.requestOptions) === null || _b === void 0 ? void 0 : _b.baseUrl) || DEFAULT_BASE_URL;
-    let url = `${baseUrl}/${apiVersion}/${this.model}:${this.task}`;
-    if (this.stream) {
-      url += "?alt=sse";
-    }
-    return url;
-  }
-};
-function getClientHeaders(requestOptions) {
-  const clientHeaders = [];
-  if (requestOptions === null || requestOptions === void 0 ? void 0 : requestOptions.apiClient) {
-    clientHeaders.push(requestOptions.apiClient);
-  }
-  clientHeaders.push(`${PACKAGE_LOG_HEADER}/${PACKAGE_VERSION}`);
-  return clientHeaders.join(" ");
-}
-async function getHeaders(url) {
-  var _a;
-  const headers = new Headers();
-  headers.append("Content-Type", "application/json");
-  headers.append("x-goog-api-client", getClientHeaders(url.requestOptions));
-  headers.append("x-goog-api-key", url.apiKey);
-  let customHeaders = (_a = url.requestOptions) === null || _a === void 0 ? void 0 : _a.customHeaders;
-  if (customHeaders) {
-    if (!(customHeaders instanceof Headers)) {
-      try {
-        customHeaders = new Headers(customHeaders);
-      } catch (e) {
-        throw new GoogleGenerativeAIRequestInputError(`unable to convert customHeaders value ${JSON.stringify(customHeaders)} to Headers: ${e.message}`);
-      }
-    }
-    for (const [headerName, headerValue] of customHeaders.entries()) {
-      if (headerName === "x-goog-api-key") {
-        throw new GoogleGenerativeAIRequestInputError(`Cannot set reserved header name ${headerName}`);
-      } else if (headerName === "x-goog-api-client") {
-        throw new GoogleGenerativeAIRequestInputError(`Header name ${headerName} can only be set using the apiClient field`);
-      }
-      headers.append(headerName, headerValue);
-    }
-  }
-  return headers;
-}
-async function constructModelRequest(model, task, apiKey, stream, body, requestOptions) {
-  const url = new RequestUrl(model, task, apiKey, stream, requestOptions);
-  return {
-    url: url.toString(),
-    fetchOptions: Object.assign(Object.assign({}, buildFetchOptions(requestOptions)), { method: "POST", headers: await getHeaders(url), body })
-  };
-}
-async function makeModelRequest(model, task, apiKey, stream, body, requestOptions = {}, fetchFn = fetch) {
-  const { url, fetchOptions } = await constructModelRequest(model, task, apiKey, stream, body, requestOptions);
-  return makeRequest(url, fetchOptions, fetchFn);
-}
-async function makeRequest(url, fetchOptions, fetchFn = fetch) {
-  let response;
-  try {
-    response = await fetchFn(url, fetchOptions);
-  } catch (e) {
-    handleResponseError(e, url);
-  }
-  if (!response.ok) {
-    await handleResponseNotOk(response, url);
-  }
-  return response;
-}
-function handleResponseError(e, url) {
-  let err = e;
-  if (err.name === "AbortError") {
-    err = new GoogleGenerativeAIAbortError(`Request aborted when fetching ${url.toString()}: ${e.message}`);
-    err.stack = e.stack;
-  } else if (!(e instanceof GoogleGenerativeAIFetchError || e instanceof GoogleGenerativeAIRequestInputError)) {
-    err = new GoogleGenerativeAIError(`Error fetching from ${url.toString()}: ${e.message}`);
-    err.stack = e.stack;
-  }
-  throw err;
-}
-async function handleResponseNotOk(response, url) {
-  let message = "";
-  let errorDetails;
-  try {
-    const json = await response.json();
-    message = json.error.message;
-    if (json.error.details) {
-      message += ` ${JSON.stringify(json.error.details)}`;
-      errorDetails = json.error.details;
-    }
-  } catch (e) {
-  }
-  throw new GoogleGenerativeAIFetchError(`Error fetching from ${url.toString()}: [${response.status} ${response.statusText}] ${message}`, response.status, response.statusText, errorDetails);
-}
-function buildFetchOptions(requestOptions) {
-  const fetchOptions = {};
-  if ((requestOptions === null || requestOptions === void 0 ? void 0 : requestOptions.signal) !== void 0 || (requestOptions === null || requestOptions === void 0 ? void 0 : requestOptions.timeout) >= 0) {
-    const controller = new AbortController();
-    if ((requestOptions === null || requestOptions === void 0 ? void 0 : requestOptions.timeout) >= 0) {
-      setTimeout(() => controller.abort(), requestOptions.timeout);
-    }
-    if (requestOptions === null || requestOptions === void 0 ? void 0 : requestOptions.signal) {
-      requestOptions.signal.addEventListener("abort", () => {
-        controller.abort();
-      });
-    }
-    fetchOptions.signal = controller.signal;
-  }
-  return fetchOptions;
-}
-function addHelpers(response) {
-  response.text = () => {
-    if (response.candidates && response.candidates.length > 0) {
-      if (response.candidates.length > 1) {
-        console.warn(`This response had ${response.candidates.length} candidates. Returning text from the first candidate only. Access response.candidates directly to use the other candidates.`);
-      }
-      if (hadBadFinishReason(response.candidates[0])) {
-        throw new GoogleGenerativeAIResponseError(`${formatBlockErrorMessage(response)}`, response);
-      }
-      return getText(response);
-    } else if (response.promptFeedback) {
-      throw new GoogleGenerativeAIResponseError(`Text not available. ${formatBlockErrorMessage(response)}`, response);
-    }
-    return "";
-  };
-  response.functionCall = () => {
-    if (response.candidates && response.candidates.length > 0) {
-      if (response.candidates.length > 1) {
-        console.warn(`This response had ${response.candidates.length} candidates. Returning function calls from the first candidate only. Access response.candidates directly to use the other candidates.`);
-      }
-      if (hadBadFinishReason(response.candidates[0])) {
-        throw new GoogleGenerativeAIResponseError(`${formatBlockErrorMessage(response)}`, response);
-      }
-      console.warn(`response.functionCall() is deprecated. Use response.functionCalls() instead.`);
-      return getFunctionCalls(response)[0];
-    } else if (response.promptFeedback) {
-      throw new GoogleGenerativeAIResponseError(`Function call not available. ${formatBlockErrorMessage(response)}`, response);
-    }
-    return void 0;
-  };
-  response.functionCalls = () => {
-    if (response.candidates && response.candidates.length > 0) {
-      if (response.candidates.length > 1) {
-        console.warn(`This response had ${response.candidates.length} candidates. Returning function calls from the first candidate only. Access response.candidates directly to use the other candidates.`);
-      }
-      if (hadBadFinishReason(response.candidates[0])) {
-        throw new GoogleGenerativeAIResponseError(`${formatBlockErrorMessage(response)}`, response);
-      }
-      return getFunctionCalls(response);
-    } else if (response.promptFeedback) {
-      throw new GoogleGenerativeAIResponseError(`Function call not available. ${formatBlockErrorMessage(response)}`, response);
-    }
-    return void 0;
-  };
-  return response;
-}
-function getText(response) {
-  var _a, _b, _c, _d;
-  const textStrings = [];
-  if ((_b = (_a = response.candidates) === null || _a === void 0 ? void 0 : _a[0].content) === null || _b === void 0 ? void 0 : _b.parts) {
-    for (const part of (_d = (_c = response.candidates) === null || _c === void 0 ? void 0 : _c[0].content) === null || _d === void 0 ? void 0 : _d.parts) {
-      if (part.text) {
-        textStrings.push(part.text);
-      }
-      if (part.executableCode) {
-        textStrings.push("\n```" + part.executableCode.language + "\n" + part.executableCode.code + "\n```\n");
-      }
-      if (part.codeExecutionResult) {
-        textStrings.push("\n```\n" + part.codeExecutionResult.output + "\n```\n");
-      }
-    }
-  }
-  if (textStrings.length > 0) {
-    return textStrings.join("");
-  } else {
-    return "";
-  }
-}
-function getFunctionCalls(response) {
-  var _a, _b, _c, _d;
-  const functionCalls = [];
-  if ((_b = (_a = response.candidates) === null || _a === void 0 ? void 0 : _a[0].content) === null || _b === void 0 ? void 0 : _b.parts) {
-    for (const part of (_d = (_c = response.candidates) === null || _c === void 0 ? void 0 : _c[0].content) === null || _d === void 0 ? void 0 : _d.parts) {
-      if (part.functionCall) {
-        functionCalls.push(part.functionCall);
-      }
-    }
-  }
-  if (functionCalls.length > 0) {
-    return functionCalls;
-  } else {
-    return void 0;
-  }
-}
-var badFinishReasons = [
-  FinishReason.RECITATION,
-  FinishReason.SAFETY,
-  FinishReason.LANGUAGE
-];
-function hadBadFinishReason(candidate) {
-  return !!candidate.finishReason && badFinishReasons.includes(candidate.finishReason);
-}
-function formatBlockErrorMessage(response) {
-  var _a, _b, _c;
-  let message = "";
-  if ((!response.candidates || response.candidates.length === 0) && response.promptFeedback) {
-    message += "Response was blocked";
-    if ((_a = response.promptFeedback) === null || _a === void 0 ? void 0 : _a.blockReason) {
-      message += ` due to ${response.promptFeedback.blockReason}`;
-    }
-    if ((_b = response.promptFeedback) === null || _b === void 0 ? void 0 : _b.blockReasonMessage) {
-      message += `: ${response.promptFeedback.blockReasonMessage}`;
-    }
-  } else if ((_c = response.candidates) === null || _c === void 0 ? void 0 : _c[0]) {
-    const firstCandidate = response.candidates[0];
-    if (hadBadFinishReason(firstCandidate)) {
-      message += `Candidate was blocked due to ${firstCandidate.finishReason}`;
-      if (firstCandidate.finishMessage) {
-        message += `: ${firstCandidate.finishMessage}`;
-      }
-    }
-  }
-  return message;
-}
-function __await(v) {
-  return this instanceof __await ? (this.v = v, this) : new __await(v);
-}
-function __asyncGenerator(thisArg, _arguments, generator) {
-  if (!Symbol.asyncIterator) throw new TypeError("Symbol.asyncIterator is not defined.");
-  var g = generator.apply(thisArg, _arguments || []), i, q = [];
-  return i = {}, verb("next"), verb("throw"), verb("return"), i[Symbol.asyncIterator] = function() {
-    return this;
-  }, i;
-  function verb(n) {
-    if (g[n]) i[n] = function(v) {
-      return new Promise(function(a, b) {
-        q.push([n, v, a, b]) > 1 || resume(n, v);
-      });
-    };
-  }
-  function resume(n, v) {
-    try {
-      step(g[n](v));
-    } catch (e) {
-      settle(q[0][3], e);
-    }
-  }
-  function step(r) {
-    r.value instanceof __await ? Promise.resolve(r.value.v).then(fulfill, reject) : settle(q[0][2], r);
-  }
-  function fulfill(value) {
-    resume("next", value);
-  }
-  function reject(value) {
-    resume("throw", value);
-  }
-  function settle(f, v) {
-    if (f(v), q.shift(), q.length) resume(q[0][0], q[0][1]);
-  }
-}
-var responseLineRE = /^data\: (.*)(?:\n\n|\r\r|\r\n\r\n)/;
-function processStream(response) {
-  const inputStream = response.body.pipeThrough(new TextDecoderStream("utf8", { fatal: true }));
-  const responseStream = getResponseStream(inputStream);
-  const [stream1, stream2] = responseStream.tee();
-  return {
-    stream: generateResponseSequence(stream1),
-    response: getResponsePromise(stream2)
-  };
-}
-async function getResponsePromise(stream) {
-  const allResponses = [];
-  const reader = stream.getReader();
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) {
-      return addHelpers(aggregateResponses(allResponses));
-    }
-    allResponses.push(value);
-  }
-}
-function generateResponseSequence(stream) {
-  return __asyncGenerator(this, arguments, function* generateResponseSequence_1() {
-    const reader = stream.getReader();
-    while (true) {
-      const { value, done } = yield __await(reader.read());
-      if (done) {
-        break;
-      }
-      yield yield __await(addHelpers(value));
-    }
-  });
-}
-function getResponseStream(inputStream) {
-  const reader = inputStream.getReader();
-  const stream = new ReadableStream({
-    start(controller) {
-      let currentText = "";
-      return pump();
-      function pump() {
-        return reader.read().then(({ value, done }) => {
-          if (done) {
-            if (currentText.trim()) {
-              controller.error(new GoogleGenerativeAIError("Failed to parse stream"));
-              return;
-            }
-            controller.close();
-            return;
-          }
-          currentText += value;
-          let match = currentText.match(responseLineRE);
-          let parsedResponse;
-          while (match) {
-            try {
-              parsedResponse = JSON.parse(match[1]);
-            } catch (e) {
-              controller.error(new GoogleGenerativeAIError(`Error parsing JSON response: "${match[1]}"`));
-              return;
-            }
-            controller.enqueue(parsedResponse);
-            currentText = currentText.substring(match[0].length);
-            match = currentText.match(responseLineRE);
-          }
-          return pump();
-        }).catch((e) => {
-          let err = e;
-          err.stack = e.stack;
-          if (err.name === "AbortError") {
-            err = new GoogleGenerativeAIAbortError("Request aborted when reading from the stream");
-          } else {
-            err = new GoogleGenerativeAIError("Error reading from the stream");
-          }
-          throw err;
-        });
-      }
-    }
-  });
-  return stream;
-}
-function aggregateResponses(responses) {
-  const lastResponse = responses[responses.length - 1];
-  const aggregatedResponse = {
-    promptFeedback: lastResponse === null || lastResponse === void 0 ? void 0 : lastResponse.promptFeedback
-  };
-  for (const response of responses) {
-    if (response.candidates) {
-      let candidateIndex = 0;
-      for (const candidate of response.candidates) {
-        if (!aggregatedResponse.candidates) {
-          aggregatedResponse.candidates = [];
-        }
-        if (!aggregatedResponse.candidates[candidateIndex]) {
-          aggregatedResponse.candidates[candidateIndex] = {
-            index: candidateIndex
-          };
-        }
-        aggregatedResponse.candidates[candidateIndex].citationMetadata = candidate.citationMetadata;
-        aggregatedResponse.candidates[candidateIndex].groundingMetadata = candidate.groundingMetadata;
-        aggregatedResponse.candidates[candidateIndex].finishReason = candidate.finishReason;
-        aggregatedResponse.candidates[candidateIndex].finishMessage = candidate.finishMessage;
-        aggregatedResponse.candidates[candidateIndex].safetyRatings = candidate.safetyRatings;
-        if (candidate.content && candidate.content.parts) {
-          if (!aggregatedResponse.candidates[candidateIndex].content) {
-            aggregatedResponse.candidates[candidateIndex].content = {
-              role: candidate.content.role || "user",
-              parts: []
-            };
-          }
-          const newPart = {};
-          for (const part of candidate.content.parts) {
-            if (part.text) {
-              newPart.text = part.text;
-            }
-            if (part.functionCall) {
-              newPart.functionCall = part.functionCall;
-            }
-            if (part.executableCode) {
-              newPart.executableCode = part.executableCode;
-            }
-            if (part.codeExecutionResult) {
-              newPart.codeExecutionResult = part.codeExecutionResult;
-            }
-            if (Object.keys(newPart).length === 0) {
-              newPart.text = "";
-            }
-            aggregatedResponse.candidates[candidateIndex].content.parts.push(newPart);
-          }
-        }
-      }
-      candidateIndex++;
-    }
-    if (response.usageMetadata) {
-      aggregatedResponse.usageMetadata = response.usageMetadata;
-    }
-  }
-  return aggregatedResponse;
-}
-async function generateContentStream(apiKey, model, params, requestOptions) {
-  const response = await makeModelRequest(
-    model,
-    Task.STREAM_GENERATE_CONTENT,
-    apiKey,
-    /* stream */
-    true,
-    JSON.stringify(params),
-    requestOptions
-  );
-  return processStream(response);
-}
-async function generateContent(apiKey, model, params, requestOptions) {
-  const response = await makeModelRequest(
-    model,
-    Task.GENERATE_CONTENT,
-    apiKey,
-    /* stream */
-    false,
-    JSON.stringify(params),
-    requestOptions
-  );
-  const responseJson = await response.json();
-  const enhancedResponse = addHelpers(responseJson);
-  return {
-    response: enhancedResponse
-  };
-}
-function formatSystemInstruction(input) {
-  if (input == null) {
-    return void 0;
-  } else if (typeof input === "string") {
-    return { role: "system", parts: [{ text: input }] };
-  } else if (input.text) {
-    return { role: "system", parts: [input] };
-  } else if (input.parts) {
-    if (!input.role) {
-      return { role: "system", parts: input.parts };
-    } else {
-      return input;
-    }
-  }
-}
-function formatNewContent(request) {
-  let newParts = [];
-  if (typeof request === "string") {
-    newParts = [{ text: request }];
-  } else {
-    for (const partOrString of request) {
-      if (typeof partOrString === "string") {
-        newParts.push({ text: partOrString });
-      } else {
-        newParts.push(partOrString);
-      }
-    }
-  }
-  return assignRoleToPartsAndValidateSendMessageRequest(newParts);
-}
-function assignRoleToPartsAndValidateSendMessageRequest(parts) {
-  const userContent = { role: "user", parts: [] };
-  const functionContent = { role: "function", parts: [] };
-  let hasUserContent = false;
-  let hasFunctionContent = false;
-  for (const part of parts) {
-    if ("functionResponse" in part) {
-      functionContent.parts.push(part);
-      hasFunctionContent = true;
-    } else {
-      userContent.parts.push(part);
-      hasUserContent = true;
-    }
-  }
-  if (hasUserContent && hasFunctionContent) {
-    throw new GoogleGenerativeAIError("Within a single message, FunctionResponse cannot be mixed with other type of part in the request for sending chat message.");
-  }
-  if (!hasUserContent && !hasFunctionContent) {
-    throw new GoogleGenerativeAIError("No content is provided for sending chat message.");
-  }
-  if (hasUserContent) {
-    return userContent;
-  }
-  return functionContent;
-}
-function formatCountTokensInput(params, modelParams) {
-  var _a;
-  let formattedGenerateContentRequest = {
-    model: modelParams === null || modelParams === void 0 ? void 0 : modelParams.model,
-    generationConfig: modelParams === null || modelParams === void 0 ? void 0 : modelParams.generationConfig,
-    safetySettings: modelParams === null || modelParams === void 0 ? void 0 : modelParams.safetySettings,
-    tools: modelParams === null || modelParams === void 0 ? void 0 : modelParams.tools,
-    toolConfig: modelParams === null || modelParams === void 0 ? void 0 : modelParams.toolConfig,
-    systemInstruction: modelParams === null || modelParams === void 0 ? void 0 : modelParams.systemInstruction,
-    cachedContent: (_a = modelParams === null || modelParams === void 0 ? void 0 : modelParams.cachedContent) === null || _a === void 0 ? void 0 : _a.name,
-    contents: []
-  };
-  const containsGenerateContentRequest = params.generateContentRequest != null;
-  if (params.contents) {
-    if (containsGenerateContentRequest) {
-      throw new GoogleGenerativeAIRequestInputError("CountTokensRequest must have one of contents or generateContentRequest, not both.");
-    }
-    formattedGenerateContentRequest.contents = params.contents;
-  } else if (containsGenerateContentRequest) {
-    formattedGenerateContentRequest = Object.assign(Object.assign({}, formattedGenerateContentRequest), params.generateContentRequest);
-  } else {
-    const content = formatNewContent(params);
-    formattedGenerateContentRequest.contents = [content];
-  }
-  return { generateContentRequest: formattedGenerateContentRequest };
-}
-function formatGenerateContentInput(params) {
-  let formattedRequest;
-  if (params.contents) {
-    formattedRequest = params;
-  } else {
-    const content = formatNewContent(params);
-    formattedRequest = { contents: [content] };
-  }
-  if (params.systemInstruction) {
-    formattedRequest.systemInstruction = formatSystemInstruction(params.systemInstruction);
-  }
-  return formattedRequest;
-}
-function formatEmbedContentInput(params) {
-  if (typeof params === "string" || Array.isArray(params)) {
-    const content = formatNewContent(params);
-    return { content };
-  }
-  return params;
-}
-var VALID_PART_FIELDS = [
-  "text",
-  "inlineData",
-  "functionCall",
-  "functionResponse",
-  "executableCode",
-  "codeExecutionResult"
-];
-var VALID_PARTS_PER_ROLE = {
-  user: ["text", "inlineData"],
-  function: ["functionResponse"],
-  model: ["text", "functionCall", "executableCode", "codeExecutionResult"],
-  // System instructions shouldn't be in history anyway.
-  system: ["text"]
-};
-function validateChatHistory(history) {
-  let prevContent = false;
-  for (const currContent of history) {
-    const { role, parts } = currContent;
-    if (!prevContent && role !== "user") {
-      throw new GoogleGenerativeAIError(`First content should be with role 'user', got ${role}`);
-    }
-    if (!POSSIBLE_ROLES.includes(role)) {
-      throw new GoogleGenerativeAIError(`Each item should include role field. Got ${role} but valid roles are: ${JSON.stringify(POSSIBLE_ROLES)}`);
-    }
-    if (!Array.isArray(parts)) {
-      throw new GoogleGenerativeAIError("Content should have 'parts' property with an array of Parts");
-    }
-    if (parts.length === 0) {
-      throw new GoogleGenerativeAIError("Each Content should have at least one part");
-    }
-    const countFields = {
-      text: 0,
-      inlineData: 0,
-      functionCall: 0,
-      functionResponse: 0,
-      fileData: 0,
-      executableCode: 0,
-      codeExecutionResult: 0
-    };
-    for (const part of parts) {
-      for (const key of VALID_PART_FIELDS) {
-        if (key in part) {
-          countFields[key] += 1;
-        }
-      }
-    }
-    const validParts = VALID_PARTS_PER_ROLE[role];
-    for (const key of VALID_PART_FIELDS) {
-      if (!validParts.includes(key) && countFields[key] > 0) {
-        throw new GoogleGenerativeAIError(`Content with role '${role}' can't contain '${key}' part`);
-      }
-    }
-    prevContent = true;
-  }
-}
-function isValidResponse(response) {
-  var _a;
-  if (response.candidates === void 0 || response.candidates.length === 0) {
-    return false;
-  }
-  const content = (_a = response.candidates[0]) === null || _a === void 0 ? void 0 : _a.content;
-  if (content === void 0) {
-    return false;
-  }
-  if (content.parts === void 0 || content.parts.length === 0) {
-    return false;
-  }
-  for (const part of content.parts) {
-    if (part === void 0 || Object.keys(part).length === 0) {
-      return false;
-    }
-    if (part.text !== void 0 && part.text === "") {
-      return false;
-    }
-  }
-  return true;
-}
-var SILENT_ERROR = "SILENT_ERROR";
-var ChatSession = class {
-  constructor(apiKey, model, params, _requestOptions = {}) {
-    this.model = model;
-    this.params = params;
-    this._requestOptions = _requestOptions;
-    this._history = [];
-    this._sendPromise = Promise.resolve();
-    this._apiKey = apiKey;
-    if (params === null || params === void 0 ? void 0 : params.history) {
-      validateChatHistory(params.history);
-      this._history = params.history;
-    }
-  }
-  /**
-   * Gets the chat history so far. Blocked prompts are not added to history.
-   * Blocked candidates are not added to history, nor are the prompts that
-   * generated them.
-   */
-  async getHistory() {
-    await this._sendPromise;
-    return this._history;
-  }
-  /**
-   * Sends a chat message and receives a non-streaming
-   * {@link GenerateContentResult}.
-   *
-   * Fields set in the optional {@link SingleRequestOptions} parameter will
-   * take precedence over the {@link RequestOptions} values provided to
-   * {@link GoogleGenerativeAI.getGenerativeModel }.
-   */
-  async sendMessage(request, requestOptions = {}) {
-    var _a, _b, _c, _d, _e, _f;
-    await this._sendPromise;
-    const newContent = formatNewContent(request);
-    const generateContentRequest = {
-      safetySettings: (_a = this.params) === null || _a === void 0 ? void 0 : _a.safetySettings,
-      generationConfig: (_b = this.params) === null || _b === void 0 ? void 0 : _b.generationConfig,
-      tools: (_c = this.params) === null || _c === void 0 ? void 0 : _c.tools,
-      toolConfig: (_d = this.params) === null || _d === void 0 ? void 0 : _d.toolConfig,
-      systemInstruction: (_e = this.params) === null || _e === void 0 ? void 0 : _e.systemInstruction,
-      cachedContent: (_f = this.params) === null || _f === void 0 ? void 0 : _f.cachedContent,
-      contents: [...this._history, newContent]
-    };
-    const chatSessionRequestOptions = Object.assign(Object.assign({}, this._requestOptions), requestOptions);
-    let finalResult;
-    this._sendPromise = this._sendPromise.then(() => generateContent(this._apiKey, this.model, generateContentRequest, chatSessionRequestOptions)).then((result) => {
-      var _a2;
-      if (isValidResponse(result.response)) {
-        this._history.push(newContent);
-        const responseContent = Object.assign({
-          parts: [],
-          // Response seems to come back without a role set.
-          role: "model"
-        }, (_a2 = result.response.candidates) === null || _a2 === void 0 ? void 0 : _a2[0].content);
-        this._history.push(responseContent);
-      } else {
-        const blockErrorMessage = formatBlockErrorMessage(result.response);
-        if (blockErrorMessage) {
-          console.warn(`sendMessage() was unsuccessful. ${blockErrorMessage}. Inspect response object for details.`);
-        }
-      }
-      finalResult = result;
-    }).catch((e) => {
-      this._sendPromise = Promise.resolve();
-      throw e;
-    });
-    await this._sendPromise;
-    return finalResult;
-  }
-  /**
-   * Sends a chat message and receives the response as a
-   * {@link GenerateContentStreamResult} containing an iterable stream
-   * and a response promise.
-   *
-   * Fields set in the optional {@link SingleRequestOptions} parameter will
-   * take precedence over the {@link RequestOptions} values provided to
-   * {@link GoogleGenerativeAI.getGenerativeModel }.
-   */
-  async sendMessageStream(request, requestOptions = {}) {
-    var _a, _b, _c, _d, _e, _f;
-    await this._sendPromise;
-    const newContent = formatNewContent(request);
-    const generateContentRequest = {
-      safetySettings: (_a = this.params) === null || _a === void 0 ? void 0 : _a.safetySettings,
-      generationConfig: (_b = this.params) === null || _b === void 0 ? void 0 : _b.generationConfig,
-      tools: (_c = this.params) === null || _c === void 0 ? void 0 : _c.tools,
-      toolConfig: (_d = this.params) === null || _d === void 0 ? void 0 : _d.toolConfig,
-      systemInstruction: (_e = this.params) === null || _e === void 0 ? void 0 : _e.systemInstruction,
-      cachedContent: (_f = this.params) === null || _f === void 0 ? void 0 : _f.cachedContent,
-      contents: [...this._history, newContent]
-    };
-    const chatSessionRequestOptions = Object.assign(Object.assign({}, this._requestOptions), requestOptions);
-    const streamPromise = generateContentStream(this._apiKey, this.model, generateContentRequest, chatSessionRequestOptions);
-    this._sendPromise = this._sendPromise.then(() => streamPromise).catch((_ignored) => {
-      throw new Error(SILENT_ERROR);
-    }).then((streamResult) => streamResult.response).then((response) => {
-      if (isValidResponse(response)) {
-        this._history.push(newContent);
-        const responseContent = Object.assign({}, response.candidates[0].content);
-        if (!responseContent.role) {
-          responseContent.role = "model";
-        }
-        this._history.push(responseContent);
-      } else {
-        const blockErrorMessage = formatBlockErrorMessage(response);
-        if (blockErrorMessage) {
-          console.warn(`sendMessageStream() was unsuccessful. ${blockErrorMessage}. Inspect response object for details.`);
-        }
-      }
-    }).catch((e) => {
-      if (e.message !== SILENT_ERROR) {
-        console.error(e);
-      }
-    });
-    return streamPromise;
-  }
-};
-async function countTokens(apiKey, model, params, singleRequestOptions) {
-  const response = await makeModelRequest(model, Task.COUNT_TOKENS, apiKey, false, JSON.stringify(params), singleRequestOptions);
-  return response.json();
-}
-async function embedContent(apiKey, model, params, requestOptions) {
-  const response = await makeModelRequest(model, Task.EMBED_CONTENT, apiKey, false, JSON.stringify(params), requestOptions);
-  return response.json();
-}
-async function batchEmbedContents(apiKey, model, params, requestOptions) {
-  const requestsWithModel = params.requests.map((request) => {
-    return Object.assign(Object.assign({}, request), { model });
-  });
-  const response = await makeModelRequest(model, Task.BATCH_EMBED_CONTENTS, apiKey, false, JSON.stringify({ requests: requestsWithModel }), requestOptions);
-  return response.json();
-}
-var GenerativeModel = class {
-  constructor(apiKey, modelParams, _requestOptions = {}) {
-    this.apiKey = apiKey;
-    this._requestOptions = _requestOptions;
-    if (modelParams.model.includes("/")) {
-      this.model = modelParams.model;
-    } else {
-      this.model = `models/${modelParams.model}`;
-    }
-    this.generationConfig = modelParams.generationConfig || {};
-    this.safetySettings = modelParams.safetySettings || [];
-    this.tools = modelParams.tools;
-    this.toolConfig = modelParams.toolConfig;
-    this.systemInstruction = formatSystemInstruction(modelParams.systemInstruction);
-    this.cachedContent = modelParams.cachedContent;
-  }
-  /**
-   * Makes a single non-streaming call to the model
-   * and returns an object containing a single {@link GenerateContentResponse}.
-   *
-   * Fields set in the optional {@link SingleRequestOptions} parameter will
-   * take precedence over the {@link RequestOptions} values provided to
-   * {@link GoogleGenerativeAI.getGenerativeModel }.
-   */
-  async generateContent(request, requestOptions = {}) {
-    var _a;
-    const formattedParams = formatGenerateContentInput(request);
-    const generativeModelRequestOptions = Object.assign(Object.assign({}, this._requestOptions), requestOptions);
-    return generateContent(this.apiKey, this.model, Object.assign({ generationConfig: this.generationConfig, safetySettings: this.safetySettings, tools: this.tools, toolConfig: this.toolConfig, systemInstruction: this.systemInstruction, cachedContent: (_a = this.cachedContent) === null || _a === void 0 ? void 0 : _a.name }, formattedParams), generativeModelRequestOptions);
-  }
-  /**
-   * Makes a single streaming call to the model and returns an object
-   * containing an iterable stream that iterates over all chunks in the
-   * streaming response as well as a promise that returns the final
-   * aggregated response.
-   *
-   * Fields set in the optional {@link SingleRequestOptions} parameter will
-   * take precedence over the {@link RequestOptions} values provided to
-   * {@link GoogleGenerativeAI.getGenerativeModel }.
-   */
-  async generateContentStream(request, requestOptions = {}) {
-    var _a;
-    const formattedParams = formatGenerateContentInput(request);
-    const generativeModelRequestOptions = Object.assign(Object.assign({}, this._requestOptions), requestOptions);
-    return generateContentStream(this.apiKey, this.model, Object.assign({ generationConfig: this.generationConfig, safetySettings: this.safetySettings, tools: this.tools, toolConfig: this.toolConfig, systemInstruction: this.systemInstruction, cachedContent: (_a = this.cachedContent) === null || _a === void 0 ? void 0 : _a.name }, formattedParams), generativeModelRequestOptions);
-  }
-  /**
-   * Gets a new {@link ChatSession} instance which can be used for
-   * multi-turn chats.
-   */
-  startChat(startChatParams) {
-    var _a;
-    return new ChatSession(this.apiKey, this.model, Object.assign({ generationConfig: this.generationConfig, safetySettings: this.safetySettings, tools: this.tools, toolConfig: this.toolConfig, systemInstruction: this.systemInstruction, cachedContent: (_a = this.cachedContent) === null || _a === void 0 ? void 0 : _a.name }, startChatParams), this._requestOptions);
-  }
-  /**
-   * Counts the tokens in the provided request.
-   *
-   * Fields set in the optional {@link SingleRequestOptions} parameter will
-   * take precedence over the {@link RequestOptions} values provided to
-   * {@link GoogleGenerativeAI.getGenerativeModel }.
-   */
-  async countTokens(request, requestOptions = {}) {
-    const formattedParams = formatCountTokensInput(request, {
-      model: this.model,
-      generationConfig: this.generationConfig,
-      safetySettings: this.safetySettings,
-      tools: this.tools,
-      toolConfig: this.toolConfig,
-      systemInstruction: this.systemInstruction,
-      cachedContent: this.cachedContent
-    });
-    const generativeModelRequestOptions = Object.assign(Object.assign({}, this._requestOptions), requestOptions);
-    return countTokens(this.apiKey, this.model, formattedParams, generativeModelRequestOptions);
-  }
-  /**
-   * Embeds the provided content.
-   *
-   * Fields set in the optional {@link SingleRequestOptions} parameter will
-   * take precedence over the {@link RequestOptions} values provided to
-   * {@link GoogleGenerativeAI.getGenerativeModel }.
-   */
-  async embedContent(request, requestOptions = {}) {
-    const formattedParams = formatEmbedContentInput(request);
-    const generativeModelRequestOptions = Object.assign(Object.assign({}, this._requestOptions), requestOptions);
-    return embedContent(this.apiKey, this.model, formattedParams, generativeModelRequestOptions);
-  }
-  /**
-   * Embeds an array of {@link EmbedContentRequest}s.
-   *
-   * Fields set in the optional {@link SingleRequestOptions} parameter will
-   * take precedence over the {@link RequestOptions} values provided to
-   * {@link GoogleGenerativeAI.getGenerativeModel }.
-   */
-  async batchEmbedContents(batchEmbedContentRequest, requestOptions = {}) {
-    const generativeModelRequestOptions = Object.assign(Object.assign({}, this._requestOptions), requestOptions);
-    return batchEmbedContents(this.apiKey, this.model, batchEmbedContentRequest, generativeModelRequestOptions);
-  }
-};
-var GoogleGenerativeAI = class {
-  constructor(apiKey) {
-    this.apiKey = apiKey;
-  }
-  /**
-   * Gets a {@link GenerativeModel} instance for the provided model name.
-   */
-  getGenerativeModel(modelParams, requestOptions) {
-    if (!modelParams.model) {
-      throw new GoogleGenerativeAIError(`Must provide a model name. Example: genai.getGenerativeModel({ model: 'my-model-name' })`);
-    }
-    return new GenerativeModel(this.apiKey, modelParams, requestOptions);
-  }
-  /**
-   * Creates a {@link GenerativeModel} instance from provided content cache.
-   */
-  getGenerativeModelFromCachedContent(cachedContent, modelParams, requestOptions) {
-    if (!cachedContent.name) {
-      throw new GoogleGenerativeAIRequestInputError("Cached content must contain a `name` field.");
-    }
-    if (!cachedContent.model) {
-      throw new GoogleGenerativeAIRequestInputError("Cached content must contain a `model` field.");
-    }
-    const disallowedDuplicates = ["model", "systemInstruction"];
-    for (const key of disallowedDuplicates) {
-      if ((modelParams === null || modelParams === void 0 ? void 0 : modelParams[key]) && cachedContent[key] && (modelParams === null || modelParams === void 0 ? void 0 : modelParams[key]) !== cachedContent[key]) {
-        if (key === "model") {
-          const modelParamsComp = modelParams.model.startsWith("models/") ? modelParams.model.replace("models/", "") : modelParams.model;
-          const cachedContentComp = cachedContent.model.startsWith("models/") ? cachedContent.model.replace("models/", "") : cachedContent.model;
-          if (modelParamsComp === cachedContentComp) {
-            continue;
-          }
-        }
-        throw new GoogleGenerativeAIRequestInputError(`Different value for "${key}" specified in modelParams (${modelParams[key]}) and cachedContent (${cachedContent[key]})`);
-      }
-    }
-    const modelParamsFromCache = Object.assign(Object.assign({}, modelParams), { model: cachedContent.model, tools: cachedContent.tools, toolConfig: cachedContent.toolConfig, systemInstruction: cachedContent.systemInstruction, cachedContent });
-    return new GenerativeModel(this.apiKey, modelParamsFromCache, requestOptions);
-  }
-};
-
-// src/index.ts
 var import_child_process = require("child_process");
 var import_https = __toESM(require("https"));
 console.error("--- MCP SCRIPT START ---");
@@ -8287,11 +7277,33 @@ function safeErrorReport(error) {
   if (error.message) return error.message.split("\n")[0];
   return "An error occurred.";
 }
-async function openRouterChat(model, messages) {
+async function openRouterChat(model, messages, options) {
   return new Promise((resolve, reject) => {
     const apiKey = process.env.OPENROUTER_API_KEY || process.env.OPENROUTER_API_AGENTS;
     if (!apiKey) return reject(new Error("OpenRouter key not set (set OPENROUTER_API_KEY or OPENROUTER_API_AGENTS)"));
-    const payload = JSON.stringify({ model, messages });
+    const openRouterMessages = messages.map((msg, idx) => {
+      if (msg.role === "user" && idx === messages.length - 1 && options?.fileData && options.fileData.length > 0) {
+        const contentParts = [{ type: "text", text: msg.content }];
+        options.fileData.forEach((file) => {
+          contentParts.push({
+            type: "text",
+            text: `
+
+[File Content - ${file.mimeType}]:
+${Buffer.from(file.data, "base64").toString("utf8")}`
+          });
+        });
+        return { role: msg.role, content: contentParts };
+      }
+      return { role: msg.role, content: msg.content };
+    });
+    const payload = {
+      model,
+      messages: openRouterMessages
+    };
+    if (options?.maxTokens) payload.max_tokens = options.maxTokens;
+    if (options?.temperature !== void 0) payload.temperature = options.temperature;
+    const payloadStr = JSON.stringify(payload);
     const req = import_https.default.request(
       {
         method: "POST",
@@ -8300,8 +7312,10 @@ async function openRouterChat(model, messages) {
         headers: {
           "Authorization": `Bearer ${apiKey}`,
           "Content-Type": "application/json",
-          "Content-Length": Buffer.byteLength(payload),
-          "Accept": "application/json"
+          "Content-Length": Buffer.byteLength(payloadStr),
+          "Accept": "application/json",
+          "HTTP-Referer": process.env.OPENROUTER_REFERER || "https://github.com/nbiish/giizhendam-aabajichiganan-mcp",
+          "X-Title": "Giizhendam Aabajichiganan MCP"
         }
       },
       (res) => {
@@ -8310,7 +7324,15 @@ async function openRouterChat(model, messages) {
         res.on("end", () => {
           try {
             const json = JSON.parse(data);
+            if (json.error) {
+              reject(new Error(`OpenRouter API error: ${json.error.message || JSON.stringify(json.error)}`));
+              return;
+            }
             const text = json?.choices?.[0]?.message?.content || "";
+            if (!text) {
+              reject(new Error("OpenRouter returned empty response"));
+              return;
+            }
             resolve(text);
           } catch (e) {
             reject(new Error(`OpenRouter parse error: ${e?.message || e}`));
@@ -8323,7 +7345,7 @@ async function openRouterChat(model, messages) {
       req.destroy(new Error(`OpenRouter request timeout after ${timeoutMs}ms`));
     });
     req.on("error", (err) => reject(err));
-    req.write(payload);
+    req.write(payloadStr);
     req.end();
   });
 }
@@ -8445,76 +7467,133 @@ ${docs.join("\n\n---\n\n")}`;
   const summary = await openRouterChat(ORCHESTRATOR_MODEL, [{ role: "system", content: system }, { role: "user", content: user }]);
   return summary || "# Synthesis\n\n*(No content returned from model)*";
 }
-var EXPERT_PROMPTS = {
-  // Keep full prompts from original
-  "Graham": `You are a Benjamin Graham AI agent... Analyze the following query/topic: 
-${"{params.topic}"}`,
-  "Ackman": `You are a Bill Ackman AI agent... Analyze the following query/topic: 
-${"{params.topic}"}`,
-  "Wood": `You are a Cathie Wood AI agent... Analyze the following query/topic: 
-${"{params.topic}"}`,
-  "Munger": `You are a Charlie Munger AI agent... Analyze the following query/topic: 
-${"{params.topic}"}`,
-  "Burry": `You are a Dr. Michael J. Burry AI agent... Analyze the following query/topic: 
-${"{params.topic}"}`,
-  "Lynch": `You are a Peter Lynch AI agent... Analyze the following query/topic: 
-${"{params.topic}"}`,
-  "Fisher": `You are a Phil Fisher AI agent... Analyze the following query/topic: 
-${"{params.topic}"}`
+var AGENT_FILE_MAP = {
+  "aswath-damodaran": "Damodaran",
+  "benjamin-graham": "Graham",
+  "bill-ackman": "Ackman",
+  "cathie-wood": "Wood",
+  "charlie-munger": "Munger",
+  "michael-burry": "Burry",
+  "mohnish-pabrai": "Pabrai",
+  "peter-lynch": "Lynch",
+  "phil-fisher": "Fisher",
+  "rakesh-jhunjhunwala": "Jhunjhunwala",
+  "stanley-druckenmiller": "Druckenmiller",
+  "warren-buffett": "Buffett",
+  "valuation-agent": "Valuation",
+  "sentiment-agent": "Sentiment",
+  "fundamentals-agent": "Fundamentals",
+  "technicals-agent": "Technicals",
+  "risk-manager": "RiskManager",
+  "portfolio-manager": "PortfolioManager"
 };
+async function loadAgentPrompts() {
+  const agentsDir = import_path.default.join(process.cwd(), "agents");
+  const prompts = {};
+  try {
+    const files = await import_promises.default.readdir(agentsDir);
+    const mdFiles = files.filter((f) => f.endsWith(".md"));
+    for (const file of mdFiles) {
+      const fileBase = file.replace(".md", "");
+      const agentName = AGENT_FILE_MAP[fileBase] || fileBase;
+      try {
+        const content = await import_promises.default.readFile(import_path.default.join(agentsDir, file), "utf8");
+        const prompt = content.trim().replace(/\{topic\}/g, "{params.topic}");
+        prompts[agentName] = prompt;
+      } catch (e) {
+        log(`Failed to load agent ${file}: ${safeErrorReport(e)}`);
+      }
+    }
+  } catch (e) {
+    log(`Failed to read agents directory: ${safeErrorReport(e)}. Using fallback prompts.`);
+    return {
+      "Graham": `You are a Benjamin Graham AI agent... Analyze the following query/topic: 
+{params.topic}`,
+      "Ackman": `You are a Bill Ackman AI agent... Analyze the following query/topic: 
+{params.topic}`,
+      "Wood": `You are a Cathie Wood AI agent... Analyze the following query/topic: 
+{params.topic}`,
+      "Munger": `You are a Charlie Munger AI agent... Analyze the following query/topic: 
+{params.topic}`,
+      "Burry": `You are a Dr. Michael J. Burry AI agent... Analyze the following query/topic: 
+{params.topic}`,
+      "Lynch": `You are a Peter Lynch AI agent... Analyze the following query/topic: 
+{params.topic}`,
+      "Fisher": `You are a Phil Fisher AI agent... Analyze the following query/topic: 
+{params.topic}`
+    };
+  }
+  return prompts;
+}
+var EXPERT_PROMPTS = {};
 var financeExpertsParamsSchema = z.object({
   topic: z.string().max(2e3).describe("Financial topic for expert deliberation (e.g., 'Financial risks of Project X')."),
   output_filename: z.string().optional().describe("Optional filename for output. Defaults to sanitized topic.")
 });
-var DEFAULT_GEMINI_MODEL = "gemini-1.5-flash-latest";
-var GEMINI_MODEL_NAME = process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
+var ORCHESTRATOR_MODEL_NAME = process.env.ORCHESTRATOR_MODEL || "google/gemini-2.5-pro";
 var financeExpertsOutputMetaSchema = z.object({
   success: z.boolean(),
   outputFilePath: z.string().optional(),
+  expertOutputsDir: z.string().optional().describe("Directory containing individual expert output files"),
   fileSaveSuccess: z.boolean().optional(),
   expertsProcessed: z.array(z.string()),
-  recommendedPrompt: z.string().optional().describe("The orchestrator prompt suggested by the expert deliberation for user execution."),
+  expertFilesCount: z.number().optional().describe("Number of expert output files created"),
+  ragConsolidationUsed: z.boolean().optional().describe("Whether Gemini File Search RAG was used for consolidation"),
+  recommendedPrompt: z.string().optional().describe("The orchestrator prompt suggested by the expert deliberation for CLI tools execution."),
   apiErrors: z.array(z.object({ expert: z.string(), error: z.string() })).optional(),
   errorType: z.string().optional().describe("Error: 'InitializationError', 'FileSystemError', 'ApiError', 'ConfigurationError'.")
 });
 server.tool(
   "finance_experts",
-  "Simulates deliberation between financial expert personas on a financial topic using Gemini. This includes formulating a recommended orchestrator prompt for the user to execute based on the deliberation. Saves aggregated expert perspectives and the recommendation to a file in './financial-experts/'.",
+  `Orchestrates 18 financial expert agents using the configured orchestrator model (${ORCHESTRATOR_MODEL_NAME}) via OpenRouter. Each expert provides analysis (900 token limit) saved to individual files. Then uses the orchestrator model with File Search RAG to consolidate all expert outputs into enterprise-ready, production-grade analysis and strategic advisory. Generates comprehensive orchestrator prompt to guide CLI tools/experts in execution.`,
   financeExpertsParamsSchema.shape,
   async (params) => {
-    const apiKey = process.env.GEMINI_API_KEY;
+    const openRouterKey = process.env.OPENROUTER_API_KEY || process.env.OPENROUTER_API_AGENTS;
     const outputDirFinance = process.env.FINANCE_EXPERTS_OUTPUT_DIR;
-    if (!apiKey) {
-      log("Config Error: GEMINI_API_KEY missing for finance_experts.");
-      return { content: [{ type: "text", text: "Configuration Error: GEMINI_API_KEY is not set." }], isError: true, _meta: { success: false, expertsProcessed: [], errorType: "ConfigurationError" } };
+    if (!openRouterKey) {
+      log("Config Error: OPENROUTER_API_KEY missing for finance_experts.");
+      return { content: [{ type: "text", text: "Configuration Error: OPENROUTER_API_KEY or OPENROUTER_API_AGENTS is not set." }], isError: true, _meta: { success: false, expertsProcessed: [], errorType: "ConfigurationError" } };
     }
     if (!outputDirFinance) {
       log("Config Error: FINANCE_EXPERTS_OUTPUT_DIR missing.");
       return { content: [{ type: "text", text: "Configuration Error: FINANCE_EXPERTS_OUTPUT_DIR is not set." }], isError: true, _meta: { success: false, expertsProcessed: [], errorType: "ConfigurationError" } };
     }
-    let ai;
-    try {
-      ai = new GoogleGenerativeAI(apiKey);
-    } catch (initError) {
-      log(`AI Init Error: ${initError.message}`);
-      return { content: [{ type: "text", text: `AI Client Initialization Error: ${initError.message}` }], isError: true, _meta: { success: false, expertsProcessed: [], errorType: "InitializationError" } };
+    log(`FinanceExperts: Using orchestrator model: ${ORCHESTRATOR_MODEL_NAME} via OpenRouter`);
+    if (Object.keys(EXPERT_PROMPTS).length === 0) {
+      EXPERT_PROMPTS = await loadAgentPrompts();
+      log(`Loaded ${Object.keys(EXPERT_PROMPTS).length} agent prompts`);
     }
     const apiErrors = [];
     const expertResponses = [];
     const expertsToProcess = Object.keys(EXPERT_PROMPTS);
+    const expertOutputsDir = import_path.default.join(outputDirFinance, `expert_outputs_${Date.now()}`);
+    await import_promises.default.mkdir(expertOutputsDir, { recursive: true });
+    const expertFiles = [];
     await Promise.allSettled(expertsToProcess.map(async (expert) => {
-      const basePrompt = EXPERT_PROMPTS[expert].replace("${params.topic}", params.topic);
+      const basePrompt = EXPERT_PROMPTS[expert].replace(/\{params\.topic\}/g, params.topic);
+      const promptWithLimit = `${basePrompt}
+
+IMPORTANT: Your response must be concise and limited to approximately 900 tokens. Focus on the most critical insights and recommendations.`;
       try {
-        log(`FinanceExperts: Generating for ${expert} using ${GEMINI_MODEL_NAME}`);
-        const model = ai.getGenerativeModel({ model: GEMINI_MODEL_NAME });
-        const result = await model.generateContent(basePrompt);
-        const responseText = (await result.response).text();
-        if (responseText) expertResponses.push({ expert, response: responseText });
-        else {
-          log(`FinanceExperts: No text content for ${expert}.`);
-          apiErrors.push({ expert, error: "No text content received." });
-          expertResponses.push({ expert, response: `*No text content received for ${expert}.*` });
-        }
+        log(`FinanceExperts: Generating for ${expert} using ${ORCHESTRATOR_MODEL_NAME} via OpenRouter (900 token limit)`);
+        const responseText = await openRouterChat(
+          ORCHESTRATOR_MODEL_NAME,
+          [{ role: "user", content: promptWithLimit }],
+          { maxTokens: 900, temperature: 0.7 }
+        );
+        const expertFileName = `${expert.toLowerCase().replace(/[^a-z0-9_-]/gi, "_")}_${Date.now()}.md`;
+        const expertFilePath = import_path.default.join(expertOutputsDir, expertFileName);
+        const expertContent = `# ${expert}'s Analysis
+
+**Topic:** ${params.topic}
+
+---
+
+${responseText}`;
+        await import_promises.default.writeFile(expertFilePath, expertContent);
+        expertFiles.push(expertFilePath);
+        expertResponses.push({ expert, response: responseText });
+        log(`FinanceExperts: Saved ${expert} output to ${expertFilePath}`);
       } catch (error) {
         log(`FinanceExperts: API Error for ${expert}: ${error.message}`);
         apiErrors.push({ expert, error: error.message });
@@ -8522,55 +7601,159 @@ server.tool(
       }
     }));
     expertResponses.sort((a, b) => expertsToProcess.indexOf(a.expert) - expertsToProcess.indexOf(b.expert));
-    let orchestratorDeliberation = "", promptSuggestion = "";
+    let consolidatedAnalysis = "", orchestratorDeliberation = "", promptSuggestion = "";
+    let ragFiles = [];
     try {
-      log("FinanceExperts: Generating orchestrator prompt deliberation...");
-      const deliberationPrompt = `You are a panel of financial experts (${expertsToProcess.join(", ")}). Collectively deliberate and formulate the single most effective prompt for our CLI-agent orchestrator to address the following financial topic.
-Topic: ${params.topic}
+      log(`FinanceExperts: Uploading ${expertFiles.length} expert files to Gemini for RAG analysis...`);
+      for (const filePath of expertFiles) {
+        try {
+          const fileContent = await import_promises.default.readFile(filePath, "utf8");
+          const fileName = import_path.default.basename(filePath);
+          ragFiles.push({
+            inlineData: {
+              mimeType: "text/markdown",
+              data: Buffer.from(fileContent).toString("base64")
+            }
+          });
+          log(`FinanceExperts: Prepared ${fileName} for RAG analysis (${fileContent.length} chars)`);
+        } catch (readError) {
+          log(`FinanceExperts: Failed to read ${filePath}: ${readError.message}`);
+        }
+      }
+      log(`FinanceExperts: Using orchestrator model (${ORCHESTRATOR_MODEL_NAME}) via OpenRouter with File Search RAG to consolidate ${expertFiles.length} expert analyses...`);
+      const ragPrompt = `You are a senior financial strategist synthesizing insights from ${expertFiles.length} financial experts who have each provided their analysis on the following topic:
+
+**Topic:** ${params.topic}
+
+Each expert has provided their perspective in separate files. Using your File Search RAG capabilities, analyze ALL expert outputs comprehensively and create an enterprise-ready, production-grade analysis and strategic advisory.
+
+Your task:
+1. Synthesize key insights, patterns, and consensus points across all expert perspectives
+2. Identify areas of agreement and disagreement
+3. Extract actionable recommendations
+4. Formulate a comprehensive strategy that guides CLI tools/experts to create enterprise-ready analysis
+5. Provide specific, executable guidance for next steps
+
 FORMAT YOUR RESPONSE AS FOLLOWS:
-## Expert Deliberation Summary
-[Brief summary of key discussion points leading to the prompt.]
-## Recommended Task Type (optional)
-[Single word if applicable]
-## Recommended Orchestrator Prompt (for user execution)
-[The exact, concise prompt to be provided to the orchestrator by the user.]
-## Collective Confidence Score (1-10)
-[A number from 1-10 for the recommendation.]`;
-      const model = ai.getGenerativeModel({ model: GEMINI_MODEL_NAME });
-      const result = await model.generateContent(deliberationPrompt);
-      orchestratorDeliberation = (await result.response).text();
-      const promptMatch = orchestratorDeliberation.match(/## Recommended Orchestrator Prompt \(for user execution\)\n([^#]+)/im);
-      if (promptMatch && promptMatch[1]) promptSuggestion = promptMatch[1].trim();
-      else log("FinanceExperts: Could not parse 'Recommended Orchestrator Prompt' from deliberation output.");
+
+## Consolidated Expert Analysis Summary
+[Comprehensive synthesis of all expert perspectives, key insights, and patterns]
+
+## Strategic Recommendations
+[Actionable, enterprise-ready recommendations based on expert consensus]
+
+## Areas Requiring Further Analysis
+[Specific areas where CLI tools/experts should focus their analysis]
+
+## Recommended Orchestrator Prompt (for CLI tools execution)
+[The exact, detailed prompt to be provided to the orchestrator to guide CLI tools in creating enterprise-ready analysis. This should be comprehensive and actionable.]
+
+## Implementation Roadmap
+[Step-by-step guidance for executing the analysis using CLI tools]
+
+## Confidence Assessment
+[Overall confidence score (1-10) and risk factors]`;
+      const fileDataArray = ragFiles.map((f) => ({
+        mimeType: f.inlineData.mimeType,
+        data: f.inlineData.data
+      }));
+      consolidatedAnalysis = await openRouterChat(
+        ORCHESTRATOR_MODEL_NAME,
+        [{ role: "user", content: ragPrompt }],
+        {
+          maxTokens: 4e3,
+          // Allow comprehensive analysis
+          temperature: 0.7,
+          // Balanced creativity and precision
+          fileData: fileDataArray
+        }
+      );
+      const promptMatch = consolidatedAnalysis.match(/## Recommended Orchestrator Prompt \(for CLI tools execution\)\n([^#]+)/im);
+      if (promptMatch && promptMatch[1]) {
+        promptSuggestion = promptMatch[1].trim();
+      } else {
+        const altMatch = consolidatedAnalysis.match(/## Recommended Orchestrator Prompt[^\n]*\n([^#]+)/im);
+        if (altMatch && altMatch[1]) promptSuggestion = altMatch[1].trim();
+      }
+      orchestratorDeliberation = consolidatedAnalysis;
+      log(`FinanceExperts: Successfully consolidated expert analyses using orchestrator model (${ORCHESTRATOR_MODEL_NAME}) via OpenRouter with File Search RAG`);
     } catch (error) {
-      log(`FinanceExperts: API Error for orchestrator deliberation: ${error.message}`);
-      orchestratorDeliberation = `*Error generating orchestrator prompt deliberation: ${error.message}*`;
+      log(`FinanceExperts: RAG API Error: ${error.message}. Falling back to text-based consolidation.`);
+      try {
+        const allExpertText = expertResponses.map(
+          ({ expert, response }) => `## ${expert}'s Analysis
+
+${response}`
+        ).join("\n\n---\n\n");
+        const fallbackPrompt = `Synthesize insights from these ${expertResponses.length} financial experts analyzing: ${params.topic}
+
+${allExpertText}
+
+Provide consolidated analysis and recommended orchestrator prompt.`;
+        orchestratorDeliberation = await openRouterChat(
+          ORCHESTRATOR_MODEL_NAME,
+          [{ role: "user", content: fallbackPrompt }],
+          { maxTokens: 4e3, temperature: 0.7 }
+        );
+        const promptMatch = orchestratorDeliberation.match(/## Recommended Orchestrator Prompt[^\n]*\n([^#]+)/im);
+        if (promptMatch && promptMatch[1]) promptSuggestion = promptMatch[1].trim();
+      } catch (fallbackError) {
+        log(`FinanceExperts: Fallback consolidation also failed: ${fallbackError.message}`);
+        orchestratorDeliberation = `*Error generating consolidated analysis: ${error.message}*`;
+      }
     }
-    let markdownOutput = `# Financial Expert Perspectives
+    let markdownOutput = `# Financial Expert Analysis & Enterprise Strategy
 
 **Topic/Query:** ${params.topic}
+
+**Analysis Date:** ${(/* @__PURE__ */ new Date()).toISOString()}
 
 ---
 
 `;
-    expertResponses.forEach(({ expert, response }) => markdownOutput += `## ${expert}'s Perspective
+    markdownOutput += `## Individual Expert Perspectives
+
+`;
+    expertResponses.forEach(({ expert, response }) => {
+      markdownOutput += `### ${expert}'s Analysis
 
 ${response}
 
 ---
 
-`);
-    markdownOutput += `
-# Collective Deliberation on Optimal Orchestrator Prompt (for user execution)
+`;
+    });
+    if (consolidatedAnalysis) {
+      markdownOutput += `
+# Consolidated Expert Analysis (Gemini File Search RAG)
+
+${consolidatedAnalysis}
+
+---
+
+`;
+    } else {
+      markdownOutput += `
+# Collective Deliberation & Orchestrator Guidance
 
 ${orchestratorDeliberation}
 
 ---
 
 `;
-    if (apiErrors.length > 0) markdownOutput += `**API Errors Encountered:**
+    }
+    markdownOutput += `
+## Expert Output Files
+
+Individual expert analyses saved to: \`${expertOutputsDir}\`
+
+`;
+    if (apiErrors.length > 0) {
+      markdownOutput += `
+**API Errors Encountered:**
 ${apiErrors.map((e) => `- ${e.expert}: ${e.error}`).join("\n")}
 `;
+    }
     const safeFilenameBase = (params.output_filename?.replace(/[^a-z0-9_-]/gi, "_") || params.topic.replace(/[^a-z0-9_-]/gi, "_").substring(0, 50)).trim() || "financial_expert_analysis";
     const outputFilename = `${safeFilenameBase}_${Date.now()}.md`;
     const outputFilePath = import_path.default.join(outputDirFinance, outputFilename);
@@ -8587,18 +7770,35 @@ ${apiErrors.map((e) => `- ${e.expert}: ${e.error}`).join("\n")}
     const overallSuccess = apiErrors.length === 0 && !fileSystemError;
     return {
       content: [
-        { type: "text", text: `Financial Experts simulation (Topic: ${params.topic}) ${overallSuccess ? "completed." : "completed with errors."} ${fileSaveSuccess ? `Results saved to '${outputFilePath}'.` : "Failed to save results file."}` },
+        { type: "text", text: `Financial Experts Analysis (Topic: ${params.topic}) ${overallSuccess ? "completed successfully." : "completed with errors."}` },
+        { type: "text", text: `
+**Individual Expert Outputs:** ${expertFiles.length} expert analyses saved to: ${expertOutputsDir}` },
+        { type: "text", text: fileSaveSuccess ? `
+**Consolidated Report:** Results saved to '${outputFilePath}'.` : "\n**Warning:** Failed to save consolidated results file." },
+        { type: "text", text: consolidatedAnalysis ? `
+**RAG Consolidation:** Successfully used Gemini File Search RAG to synthesize all ${expertFiles.length} expert perspectives.` : `
+**Consolidation:** Used text-based synthesis of expert perspectives.` },
         { type: "text", text: promptSuggestion ? `
---- Recommended Orchestrator Prompt (for your terminal) ---
-${promptSuggestion}` : `
---- No specific Prompt Recommendation was parsed from deliberation. See full deliberation in saved file. ---` }
+
+--- Recommended Orchestrator Prompt (for CLI tools execution) ---
+
+${promptSuggestion}
+
+---
+
+This prompt is designed to guide CLI tools/experts in creating enterprise-ready, production-grade analysis based on the consolidated expert insights.` : `
+
+--- No specific Orchestrator Prompt was parsed. See full consolidated analysis in saved file for guidance. ---` }
       ],
       isError: !overallSuccess,
       _meta: {
         success: overallSuccess,
         outputFilePath: fileSaveSuccess ? outputFilePath : void 0,
+        expertOutputsDir,
         fileSaveSuccess,
         expertsProcessed: expertsToProcess,
+        expertFilesCount: expertFiles.length,
+        ragConsolidationUsed: !!consolidatedAnalysis,
         recommendedPrompt: promptSuggestion || void 0,
         apiErrors: apiErrors.length > 0 ? apiErrors : void 0,
         errorType: fileSystemError ? "FileSystemError" : apiErrors.length > 0 ? "ApiError" : void 0
@@ -8621,26 +7821,20 @@ var boardSimulationOutputMetaSchema = z.object({
 });
 server.tool(
   "ceo_and_board",
-  "Simulates a board discussion on a given topic using Gemini. This deliberation includes formulating a recommended orchestrator prompt for the user to execute based on the discussion. Saves the simulated discussion and recommendation to a file in './ceo-and-board/'.",
+  `Simulates a board discussion on a given topic using the configured orchestrator model (${ORCHESTRATOR_MODEL_NAME}) via OpenRouter. This deliberation includes formulating a recommended orchestrator prompt for the user to execute based on the discussion. Saves the simulated discussion and recommendation to a file in './ceo-and-board/'.`,
   ceoBoardParamsSchema.shape,
   async (params) => {
-    const apiKey = process.env.GEMINI_API_KEY;
+    const openRouterKey = process.env.OPENROUTER_API_KEY || process.env.OPENROUTER_API_AGENTS;
     const outputDirBoard = process.env.CEO_BOARD_OUTPUT_DIR;
-    if (!apiKey) {
-      log("Config Error: GEMINI_API_KEY missing for ceo_and_board.");
-      return { content: [{ type: "text", text: "Configuration Error: GEMINI_API_KEY is not set." }], isError: true, _meta: { success: false, errorType: "ConfigurationError" } };
+    if (!openRouterKey) {
+      log("Config Error: OPENROUTER_API_KEY missing for ceo_and_board.");
+      return { content: [{ type: "text", text: "Configuration Error: OPENROUTER_API_KEY or OPENROUTER_API_AGENTS is not set." }], isError: true, _meta: { success: false, errorType: "ConfigurationError" } };
     }
     if (!outputDirBoard) {
       log("Config Error: CEO_BOARD_OUTPUT_DIR missing.");
       return { content: [{ type: "text", text: "Configuration Error: CEO_BOARD_OUTPUT_DIR is not set." }], isError: true, _meta: { success: false, errorType: "ConfigurationError" } };
     }
-    let ai;
-    try {
-      ai = new GoogleGenerativeAI(apiKey);
-    } catch (initError) {
-      log(`AI Init Error for ceo_and_board: ${initError.message}`);
-      return { content: [{ type: "text", text: `AI Client Initialization Error: ${initError.message}` }], isError: true, _meta: { success: false, errorType: "InitializationError" } };
-    }
+    log(`CeoAndBoard: Using orchestrator model: ${ORCHESTRATOR_MODEL_NAME} via OpenRouter`);
     const rolesToUse = params.roles || STANDARD_BOARD_ROLES;
     const rolesString = rolesToUse.join(", ");
     const simulationPrompt = `Simulate a concise board meeting transcript.
@@ -8661,9 +7855,11 @@ FORMAT YOUR RESPONSE AS FOLLOWS:
 [The exact, concise prompt to be provided to the orchestrator by the user.]
 ## Board Confidence Score (1-10)
 [A number from 1-10 for the recommendation.]`;
-      const model = ai.getGenerativeModel({ model: GEMINI_MODEL_NAME });
-      const result = await model.generateContent(deliberationPrompt);
-      orchestratorDeliberationBoard = (await result.response).text();
+      orchestratorDeliberationBoard = await openRouterChat(
+        ORCHESTRATOR_MODEL_NAME,
+        [{ role: "user", content: deliberationPrompt }],
+        { maxTokens: 2e3, temperature: 0.7 }
+      );
       const promptMatch = orchestratorDeliberationBoard.match(/## Recommended Orchestrator Prompt \(for user execution\)\n([^#]+)/im);
       if (promptMatch && promptMatch[1]) promptSuggestionBoard = promptMatch[1].trim();
       else log("CeoAndBoard: Could not parse 'Recommended Orchestrator Prompt' from deliberation output.");
@@ -8682,10 +7878,12 @@ FORMAT YOUR RESPONSE AS FOLLOWS:
     }
     let simulationText = "", apiError, apiSuccess = false;
     try {
-      log(`CeoAndBoard: Generating simulation for ${params.topic} using ${GEMINI_MODEL_NAME}`);
-      const model = ai.getGenerativeModel({ model: GEMINI_MODEL_NAME });
-      const result = await model.generateContent(simulationPrompt);
-      const responseText = (await result.response).text();
+      log(`CeoAndBoard: Generating simulation for ${params.topic} using ${ORCHESTRATOR_MODEL_NAME} via OpenRouter`);
+      const responseText = await openRouterChat(
+        ORCHESTRATOR_MODEL_NAME,
+        [{ role: "user", content: simulationPrompt }],
+        { maxTokens: 3e3, temperature: 0.8 }
+      );
       if (responseText) {
         simulationText = responseText;
         apiSuccess = true;
@@ -8743,6 +7941,12 @@ async function main() {
   log(`--- Starting Giizhendam Multi-Agent Orchestrator MCP Server v${serverVersion} ---`);
   log(`Initial process.cwd() = ${process.cwd()}`);
   try {
+    EXPERT_PROMPTS = await loadAgentPrompts();
+    log(`Pre-loaded ${Object.keys(EXPERT_PROMPTS).length} agent prompts`);
+  } catch (error) {
+    log(`Warning: Failed to pre-load agent prompts: ${safeErrorReport(error)}`);
+  }
+  try {
     const transport = new StdioServerTransport();
     await server.connect(transport);
     console.error(`${serverName} v${serverVersion} running on stdio`);
@@ -8766,25 +7970,4 @@ process.on("SIGINT", () => {
   log("SIGINT received: closing.");
   process.exit(0);
 });
-/*! Bundled license information:
-
-@google/generative-ai/dist/index.mjs:
-@google/generative-ai/dist/index.mjs:
-  (**
-   * @license
-   * Copyright 2024 Google LLC
-   *
-   * Licensed under the Apache License, Version 2.0 (the "License");
-   * you may not use this file except in compliance with the License.
-   * You may obtain a copy of the License at
-   *
-   *   http://www.apache.org/licenses/LICENSE-2.0
-   *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS,
-   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   * See the License for the specific language governing permissions and
-   * limitations under the License.
-   *)
-*/
 //# sourceMappingURL=index.js.map

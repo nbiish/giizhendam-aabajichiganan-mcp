@@ -1,228 +1,208 @@
-# GitHub Actions - Secret Protection
+# GitHub Actions Workflows
 
-This directory contains automated workflows to protect against committing secrets.
+This directory contains automated workflows for the Giizhendam Aabajichiganan MCP project.
 
-## Workflows
+## Workflows Overview
 
-### 1. `auto-sanitize.yml` - **Automatic Secret Removal** 🧹
+### 1. `npm-publish.yml` - Automated npm Publishing 📦
 
-**When it runs:**
-- On push to main/dev/staging branches
-- When CONFIGURATIONS files change
-- On pull requests
+**Purpose:** Automatically publish new versions to npm when releases are created.
+
+**Triggers:**
+- When a GitHub release is created
+- Manual dispatch with version input
 
 **What it does:**
-- Automatically detects and removes API keys
-- Replaces local paths with placeholders
-- Commits sanitized files back to the branch
-- Comments on PRs when secrets are found
+1. Checks out the repository
+2. Sets up Node.js and npm
+3. Installs dependencies and builds the package
+4. Verifies package contents (agents directory, dist files)
+5. Checks if version is already published (prevents duplicate publishes)
+6. Publishes to npm (if new version)
+7. Verifies publication succeeded
+8. Tests installation via npx
+9. Creates GitHub release (if triggered by release event)
 
-**Features:**
-- ✅ Auto-fixes secrets before they're merged
-- ✅ Uses jq for safe JSON processing
-- ✅ Skips CI on auto-commits (`[skip ci]`)
-- ✅ Posts PR comments when secrets detected
+**Required Secrets:**
+- `NPM_TOKEN` - npm authentication token with publish permissions
 
-### 2. `detect-secrets.yml` - **Secret Detection & Blocking** 🚨
+**Setup:**
+1. Create an npm access token at https://www.npmjs.com/settings/YOUR_USERNAME/tokens
+2. Add it as a secret named `NPM_TOKEN` in GitHub repository settings
+3. Ensure the token has "Automation" type for CI/CD use
 
-**When it runs:**
-- On every push
+**Usage:**
+```bash
+# Option 1: Create a GitHub release
+gh release create v0.6.0 --title "Release v0.6.0" --notes "See CHANGELOG.md"
+
+# Option 2: Manual dispatch via GitHub UI
+# Actions → npm-publish → Run workflow → Enter version
+```
+
+### 2. `detect-secrets.yml` - Secret Detection & Blocking 🚨
+
+**Purpose:** Prevents secrets from being committed to the repository.
+
+**Triggers:**
+- On every push to main/dev/staging
 - On every pull request
 
 **What it does:**
-- Scans for known secret patterns
-- Uses TruffleHog for verified secrets
-- Uses Gitleaks for pattern matching
-- **BLOCKS the PR** if secrets found
-- Comments with remediation steps
+1. Uses TruffleHog OSS to scan for verified secrets
+2. Uses Gitleaks for pattern-based detection
+3. Scans for specific patterns (API keys, local paths)
+4. **BLOCKS** the PR/push if secrets are found
+5. Comments on PR with remediation steps
 
 **Detected Patterns:**
 - Brave API keys (`BSA...`)
 - Tavily API keys (`tvly-dev-...`)
-- Local paths (`/Volumes/1tb-sandisk/`)
-- Generic API keys and passwords
+- OpenRouter API keys (`sk-or-v1-...`)
+- Local paths (`/Volumes/1tb-sandisk/`, `/Users/...`)
+- Generic API key patterns
 
-### 3. `secret-scan.yml` - **Legacy** (Disabled)
+**No setup required** - works out of the box.
 
-Original scanning workflow. Now replaced by `detect-secrets.yml`.
-Only runs on manual trigger (`workflow_dispatch`).
+### 3. `auto-sanitize.yml` - Automatic Secret Removal 🧹
 
-## How It Works Together
+**Purpose:** Automatically removes secrets from CONFIGURATIONS files before they're merged.
+
+**Triggers:**
+- On push to main/dev/staging when CONFIGURATIONS files change
+- On pull requests when CONFIGURATIONS files change
+
+**What it does:**
+1. Finds all `settings.json` files in CONFIGURATIONS directory
+2. Sanitizes API keys and local paths using jq
+3. Commits sanitized files back to the branch
+4. Comments on PR when secrets were found and cleaned
+
+**Sanitized Values:**
+- `BRAVE_API_KEY` → `YOUR_BRAVE_API_KEY_HERE`
+- `TAVILY_API_KEY` → `YOUR_TAVILY_API_KEY_HERE`
+- `OPENROUTER_API_KEY` → `YOUR_OPENROUTER_API_KEY_HERE`
+- Local paths → `/path/to/your/mcp/servers`
+
+**Required Permissions:**
+- Repository Settings → Actions → General
+- Workflow permissions: "Read and write permissions"
+- ✅ Allow GitHub Actions to create and approve pull requests
+
+### 4. `secret-scan.yml` - Legacy (Disabled) 🔒
+
+Original scanning workflow. Kept for reference but only runs on manual trigger.
+
+## Workflow Dependencies
 
 ```mermaid
 graph TD
-    A[Push/PR with Changes] --> B{detect-secrets.yml}
+    A[Push/PR] --> B[detect-secrets.yml]
     B -->|Secrets Found| C[❌ Block PR]
-    B -->|No Secrets| D[✅ Pass]
+    B -->|No Secrets| D[✅ Continue]
     
-    A --> E{auto-sanitize.yml}
-    E -->|Secrets Found| F[🧹 Auto-Clean]
-    F --> G[📝 Commit Changes]
-    G --> H[💬 Comment on PR]
-    E -->|No Secrets| I[✅ Nothing to do]
+    A --> E{CONFIGURATIONS changed?}
+    E -->|Yes| F[auto-sanitize.yml]
+    F -->|Secrets Found| G[🧹 Auto-Clean & Commit]
+    F -->|No Secrets| H[✅ Nothing to do]
+    
+    I[Release Created] --> J[npm-publish.yml]
+    J --> K[📦 Publish to npm]
 ```
 
-## Setup Requirements
+## Setup Checklist
 
-### Repository Settings
+### For npm Publishing
 
-1. **Enable Actions Permissions:**
-   - Navigate to your repository on GitHub
-   - Click **Settings** (gear icon tab)
-   - In the left sidebar: **Actions** → **General**
-   - Scroll down to **"Workflow permissions"** (near bottom of page)
-   - Select: **"Read and write permissions"**
-   - ✅ Check: **"Allow GitHub Actions to create and approve pull requests"**
-   - Click **Save**
+- [ ] Create npm access token (Automation type)
+- [ ] Add `NPM_TOKEN` secret to GitHub repository
+- [ ] Test workflow with manual dispatch
+- [ ] Verify package appears on npm after publish
 
-2. **Branch Protection (Optional but Recommended):**
-   - Settings → Branches → Branch protection rules
-   - Add rule for `main`:
-     - ✅ Require status checks to pass before merging
-     - Select: `detect-secrets` and `custom-patterns`
+### For Secret Protection
 
-### First Run
+- [ ] Enable Actions write permissions (Settings → Actions → General)
+- [ ] Allow Actions to create/approve PRs
+- [ ] Test by pushing a file with a test secret
+- [ ] Verify auto-sanitization works
+- [ ] Verify detection blocks PRs
 
-On first push after setup:
-1. `detect-secrets.yml` will scan for existing secrets
-2. If found, it will **fail** and block the PR
-3. `auto-sanitize.yml` will clean the files
-4. Auto-commit will push sanitized versions
+## Testing Workflows
 
-## Testing
-
-### Test Auto-Sanitization
+### Test npm-publish.yml
 
 ```bash
-# Add a test secret
-echo '{"BRAVE_API_KEY": "BSAtestkey12345678901234567"}' > CONFIGURATIONS/test.json
+# Create a test release
+gh release create v0.6.0-test --title "Test Release" --notes "Testing"
 
-# Commit and push
-git add CONFIGURATIONS/test.json
-git commit -m "test: trigger auto-sanitize"
-git push
-
-# Check the Actions tab on GitHub
-# The file should be auto-cleaned and re-committed
+# Or use manual dispatch in GitHub UI
 ```
 
-### Test Secret Detection
+### Test detect-secrets.yml
 
 ```bash
 # This should be blocked
-echo '{"api_key": "real-secret-key-12345"}' > CONFIGURATIONS/test.json
-git add . && git commit -m "test" && git push
+echo '{"OPENROUTER_API_KEY": "sk-or-v1-test123456789012345678901234567890123456789012345678901234567890"}' > CONFIGURATIONS/test.json
+git add CONFIGURATIONS/test.json
+git commit -m "test: trigger secret detection"
+git push
 
 # Check Actions tab - should see ❌ failure
 ```
 
-## Manual Sanitization
-
-If you prefer to clean locally before pushing:
+### Test auto-sanitize.yml
 
 ```bash
-# Run the sanitize script
-bash dna/atoms/sanitize-settings.sh
-
-# Review changes
-git diff
-
-# Commit
+# Add a secret to CONFIGURATIONS
+echo '{"OPENROUTER_API_KEY": "sk-or-v1-test123456789012345678901234567890123456789012345678901234567890"}' > CONFIGURATIONS/MCP/test.json
 git add CONFIGURATIONS/
-git commit -m "chore: sanitize secrets"
+git commit -m "test: trigger auto-sanitize"
 git push
+
+# Check Actions tab - should auto-clean and commit
 ```
 
 ## Troubleshooting
 
-### "Permission denied" errors
+### npm-publish.yml
 
-**Solution:** Enable write permissions in repository settings (see Setup Requirements above)
+**Issue: "NPM_TOKEN not found"**
+- Solution: Add `NPM_TOKEN` secret in repository settings
 
-### Auto-commit not working
+**Issue: "Version already published"**
+- Solution: Bump version in package.json before creating release
 
-**Solution:** Check that the branch isn't protected without allowing Actions to push
+**Issue: "Package verification failed"**
+- Solution: Ensure `agents` directory exists and contains .md files
 
-### Too many commits from bot
+### detect-secrets.yml
 
-**Solution:** The `[skip ci]` tag prevents infinite loops. If you see loops, check workflow triggers.
+**Issue: "Too many false positives"**
+- Solution: Adjust patterns in the workflow file
 
-### Want to disable auto-sanitization?
+**Issue: "Not detecting secrets"**
+- Solution: Check that patterns match your secret format
 
-**Option 1:** Remove the workflow file
-```bash
-git rm .github/workflows/auto-sanitize.yml
-```
+### auto-sanitize.yml
 
-**Option 2:** Disable in GitHub UI
-- Go to Actions tab
-- Click on "Auto-Sanitize Secrets"
-- Click "..." → Disable workflow
+**Issue: "Permission denied"**
+- Solution: Enable write permissions in repository settings
 
-## Customization
-
-### Add More Patterns
-
-Edit `.github/workflows/detect-secrets.yml`:
-
-```yaml
-PATTERNS=(
-  "BSA[a-zA-Z0-9]{27}"
-  "tvly-[a-zA-Z0-9-]{30,}"
-  "YOUR_NEW_PATTERN_HERE"
-)
-```
-
-### Change Sanitization Rules
-
-Edit `.github/workflows/auto-sanitize.yml`:
-
-```yaml
-jq 'walk(
-  if type == "object" then
-    if has("YOUR_SECRET_FIELD") then 
-      .YOUR_SECRET_FIELD = "PLACEHOLDER" 
-    else . end
-  else . end
-)'
-```
-
-### Notify Different People
-
-Add to `auto-sanitize.yml`:
-
-```yaml
-- name: Notify team
-  uses: actions/github-script@v7
-  with:
-    script: |
-      github.rest.issues.addAssignees({
-        issue_number: context.issue.number,
-        owner: context.repo.owner,
-        repo: context.repo.repo,
-        assignees: ['username1', 'username2']
-      })
-```
+**Issue: "Auto-commit not working"**
+- Solution: Check branch protection rules allow Actions to push
 
 ## Best Practices
 
-1. ✅ **Use templates** - Copy from `CONFIGURATIONS/MCP/settings.json.template`
-2. ✅ **Local protection** - Still use `git-secrets` locally for immediate feedback
-3. ✅ **Review auto-commits** - Check what the bot changed
-4. ✅ **Environment variables** - Use `${VAR}` syntax instead of hardcoded values
-5. ✅ **Rotate exposed keys** - If a secret reaches GitHub, rotate it immediately
+1. ✅ **Always test workflows** before relying on them
+2. ✅ **Use npm-publish.yml** for consistent releases
+3. ✅ **Keep secrets out of code** - use environment variables
+4. ✅ **Review auto-sanitized commits** before merging
+5. ✅ **Rotate exposed keys** immediately if secrets leak
 
 ## Security Notes
 
-⚠️ **IMPORTANT:** 
+⚠️ **Important:**
 - GitHub Actions have access to your secrets
 - Auto-sanitization runs **after** the push (secrets briefly exist in history)
 - For maximum security, use `git-secrets` locally to prevent pushes
 - These workflows are **defense in depth**, not primary protection
-
-## Support
-
-Questions or issues? Check:
-1. `KNOWLEDGE_BASE/SECRET_PROTECTION_SETUP.md` - Implementation details
-2. `CONFIGURATIONS/MCP/README.md` - Configuration guide
-3. Run `bash dna/atoms/secret-protection-help.sh` - Quick reference

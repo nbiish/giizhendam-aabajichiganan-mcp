@@ -28,7 +28,12 @@
 
 This project implements a Model Context Protocol (MCP) server that provides multi-agent CLI orchestration for developers and decision-makers. It serves as a bridge between different AI models and external CLI agents, and provides specialized tools for financial analysis and collaborative decision simulation.
 
-The server includes a multi-agent orchestrator tool (`orchestrate_agents`) that loads CLI agents from `CLI_AGENTS_JSON` or `llms.txt`, uses Gemini 2.5 Pro via OpenRouter to decide between sequential or parallel execution, executes the agents, and synthesizes a consolidated markdown report.
+The server includes a multi-agent orchestrator tool (`orchestrate_agents`) that loads CLI agents from `CLI_AGENTS_JSON` or `llms.txt`, uses a configurable orchestrator model (default: Gemini 2.5 Pro) via OpenRouter to decide between sequential or parallel execution, executes the agents, and synthesizes a consolidated markdown report.
+
+**Key Features:**
+- **Unified Orchestrator Model**: All AI operations use a single configurable model via OpenRouter
+- **18 Financial Expert Agents**: Comprehensive financial analysis with individual expert perspectives (900 tokens each) + RAG consolidation
+- **Model Flexibility**: Easily swap between any OpenRouter-supported model (Gemini, Claude, GPT-4, etc.)
 
 <div align="center">
 ◈──◆──◇─────────────────────────────────────────────────◇──◆──◈
@@ -42,9 +47,10 @@ The server includes a multi-agent orchestrator tool (`orchestrate_agents`) that 
   - Consolidated markdown synthesis of agent outputs
   
 - **◇ Financial Expert Simulation ◇**
-  - Simulates deliberation between 7 financial expert personas
-  - Generates analysis from different financial perspectives
-  - Includes perspectives from Graham, Ackman, Wood, Munger, Burry, Lynch, and Fisher
+  - Orchestrates 18 financial expert agents individually (900 tokens each)
+  - Uses orchestrator model with File Search RAG to consolidate all expert outputs
+  - Generates enterprise-ready, production-grade analysis and strategic advisory
+  - Includes perspectives from: Damodaran, Graham, Buffett, Munger, Lynch, Fisher, Ackman, Wood, Burry, Pabrai, Jhunjhunwala, Druckenmiller, plus Valuation, Sentiment, Fundamentals, Technicals, Risk Manager, and Portfolio Manager agents
   
 - **◇ CEO & Board Meeting Simulation ◇**
   - Simulates realistic board discussions on specified topics
@@ -62,6 +68,8 @@ The server includes a multi-agent orchestrator tool (`orchestrate_agents`) that 
 
 ## ᐴ OSHKI-AABAJICHIGANAN ᔔ [RECENT CHANGES] ◈──◆──◇──◆──◈
 
+- **v0.6.0** - **Major Refactor**: Unified orchestrator model configuration via OpenRouter. Removed direct Gemini API dependency. All AI operations now use a single configurable model (`ORCHESTRATOR_MODEL`). Enhanced financial experts tool with 18 agents, 900-token limits, and RAG consolidation. Supports any OpenRouter model (Gemini, Claude, GPT-4, etc.).
+- **v0.5.3** - Added 18 financial expert agents with dynamic prompt loading from markdown files
 - **v0.3.34** - Fixed shebang line in the bundled output file to ensure proper execution via npx. This resolves issues with "Client closed" errors when running via MCP.
 
 <div align="center">
@@ -72,7 +80,8 @@ The server includes a multi-agent orchestrator tool (`orchestrate_agents`) that 
 
 - Node.js (v14 or higher) and npm/yarn
 - CLI tools for agents you plan to run (e.g., qwen, gemini, cursor, goose, opencode, crush) available in PATH
-- API keys for required services (e.g., OpenRouter)
+- **OpenRouter API Key** (required) - Used for all AI operations
+- **ORCHESTRATOR_MODEL** (optional) - Defaults to `google/gemini-2.5-pro`, can be any OpenRouter-supported model
 
 <div align="center">
 ╭──────────────[ ◈◆◇ SYSTEM INSTALLATION ◇◆◈ ]──────────────╮
@@ -94,7 +103,11 @@ npm uninstall -g @nbiish/ai-tool-mcp
 # Install from the current directory
 npm install -g .
 
-# Or install from npm registry (choose one)
+# Or install from npm registry via npx (recommended for MCP)
+# This is the preferred method for MCP configuration
+npx -y @nbiish/giizhendam-aabajichiganan-mcp
+
+# Or install globally from npm registry
 npm install -g @nbiish/giizhendam-aabajichiganan-mcp
 # Alternative package with identical functionality
 npm install -g @nbiish/ai-tool-mcp
@@ -130,34 +143,238 @@ npm install -g .
 
 ## ᐴ ONAAKONIGE ᔔ [CONFIGURATION] ◈──◆──◇──◆──◈
 
-You can configure the server settings within your `mcp.json` file when defining the server:
+### MCP Client Configuration (`mcp.json`)
+
+Configure the server in your MCP client's configuration file. The location depends on your client:
+- **Cursor**: `~/.cursor/mcp.json` or `~/.config/cursor/mcp.json`
+- **Claude Desktop**: `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows)
+- **Other MCP Clients**: Check your client's documentation
+
+#### Basic Configuration (Recommended)
 
 ```json
-╭──────────────────────────────────────────────────────────────────────╮
-│  ᐴ ONAAKONIGE ᔔ [ CONFIGURATION SETTINGS ]                           │
-╰──────────────────────────────────────────────────────────────────────╯
-
-"ai-tool-mcp": {
-  "command": "npx",
-  "args": ["-y", "@nbiish/giizhendam-aabajichiganan-mcp"],
-  "env": {
-    "OPENROUTER_API_KEY": "YOUR_OPENROUTER_API_KEY",
-    "ORCHESTRATOR_MODEL": "google/gemini-2.5-pro",
-    "CLI_AGENTS_JSON": "[ {\"name\":\"Qwen\",\"cmd\":\"qwen -y {prompt}\"} ]",
-    "AGENT_OUTPUT_DIR": "./output/agents",
-    "EXECUTION_STYLE": "auto", // or sequential | parallel
-    "FINANCE_EXPERTS_OUTPUT_DIR": "./output/finance-experts",
-    "CEO_BOARD_OUTPUT_DIR": "./output/ceo-and-board"
-  },
-  "cwd": "/path/to/your/project"
+{
+  "mcpServers": {
+    "giizhendam-mcp": {
+      "command": "npx",
+      "args": ["-y", "@nbiish/giizhendam-aabajichiganan-mcp"],
+      "env": {
+        "OPENROUTER_API_KEY": "sk-or-v1-your-key-here",
+        "ORCHESTRATOR_MODEL": "google/gemini-2.5-pro"
+      }
+    }
+  }
 }
 ```
 
-The server uses the following internal defaults if environment variables are not provided via `mcp.json`:
-- `ORCHESTRATOR_MODEL`: `google/gemini-2.5-pro`
-- Output Directories: Relative to the server's Current Working Directory (`cwd`) specified in `mcp.json`, defaulting to `./output/finance-experts` and `./output/ceo-and-board`.
+#### Full Configuration with All Options
 
-Note: The orchestrator decides sequential vs parallel automatically unless you set `EXECUTION_STYLE` to force a style. Agent outputs and the final synthesis markdown are written to `AGENT_OUTPUT_DIR`.
+```json
+{
+  "mcpServers": {
+    "giizhendam-mcp": {
+      "command": "npx",
+      "args": ["-y", "@nbiish/giizhendam-aabajichiganan-mcp"],
+      "env": {
+        "OPENROUTER_API_KEY": "sk-or-v1-your-key-here",
+        "ORCHESTRATOR_MODEL": "google/gemini-2.5-pro",
+        "CLI_AGENTS_JSON": "[{\"name\":\"Qwen\",\"cmd\":\"qwen -y \\\"{prompt}\\\"\"},{\"name\":\"Gemini\",\"cmd\":\"gemini -y \\\"{prompt}\\\"\"}]",
+        "AGENT_OUTPUT_DIR": "./output/agents",
+        "EXECUTION_STYLE": "auto",
+        "FINANCE_EXPERTS_OUTPUT_DIR": "./output/finance-experts",
+        "CEO_BOARD_OUTPUT_DIR": "./output/ceo-and-board",
+        "OPENROUTER_TIMEOUT_MS": "30000",
+        "SYNTH_MAX_PER_AGENT_CHARS": "20000",
+        "SYNTH_MAX_TOTAL_CHARS": "150000"
+      }
+    }
+  }
+}
+```
+
+### Environment Variables Reference
+
+#### Required Variables
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `OPENROUTER_API_KEY` | Your OpenRouter API key (required for all AI operations) | `sk-or-v1-...` |
+
+#### Optional Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ORCHESTRATOR_MODEL` | `google/gemini-2.5-pro` | Model used for all AI operations. Can be any OpenRouter-supported model (see below) |
+| `CLI_AGENTS_JSON` | (none) | JSON array of CLI agent definitions (see CLI Agents section) |
+| `AGENT_OUTPUT_DIR` | `./output/agents` | Directory for orchestrator tool outputs |
+| `EXECUTION_STYLE` | `auto` | Execution style: `auto` (model decides), `sequential`, or `parallel` |
+| `FINANCE_EXPERTS_OUTPUT_DIR` | `./output/finance-experts` | Directory for financial expert analysis outputs |
+| `CEO_BOARD_OUTPUT_DIR` | `./output/ceo-and-board` | Directory for board simulation outputs |
+| `OPENROUTER_TIMEOUT_MS` | `30000` | Timeout for OpenRouter API calls (milliseconds) |
+| `SYNTH_MAX_PER_AGENT_CHARS` | `20000` | Max characters per agent in synthesis |
+| `SYNTH_MAX_TOTAL_CHARS` | `150000` | Max total characters in synthesis |
+
+### Orchestrator Model Options
+
+The `ORCHESTRATOR_MODEL` can be any model supported by OpenRouter. Popular options:
+
+**Google Models:**
+- `google/gemini-2.5-pro` (default, recommended for best quality)
+- `google/gemini-2.0-flash-exp` (faster, cheaper, good for testing)
+- `google/gemini-1.5-pro` (alternative)
+- `google/gemini-1.5-flash` (fastest, cheapest)
+
+**Anthropic Models:**
+- `anthropic/claude-3.5-sonnet` (high quality alternative)
+- `anthropic/claude-3-opus` (premium quality)
+- `anthropic/claude-3-haiku` (fast, cost-effective)
+
+**OpenAI Models:**
+- `openai/gpt-4-turbo` (alternative)
+- `openai/gpt-4` (alternative)
+- `openai/gpt-3.5-turbo` (budget option)
+
+**Other Providers:**
+- `meta-llama/llama-3.1-405b-instruct` (open source)
+- `mistralai/mixtral-8x7b-instruct` (open source)
+
+See [ORCHESTRATOR_MODEL_CONFIG.md](ORCHESTRATOR_MODEL_CONFIG.md) for complete details and testing guidance.
+
+### CLI Agents Configuration
+
+Configure CLI agents for the `orchestrate_agents` tool in two ways:
+
+#### Option A: Using CLI_AGENTS_JSON (Recommended)
+
+Set the `CLI_AGENTS_JSON` environment variable as a JSON array:
+
+```json
+[
+  {"name": "Qwen", "cmd": "qwen -y \"{prompt}\""},
+  {"name": "Gemini", "cmd": "gemini -y \"{prompt}\""},
+  {"name": "Cursor", "cmd": "cursor agent --print --approve-mcps \"{prompt}\""},
+  {"name": "Goose", "cmd": "echo \"{prompt}\" | goose"},
+  {"name": "Opencode", "cmd": "opencode run \"{prompt}\""},
+  {"name": "Crush", "cmd": "crush run \"{prompt}\""}
+]
+```
+
+**Important:** Escape quotes properly in JSON:
+- Use `\"` for double quotes inside strings
+- Use `\\\"` for quotes inside command strings
+
+#### Option B: Using llms.txt (Fallback)
+
+If `CLI_AGENTS_JSON` is not set, the server reads `llms.txt` from the current working directory:
+
+```
+- Qwen
+```bash
+qwen -y "{prompt}"
+```
+
+- Gemini
+```bash
+gemini -y "{prompt}"
+```
+
+- Cursor
+```bash
+cursor agent --print --approve-mcps "{prompt}"
+```
+```
+
+### Output Directories
+
+All output directories are relative to the server's current working directory (typically your project root). The server will create these directories automatically if they don't exist.
+
+**Default Structure:**
+```
+your-project/
+├── output/
+│   ├── agents/              # Orchestrator tool outputs
+│   ├── finance-experts/     # Financial expert analyses
+│   │   └── expert_outputs_*/  # Individual expert files
+│   └── ceo-and-board/       # Board simulation outputs
+```
+
+### Configuration Examples
+
+#### Minimal Configuration (Finance Experts Only)
+
+```json
+{
+  "mcpServers": {
+    "giizhendam-mcp": {
+      "command": "npx",
+      "args": ["-y", "@nbiish/giizhendam-aabajichiganan-mcp"],
+      "env": {
+        "OPENROUTER_API_KEY": "your-key-here"
+      }
+    }
+  }
+}
+```
+
+#### With Custom Model
+
+```json
+{
+  "mcpServers": {
+    "giizhendam-mcp": {
+      "command": "npx",
+      "args": ["-y", "@nbiish/giizhendam-aabajichiganan-mcp"],
+      "env": {
+        "OPENROUTER_API_KEY": "your-key-here",
+        "ORCHESTRATOR_MODEL": "anthropic/claude-3.5-sonnet"
+      }
+    }
+  }
+}
+```
+
+#### With CLI Agents
+
+```json
+{
+  "mcpServers": {
+    "giizhendam-mcp": {
+      "command": "npx",
+      "args": ["-y", "@nbiish/giizhendam-aabajichiganan-mcp"],
+      "env": {
+        "OPENROUTER_API_KEY": "your-key-here",
+        "CLI_AGENTS_JSON": "[{\"name\":\"Qwen\",\"cmd\":\"qwen -y \\\"{prompt}\\\"\"}]"
+      }
+    }
+  }
+}
+```
+
+### Important Notes
+
+⚠️ **Security:**
+- Never commit your `mcp.json` file with real API keys to version control
+- Use environment variables or secret management tools in production
+- The `GEMINI_API_KEY` environment variable is **no longer used** (removed in v0.6.0)
+
+⚠️ **Breaking Changes (v0.6.0):**
+- Removed `GEMINI_API_KEY` requirement - all operations now use OpenRouter
+- Removed `@google/generative-ai` dependency
+- All AI calls now go through OpenRouter with the orchestrator model
+
+### Troubleshooting Configuration
+
+**Issue: "OPENROUTER_API_KEY is not set"**
+- Solution: Ensure `OPENROUTER_API_KEY` is set in the `env` section of your `mcp.json`
+
+**Issue: "Model not found"**
+- Solution: Verify the model name matches OpenRouter's format exactly (e.g., `google/gemini-2.5-pro`)
+
+**Issue: "No CLI agents configured"**
+- Solution: Set `CLI_AGENTS_JSON` or create `llms.txt` in your project directory
+
+**Issue: Output directories not created**
+- Solution: Ensure the server has write permissions in the current working directory
 
 <div align="center">
 ╭──────────────[ ◈◆◇ SYSTEM OPERATION ◇◆◈ ]──────────────╮
@@ -187,7 +404,7 @@ The former double computation tool has been removed. If you need redundant verif
 
 ### Financial Expert Simulation
 
-Simulate a financial analysis from multiple expert perspectives:
+Orchestrates 18 financial expert agents individually, then uses the orchestrator model with File Search RAG to consolidate all perspectives into enterprise-ready analysis:
 
 ```typescript
 ╭──────────────────────────────────────────────────────────────────────╮
@@ -199,7 +416,14 @@ const result = await server.execute("finance_experts", {
   output_filename: "ai_product_funding_analysis"  // Optional: custom filename
 });
 
-// Results saved to ./financial-experts/ai_product_funding_analysis_[timestamp].md
+// Process:
+// 1. Each of 18 experts provides analysis (900 tokens each)
+// 2. Individual expert files saved to expert_outputs_[timestamp]/
+// 3. Orchestrator model consolidates all outputs using File Search RAG
+// 4. Results saved to ./finance-experts/ai_product_funding_analysis_[timestamp].md
+//    - Includes all individual expert perspectives
+//    - Includes consolidated RAG-based analysis
+//    - Includes recommended orchestrator prompt for CLI tools
 ```
 
 ### Board Meeting Simulation
@@ -322,21 +546,29 @@ npm test
 ## Local Testing Plan
 
 - **Prepare env**
-  - Set `OPENROUTER_API_KEY` in your MCP config env or shell.
-  - Optionally set `CLI_AGENTS_JSON` or populate `llms.txt`.
+  - Set `OPENROUTER_API_KEY` in your MCP config env or shell (required).
+  - Optionally set `ORCHESTRATOR_MODEL` to test different models (defaults to `google/gemini-2.5-pro`).
+  - Optionally set `CLI_AGENTS_JSON` or populate `llms.txt` for orchestrator tool.
   - Ensure agent CLIs (qwen, gemini, cursor, goose, opencode, crush) are installed and in PATH.
-- **Start server**
-  - `npm run build`
+- **Install and Test**
+  - Test via npx: `npx -y @nbiish/giizhendam-aabajichiganan-mcp`
+  - Or install globally: `npm install -g @nbiish/giizhendam-aabajichiganan-mcp`
   - Launch via your MCP client using the `mcp.json` example above.
-- **Invoke orchestrator**
-  - Call `orchestrate_agents` with a short `prompt_text`.
-  - Expected: The server selects `parallel` or `sequential`, executes agents, writes per-agent files under `AGENT_OUTPUT_DIR`, and creates a synthesis markdown file.
+- **Invoke tools**
+  - **Orchestrator**: Call `orchestrate_agents` with a short `prompt_text`.
+    - Expected: Server selects `parallel` or `sequential`, executes agents, writes per-agent files under `AGENT_OUTPUT_DIR`, and creates a synthesis markdown file.
+  - **Finance Experts**: Call `finance_experts` with a financial topic.
+    - Expected: 18 expert analyses (900 tokens each) saved individually, then consolidated via RAG into enterprise-ready analysis.
+  - **Board Simulation**: Call `ceo_and_board` with a discussion topic.
+    - Expected: Realistic board meeting transcript and recommended orchestrator prompt.
 - **Verify outputs**
-  - Confirm files exist in `AGENT_OUTPUT_DIR` and review the synthesis report.
+  - Confirm files exist in configured output directories and review reports.
   - Adjust `EXECUTION_STYLE` to `sequential` or `parallel` to force behavior.
+  - Test different `ORCHESTRATOR_MODEL` values to compare outputs.
 - **Troubleshoot**
   - If timeouts occur, tune `OPENROUTER_TIMEOUT_MS`, `SYNTH_MAX_PER_AGENT_CHARS`, `SYNTH_MAX_TOTAL_CHARS`.
-  - Ensure each agent’s command runs successfully from your shell with a sample prompt.
+  - Ensure each agent's command runs successfully from your shell with a sample prompt.
+  - Check OpenRouter dashboard for API usage and rate limits.
 
 ## Citation
 
@@ -364,6 +596,19 @@ Copyright © 2025 ᓂᐲᔥ ᐙᐸᓂᒥᑮ-ᑭᓇᐙᐸᑭᓯ (Nbiish Waabanimi
 
 ## Release Notes
 
-### [Unreleased]
-- Major Refactor: Removed Aider tooling and introduced `orchestrate_agents` for multi-agent CLI orchestration using Gemini 2.5 Pro (OpenRouter) to decide execution style and synthesize outputs.
-- Added environment variables: `OPENROUTER_API_KEY`, `ORCHESTRATOR_MODEL`, `CLI_AGENTS_JSON`, `AGENT_OUTPUT_DIR`, `EXECUTION_STYLE`, and synthesis/timeout caps.
+### v0.6.0 (Current)
+- **Major Refactor**: Unified orchestrator model configuration via OpenRouter
+- Removed direct Gemini API dependency (`@google/generative-ai`)
+- All AI operations now use single configurable `ORCHESTRATOR_MODEL` (default: `google/gemini-2.5-pro`)
+- Enhanced `finance_experts` tool: 18 expert agents, 900-token limits, RAG consolidation
+- Supports any OpenRouter-supported model (Gemini, Claude, GPT-4, etc.)
+- Updated MCP configuration to use `npx -y` format for easier installation
+- Added comprehensive orchestrator model configuration documentation
+
+### v0.5.3
+- Added 18 financial expert agents with dynamic prompt loading from markdown files
+- Enhanced expert prompts with detailed research and methodologies
+
+### v0.3.34
+- Fixed shebang line in the bundled output file to ensure proper execution via npx
+- Resolved "Client closed" errors when running via MCP
