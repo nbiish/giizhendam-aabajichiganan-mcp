@@ -159,7 +159,6 @@ site/
 _build/
 build/
 public/
-dist/
 
 # ═══════════════════════════════════════════════════════════
 # DATABASE FILES

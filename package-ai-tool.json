@@ -1,6 +1,6 @@
 {
   "name": "@nbiish/ai-tool-mcp",
-  "version": "0.5.0",
+  "version": "0.5.2",
   "description": "MCP Server providing multi-agent CLI orchestration (sequential/parallel) and financial/board simulations",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
