@@ -1,6 +1,6 @@
 {
   "name": "@nbiish/giizhendam-aabajichiganan-mcp",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "description": "MCP Server providing multi-agent CLI orchestration (sequential/parallel) and financial/board simulations",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
