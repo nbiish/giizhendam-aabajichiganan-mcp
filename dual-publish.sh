@@ -127,6 +127,45 @@ echo "Package 1 published successfully."
 
 echo "
 ╭──────────────────────────────────────────────╮
+│  ᐴ GANAWENDAAGWAD ᔔ [ WAITING FOR PROPAGATION ] │
+│  ◈──◆──◇─◈ NPM REGISTRY SYNC ◈─◇──◆──◈       │
+╰──────────────────────────────────────────────╯
+"
+echo "Waiting for npm registry to propagate Package 1 version $NEW_VERSION..."
+# Function to check if package version is available on npm
+wait_for_package() {
+    local pkg_name="$1"
+    local version="$2"
+    local max_attempts=30
+    local attempt=1
+    local wait_time=2
+    
+    while [ $attempt -le $max_attempts ]; do
+        if npm view "${pkg_name}@${version}" version > /dev/null 2>&1; then
+            echo "✅ Package ${pkg_name}@${version} is now available on npm registry."
+            return 0
+        fi
+        echo "⏳ Attempt $attempt/$max_attempts: Package not yet available, waiting ${wait_time}s..."
+        sleep $wait_time
+        attempt=$((attempt + 1))
+        # Exponential backoff, max 10 seconds
+        if [ $wait_time -lt 10 ]; then
+            wait_time=$((wait_time + 1))
+        fi
+    done
+    
+    echo "❌ ERROR: Package ${pkg_name}@${version} did not become available after $max_attempts attempts."
+    return 1
+}
+
+# Wait for Package 1 to be available before proceeding
+if ! wait_for_package "@nbiish/giizhendam-aabajichiganan-mcp" "$NEW_VERSION"; then
+    echo "ERROR: Failed to verify Package 1 availability. Aborting Package 2 publish."
+    exit 1
+fi
+
+echo "
+╭──────────────────────────────────────────────╮
 │  ᐴ NIIZH MIIGIWEWIN ᔔ [ SECOND OFFERING ]    │
 │  ◈──◆──◇─◈ PACKAGE TWO PUBLISH ◈─◇──◆──◈     │
 ╰──────────────────────────────────────────────╯
