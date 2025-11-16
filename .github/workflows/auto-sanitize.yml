@@ -33,8 +33,8 @@ jobs:
         run: |
           echo "🧹 Sanitizing settings.json files..."
           
-          # Find and process all settings.json files
-          find CONFIGURATIONS -name "settings.json" -type f | while read -r file; do
+          # Find and process all settings.json files in both directories
+          find .configs CONFIGURATIONS -name "settings.json" -type f 2>/dev/null | while read -r file; do
             echo "Processing: $file"
             
             # Sanitize using jq
@@ -73,7 +73,7 @@ jobs:
       - name: Check for changes
         id: check_changes
         run: |
-          if git diff --quiet CONFIGURATIONS/; then
+          if git diff --quiet .configs/ CONFIGURATIONS/ 2>/dev/null; then
             echo "changes=false" >> $GITHUB_OUTPUT
             echo "No secrets found to sanitize"
           else
