@@ -1,5 +1,24 @@
 #!/bin/bash
 
+# Dual Publish Script
+# Publishes both @nbiish/giizhendam-aabajichiganan-mcp and @nbiish/ai-tool-mcp packages
+# 
+# Workflow:
+# 1. Build Package 1
+# 2. Check prerequisites (clean working tree, npm login)
+# 3. Bump version for Package 1
+# 4. Commit version bump for Package 1
+# 5. Publish Package 1
+# 6. Sync version to Package 2
+# 7. Update Package 2 dependency to match Package 1 version
+# 8. Commit changes for Package 2
+# 9. Publish Package 2
+#
+# Requirements:
+# - Clean working tree (no uncommitted changes)
+# - npm login completed
+# - OTP code for npm publish
+
 # Exit immediately if a command exits with a non-zero status.
 set -e
 
@@ -46,14 +65,14 @@ echo "Found second package directory: $PKG2_DIR"
 npm whoami > /dev/null || (echo "ERROR: Not logged into npm. Please run 'npm login' first." && exit 1)
 echo "NPM login check passed."
 
-# Check for uncommitted changes in PKG1 and commit them if found
+# Check for uncommitted changes in PKG1 - fail if found (user should commit manually)
 if ! git diff --quiet HEAD -- "$PKG1_DIR"; then
-    echo "Uncommitted changes detected in '$PKG1_DIR'. Committing before proceeding..."
-    git add .
-    git commit -m "chore: commit changes before version bump"
-    echo "Changes committed."
+    echo "ERROR: Uncommitted changes detected in '$PKG1_DIR'."
+    echo "Please commit or stash your changes before running dual-publish.sh"
+    git status --short
+    exit 1
 fi
-echo "Ready to proceed with version bump."
+echo "✅ Working tree is clean. Ready to proceed with version bump."
 
 echo "
 ╭──────────────────────────────────────────────╮
@@ -94,13 +113,13 @@ echo "
 │  ◈──◆──◇─◈ PACKAGE ONE PUBLISH ◈─◇──◆──◈     │
 ╰──────────────────────────────────────────────╯
 "
-echo "Updating lockfile for Package 1..."
-npm install
+echo "Staging Package 1 changes (version bump + build artifacts)..."
+git add package.json package-lock.json dist/ 2>/dev/null || true
 
-echo "Staging and committing Package 1 changes..."
-# Add all files, including built files and changes
-git add .
-git commit -m "chore: bump version to $NEW_VERSION"
+echo "Committing Package 1 version bump..."
+git commit -m "chore: bump version to $NEW_VERSION" || {
+    echo "WARNING: Could not commit. Continuing anyway..."
+}
 
 echo "Publishing Package 1 (@nbiish/giizhendam-aabajichiganan-mcp) version $NEW_VERSION..."
 npm publish --otp="$NPM_OTP" --access public # Added --access public, adjust if needed
@@ -136,18 +155,23 @@ echo "Setting Package 2 version to $NEW_VERSION..."
 # Set the exact same version, allow if it somehow matches (shouldn't happen here)
 npm version "$NEW_VERSION" --no-git-tag-version --allow-same-version
 
+echo "Updating Package 2 dependency to match new version..."
+# Update the dependency version in package.json to match the new version
+node -e "const fs = require('fs'); const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8')); pkg.dependencies['@nbiish/giizhendam-aabajichiganan-mcp'] = '^${NEW_VERSION}'; fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');"
+
 echo "Updating lockfile for Package 2..."
 npm install
 
-echo "Building Package 2..."
-npm run build # Assumes 'build' script exists and is the same name
+# Package 2 doesn't need a build (it's an alias package)
+echo "Skipping build for Package 2 (alias package, no build needed)..."
 
 # Git operations for Package 2 - Note: This assumes Package 2 is part of a git repository
-# If Package 2 is not a git repository, these commands will fail
-echo "Staging and committing Package 2 changes..."
-# Add all files, including built files and changes
-git add . || echo "WARNING: Could not add files for Package 2. Is it a git repository?"
-git commit -m "chore: bump version to $NEW_VERSION" || echo "WARNING: Could not commit for Package 2."
+# If Package 2 is not a git repository, these commands will fail gracefully
+echo "Staging Package 2 changes..."
+git add package.json package-lock.json 2>/dev/null || echo "WARNING: Could not add files for Package 2. Is it a git repository?"
+
+echo "Committing Package 2 version bump..."
+git commit -m "chore: bump version to $NEW_VERSION and update dependency" || echo "WARNING: Could not commit for Package 2."
 
 echo "Publishing Package 2 (@nbiish/ai-tool-mcp) version $NEW_VERSION..." # Assumed name
 npm publish --otp="$NPM_OTP" --access public # Added --access public, adjust if needed
