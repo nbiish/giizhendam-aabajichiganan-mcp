@@ -100,8 +100,11 @@ echo "
 │  ◈──◆──◇─◈ AUTHORIZATION REQUIRED ◈─◇──◆──◈  │
 ╰──────────────────────────────────────────────╯
 "
-read -sp "Enter NPM OTP for publishing version $NEW_VERSION: " NPM_OTP
-echo # Add a newline for cleaner output
+if [ -z "$NPM_OTP" ]; then
+    read -sp "Enter NPM OTP for publishing version $NEW_VERSION: " NPM_OTP
+    echo # Add a newline for cleaner output
+fi
+
 if [ -z "$NPM_OTP" ]; then
     echo "ERROR: OTP cannot be empty."
     exit 1
