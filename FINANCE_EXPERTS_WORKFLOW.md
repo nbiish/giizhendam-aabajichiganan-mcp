@@ -4,7 +4,7 @@
 
 The `finance_experts` tool now implements a sophisticated two-phase orchestration workflow:
 
-1. **Phase 1**: Individual expert analysis (900 tokens each)
+1. **Phase 1**: Individual expert analysis (comprehensive)
 2. **Phase 2**: Gemini File Search RAG consolidation for enterprise-ready guidance
 
 ## Workflow Details
@@ -13,7 +13,7 @@ The `finance_experts` tool now implements a sophisticated two-phase orchestratio
 
 1. **Expert Execution**: Each of the 18 financial experts is called individually using Gemini (not CLI tools)
    - Model: Uses `GEMINI_MODEL` environment variable (default: `gemini-1.5-flash-latest`)
-   - Token Limit: 900 tokens per expert (enforced via `maxOutputTokens: 900`)
+   - Token Limit: Full response (enforced via `maxTokens: 8000`)
    - Prompt: Each expert's full prompt (from `agents/*.md` files) with the topic inserted
 
 2. **File Storage**: Each expert's response is saved to an individual markdown file
@@ -32,7 +32,7 @@ The `finance_experts` tool now implements a sophisticated two-phase orchestratio
 
 2. **RAG Analysis**: Gemini File Search RAG API is used to analyze all expert outputs
    - Model: Uses `ORCHESTRATOR_MODEL` (prefers Gemini 2.5 Pro) or falls back to `GEMINI_MODEL`
-   - Max Tokens: 4000 tokens for comprehensive analysis
+   - Max Tokens: 16000 tokens for comprehensive analysis
    - Temperature: 0.7 (balanced creativity and precision)
 
 3. **Consolidation Prompt**: The RAG model receives:

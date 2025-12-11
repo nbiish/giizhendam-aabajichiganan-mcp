@@ -377,7 +377,8 @@ async function loadAgentPrompts(): Promise<Record<string, string>> {
     
     try {
         const files = await fsPromises.readdir(agentsDir);
-        const mdFiles = files.filter(f => f.endsWith('.md'));
+        // Filter markdown files and exclude README.md to ensure only the 18 experts are loaded
+        const mdFiles = files.filter(f => f.endsWith('.md') && f.toLowerCase() !== 'readme.md');
         
         for (const file of mdFiles) {
             const fileBase = file.replace('.md', '');
@@ -440,7 +441,7 @@ const financeExpertsOutputMetaSchema = z.object({
 
 server.tool(
     "finance_experts",
-    `Orchestrates 18 financial expert agents using the configured orchestrator model (${ORCHESTRATOR_MODEL_NAME}) via Zenmux/OpenAI. Each expert provides analysis (900 token limit) saved to individual files. Then uses the orchestrator model with File Search RAG to consolidate all expert outputs into enterprise-ready, production-grade analysis and strategic advisory. Generates comprehensive orchestrator prompt to guide CLI tools/experts in execution.`,
+    `Orchestrates 18 financial expert agents using the configured orchestrator model (${ORCHESTRATOR_MODEL_NAME}) via Zenmux/OpenAI. Each expert provides comprehensive analysis saved to individual files. Then uses the orchestrator model with File Search RAG to consolidate all expert outputs into enterprise-ready, production-grade analysis and strategic advisory. Generates comprehensive orchestrator prompt to guide CLI tools/experts in execution.`,
     financeExpertsParamsSchema.shape,
     async (params): Promise<{
         content: { type: 'text'; text: string }[];
@@ -478,15 +479,15 @@ server.tool(
 
         await Promise.allSettled(expertsToProcess.map(async (expert) => {
             const basePrompt = EXPERT_PROMPTS[expert].replace(/\{params\.topic\}/g, params.topic);
-            // Add token limit instruction to prompt
-            const promptWithLimit = `${basePrompt}\n\nIMPORTANT: Your response must be concise and limited to approximately 900 tokens. Focus on the most critical insights and recommendations.`;
+            // Removed token limit instruction to ensure full, comprehensive expert analysis as requested.
+            const fullPrompt = basePrompt;
             
             try {
-                log(`FinanceExperts: Generating for ${expert} using ${ORCHESTRATOR_MODEL_NAME} via Zenmux/OpenAI (900 token limit)`);
+                log(`FinanceExperts: Generating for ${expert} using ${ORCHESTRATOR_MODEL_NAME} via Zenmux/OpenAI (full analysis)`);
                 const responseText = await openaiChat(
                     ORCHESTRATOR_MODEL_NAME,
-                    [{ role: 'user', content: promptWithLimit }],
-                    { maxTokens: 900, temperature: 0.7 }
+                    [{ role: 'user', content: fullPrompt }],
+                    { maxTokens: 8000, temperature: 0.7 } // Increased limit for comprehensive output
                 );
 
                 
@@ -583,7 +584,7 @@ FORMAT YOUR RESPONSE AS FOLLOWS:
                 ORCHESTRATOR_MODEL_NAME,
                 [{ role: 'user', content: ragPrompt }],
                 { 
-                    maxTokens: 4000, // Allow comprehensive analysis
+                    maxTokens: 16000, // Increased to allow very comprehensive analysis
                     temperature: 0.7, // Balanced creativity and precision
                     fileData: fileDataArray
                 }
@@ -616,7 +617,7 @@ FORMAT YOUR RESPONSE AS FOLLOWS:
                 orchestratorDeliberation = await openaiChat(
                     ORCHESTRATOR_MODEL_NAME,
                     [{ role: 'user', content: fallbackPrompt }],
-                    { maxTokens: 4000, temperature: 0.7 }
+                    { maxTokens: 16000, temperature: 0.7 }
                 );
 
                 

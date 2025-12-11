@@ -48,7 +48,7 @@ Any model supported by OpenRouter can be used. Examples:
 The orchestrator model is used throughout the codebase for:
 
 1. **Finance Experts Tool:**
-   - Individual expert analysis (18 experts, 900 tokens each)
+   - Individual expert analysis (18 experts, comprehensive analysis)
    - RAG consolidation of all expert outputs
    - Strategic advisory generation
 

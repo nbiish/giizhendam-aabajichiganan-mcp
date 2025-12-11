@@ -33,7 +33,7 @@ The server includes a multi-agent orchestrator tool (`orchestrate_agents`) that 
 **Key Features:**
 - **Unified Orchestrator Model**: All AI operations use a single configurable model via Zenmux/OpenAI
 - **Qwen CLI Integration**: Leverages `qwen -y` with configurable model (default: `z-ai/glm-4.6v-flash`)
-- **18 Financial Expert Agents**: Comprehensive financial analysis with individual expert perspectives (900 tokens each) + RAG consolidation
+- **18 Financial Expert Agents**: Comprehensive financial analysis with individual expert perspectives (unlimited tokens) + RAG consolidation
 - **Model Flexibility**: Easily swap between any Zenmux-supported model
 
 <div align="center">
@@ -49,8 +49,8 @@ The server includes a multi-agent orchestrator tool (`orchestrate_agents`) that 
   - Consolidated markdown synthesis of agent outputs
   
 - **◇ Financial Expert Simulation ◇**
-  - Orchestrates 18 financial expert agents individually (900 tokens each)
-  - Uses orchestrator model with File Search RAG to consolidate all expert outputs
+  - Orchestrates 18 financial expert agents individually (Comprehensive analysis - no token limits)
+  - Uses orchestrator model with File Search RAG to consolidate all expert outputs (16k token context)
   - Generates enterprise-ready, production-grade analysis and strategic advisory
   - Includes perspectives from: Damodaran, Graham, Buffett, Munger, Lynch, Fisher, Ackman, Wood, Burry, Pabrai, Jhunjhunwala, Druckenmiller, plus Valuation, Sentiment, Fundamentals, Technicals, Risk Manager, and Portfolio Manager agents
   
@@ -70,6 +70,7 @@ The server includes a multi-agent orchestrator tool (`orchestrate_agents`) that 
 
 ## ᐴ OSHKI-AABAJICHIGANAN ᔔ [RECENT CHANGES] ◈──◆──◇──◆──◈
 
+- **v0.6.7** - **Enterprise Enhancement**: Upgraded `finance_experts` to use all 18 experts with comprehensive analysis (no token limits) and 16k context consolidation.
 - **v0.6.6** - **Major Refactor**: Switched orchestrator provider to **Zenmux** (OpenAI SDK compatible). Replaced Aider/generic CLI with **Qwen CLI** (`qwen -y`) for agent execution. `CLI_AGENTS_JSON` now defines agent personas/instructions rather than raw commands.
 - **v0.6.0** - Unified orchestrator model configuration.
 - **v0.5.3** - Added 18 financial expert agents with dynamic prompt loading from markdown files
