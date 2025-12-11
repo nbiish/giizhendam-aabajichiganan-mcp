@@ -28,10 +28,11 @@
 
 This project implements a Model Context Protocol (MCP) server that provides multi-agent CLI orchestration for developers and decision-makers. It serves as a bridge between different AI models and external CLI agents, and provides specialized tools for financial analysis and collaborative decision simulation.
 
-The server includes a multi-agent orchestrator tool (`orchestrate_agents`) that loads agent definitions from `CLI_AGENTS_JSON` or `llms.txt`. It uses a configurable orchestrator model (default: **deepseek/deepseek-v3.2-speciale**) via **Zenmux/OpenAI** to decide between sequential or parallel execution, executes the agents using the **Qwen CLI** (running off **z-ai/glm-4.6v-flash**), and synthesizes a consolidated markdown report.
+The server includes a multi-agent orchestrator tool (`orchestrate_agents`) that loads agent definitions from `CLI_AGENTS_JSON` or `llms.txt`. It uses a configurable orchestrator model (default: **deepseek/deepseek-v3.2-speciale**) via **Zenmux** or any **OpenAI-compatible provider** to decide between sequential or parallel execution, executes the agents using the **Qwen CLI** (running off **z-ai/glm-4.6v-flash**), and synthesizes a consolidated markdown report.
 
 **Key Features:**
-- **Unified Orchestrator Model**: All AI operations use a single configurable model via Zenmux/OpenAI
+- **Flexible Provider Support**: Seamlessly switch between Zenmux (default) or any OpenAI-compatible provider (e.g., OpenRouter, OpenAI, etc.)
+- **Unified Orchestrator Model**: All AI operations use a single configurable model
 - **Qwen CLI Integration**: Leverages `qwen -y` with configurable model (default: `z-ai/glm-4.6v-flash`)
 - **18 Financial Expert Agents**: Comprehensive financial analysis with individual expert perspectives (unlimited tokens) + RAG consolidation
 - **Model Flexibility**: Easily swap between any Zenmux-supported model
@@ -70,6 +71,7 @@ The server includes a multi-agent orchestrator tool (`orchestrate_agents`) that 
 
 ## ᐴ OSHKI-AABAJICHIGANAN ᔔ [RECENT CHANGES] ◈──◆──◇──◆──◈
 
+- **v0.6.8** - **Provider Flexibility**: Added support for generic OpenAI-compatible providers (OpenAI, OpenRouter, etc.) via `OPENAI_BASE_URL` and `OPENAI_API_KEY`, while maintaining Zenmux as the default.
 - **v0.6.7** - **Enterprise Enhancement**: Upgraded `finance_experts` to use all 18 experts with comprehensive analysis (no token limits) and 16k context consolidation.
 - **v0.6.6** - **Major Refactor**: Switched orchestrator provider to **Zenmux** (OpenAI SDK compatible). Replaced Aider/generic CLI with **Qwen CLI** (`qwen -y`) for agent execution. `CLI_AGENTS_JSON` now defines agent personas/instructions rather than raw commands.
 - **v0.6.0** - Unified orchestrator model configuration.
@@ -84,7 +86,7 @@ The server includes a multi-agent orchestrator tool (`orchestrate_agents`) that 
 
 - Node.js (v14 or higher) and npm/yarn
 - **Qwen CLI** (`qwen`) installed and available in PATH (configured for `yolo` mode support)
-- **Zenmux API Key** (required) - Used for all AI operations (or OpenAI API Key)
+- **Zenmux API Key** or **OpenAI API Key** (required) - Used for all AI operations
 - **ORCHESTRATOR_MODEL** (optional) - Defaults to `deepseek/deepseek-v3.2-speciale`
 
 <div align="center">
@@ -171,6 +173,24 @@ Configure the server in your MCP client's configuration file. The location depen
 }
 ```
 
+#### Configuration with OpenAI Provider (OpenRouter/Other)
+
+```json
+{
+  "mcpServers": {
+    "giizhendam-mcp": {
+      "command": "npx",
+      "args": ["-y", "@nbiish/giizhendam-aabajichiganan-mcp"],
+      "env": {
+        "OPENAI_BASE_URL": "https://openrouter.ai/api/v1",
+        "OPENAI_API_KEY": "sk-your-openrouter-key-here",
+        "ORCHESTRATOR_MODEL": "anthropic/claude-3-opus"
+      }
+    }
+  }
+}
+```
+
 #### Full Configuration with All Options
 
 ```json
@@ -202,7 +222,9 @@ Configure the server in your MCP client's configuration file. The location depen
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `ZENMUX_API_KEY` | Your Zenmux API key (required for all AI operations) | `sk-...` |
+| `ZENMUX_API_KEY` | Your Zenmux API key (required if not using generic OpenAI provider) | `sk-...` |
+| `OPENAI_API_KEY` | Generic OpenAI/OpenRouter API key (alternative to Zenmux) | `sk-...` |
+| `OPENAI_BASE_URL` | Base URL for generic OpenAI provider (e.g. OpenRouter) | `https://openrouter.ai/api/v1` |
 
 #### Optional Variables
 

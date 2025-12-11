@@ -46,10 +46,15 @@ const ORCHESTRATOR_MODEL = process.env.ORCHESTRATOR_MODEL || 'deepseek/deepseek-
 const AGENT_OUTPUT_DIR = process.env.AGENT_OUTPUT_DIR || path.join(process.cwd(), 'output', 'agents');
 const AGENT_MODEL = process.env.AGENT_MODEL || 'z-ai/glm-4.6v-flash';
 
-// --- OpenAI Client Setup (Zenmux) ---
+// --- OpenAI Client Setup (Zenmux or Generic OpenAI Provider) ---
+const baseURL = process.env.OPENAI_BASE_URL || process.env.ZENMUX_BASE_URL || "https://zenmux.ai/api/v1";
+const apiKey = process.env.OPENAI_BASE_URL 
+    ? (process.env.OPENAI_API_KEY || process.env.ZENMUX_API_KEY)
+    : (process.env.ZENMUX_API_KEY || process.env.OPENAI_API_KEY);
+
 const openai = new OpenAI({
-    baseURL: process.env.ZENMUX_BASE_URL || "https://zenmux.ai/api/v1",
-    apiKey: process.env.ZENMUX_API_KEY || process.env.OPENAI_API_KEY,
+    baseURL,
+    apiKey,
 });
 
 // --- Server Setup ---

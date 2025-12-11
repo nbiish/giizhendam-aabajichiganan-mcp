@@ -13539,7 +13539,7 @@ var OpenAI = class {
    * @param {Record<string, string | undefined>} opts.defaultQuery - Default query parameters to include with every request to the API.
    * @param {boolean} [opts.dangerouslyAllowBrowser=false] - By default, client-side use of this library is not allowed, as it risks exposing your secret API credentials to attackers.
    */
-  constructor({ baseURL = readEnv("OPENAI_BASE_URL"), apiKey = readEnv("OPENAI_API_KEY"), organization = readEnv("OPENAI_ORG_ID") ?? null, project = readEnv("OPENAI_PROJECT_ID") ?? null, webhookSecret = readEnv("OPENAI_WEBHOOK_SECRET") ?? null, ...opts } = {}) {
+  constructor({ baseURL: baseURL2 = readEnv("OPENAI_BASE_URL"), apiKey: apiKey2 = readEnv("OPENAI_API_KEY"), organization = readEnv("OPENAI_ORG_ID") ?? null, project = readEnv("OPENAI_PROJECT_ID") ?? null, webhookSecret = readEnv("OPENAI_WEBHOOK_SECRET") ?? null, ...opts } = {}) {
     _OpenAI_instances.add(this);
     _OpenAI_encoder.set(this, void 0);
     this.completions = new Completions2(this);
@@ -13563,16 +13563,16 @@ var OpenAI = class {
     this.evals = new Evals(this);
     this.containers = new Containers(this);
     this.videos = new Videos(this);
-    if (apiKey === void 0) {
+    if (apiKey2 === void 0) {
       throw new OpenAIError("Missing credentials. Please pass an `apiKey`, or set the `OPENAI_API_KEY` environment variable.");
     }
     const options = {
-      apiKey,
+      apiKey: apiKey2,
       organization,
       project,
       webhookSecret,
       ...opts,
-      baseURL: baseURL || `https://api.openai.com/v1`
+      baseURL: baseURL2 || `https://api.openai.com/v1`
     };
     if (!options.dangerouslyAllowBrowser && isRunningInBrowser()) {
       throw new OpenAIError("It looks like you're running in a browser-like environment.\n\nThis is disabled by default, as it risks exposing your secret API credentials to attackers.\nIf you understand the risks and have appropriate mitigations in place,\nyou can set the `dangerouslyAllowBrowser` option to `true`, e.g.,\n\nnew OpenAI({ apiKey, dangerouslyAllowBrowser: true });\n\nhttps://help.openai.com/en/articles/5112595-best-practices-for-api-key-safety\n");
@@ -13588,7 +13588,7 @@ var OpenAI = class {
     this.fetch = options.fetch ?? getDefaultFetch();
     __classPrivateFieldSet(this, _OpenAI_encoder, FallbackEncoder, "f");
     this._options = options;
-    this.apiKey = typeof apiKey === "string" ? apiKey : "Missing Key";
+    this.apiKey = typeof apiKey2 === "string" ? apiKey2 : "Missing Key";
     this.organization = organization;
     this.project = project;
     this.webhookSecret = webhookSecret;
@@ -13636,12 +13636,12 @@ var OpenAI = class {
     return APIError.generate(status, error, message, headers);
   }
   async _callApiKey() {
-    const apiKey = this._options.apiKey;
-    if (typeof apiKey !== "function")
+    const apiKey2 = this._options.apiKey;
+    if (typeof apiKey2 !== "function")
       return false;
     let token;
     try {
-      token = await apiKey();
+      token = await apiKey2();
     } catch (err) {
       if (err instanceof OpenAIError)
         throw err;
@@ -13658,8 +13658,8 @@ var OpenAI = class {
     return true;
   }
   buildURL(path3, query, defaultBaseURL) {
-    const baseURL = !__classPrivateFieldGet(this, _OpenAI_instances, "m", _OpenAI_baseURLOverridden).call(this) && defaultBaseURL || this.baseURL;
-    const url = isAbsoluteURL(path3) ? new URL(path3) : new URL(baseURL + (baseURL.endsWith("/") && path3.startsWith("/") ? path3.slice(1) : path3));
+    const baseURL2 = !__classPrivateFieldGet(this, _OpenAI_instances, "m", _OpenAI_baseURLOverridden).call(this) && defaultBaseURL || this.baseURL;
+    const url = isAbsoluteURL(path3) ? new URL(path3) : new URL(baseURL2 + (baseURL2.endsWith("/") && path3.startsWith("/") ? path3.slice(1) : path3));
     const defaultQuery = this.defaultQuery();
     if (!isEmptyObj(defaultQuery)) {
       query = { ...defaultQuery, ...query };
@@ -14016,9 +14016,11 @@ var STANDARD_BOARD_ROLES = [
 var ORCHESTRATOR_MODEL = process.env.ORCHESTRATOR_MODEL || "deepseek/deepseek-v3.2-speciale";
 var AGENT_OUTPUT_DIR = process.env.AGENT_OUTPUT_DIR || import_path33.default.join(process.cwd(), "output", "agents");
 var AGENT_MODEL = process.env.AGENT_MODEL || "z-ai/glm-4.6v-flash";
+var baseURL = process.env.OPENAI_BASE_URL || process.env.ZENMUX_BASE_URL || "https://zenmux.ai/api/v1";
+var apiKey = process.env.OPENAI_BASE_URL ? process.env.OPENAI_API_KEY || process.env.ZENMUX_API_KEY : process.env.ZENMUX_API_KEY || process.env.OPENAI_API_KEY;
 var openai = new OpenAI({
-  baseURL: process.env.ZENMUX_BASE_URL || "https://zenmux.ai/api/v1",
-  apiKey: process.env.ZENMUX_API_KEY || process.env.OPENAI_API_KEY
+  baseURL,
+  apiKey
 });
 var serverName = "giizhendam-multi-agent-orchestrator-mcp";
 var serverVersion = "0.5.0";
@@ -14319,9 +14321,9 @@ server.tool(
   `Orchestrates 18 financial expert agents using the configured orchestrator model (${ORCHESTRATOR_MODEL_NAME}) via Zenmux/OpenAI. Each expert provides comprehensive analysis saved to individual files. Then uses the orchestrator model with File Search RAG to consolidate all expert outputs into enterprise-ready, production-grade analysis and strategic advisory. Generates comprehensive orchestrator prompt to guide CLI tools/experts in execution.`,
   financeExpertsParamsSchema.shape,
   async (params) => {
-    const apiKey = process.env.ZENMUX_API_KEY || process.env.OPENAI_API_KEY;
+    const apiKey2 = process.env.ZENMUX_API_KEY || process.env.OPENAI_API_KEY;
     const outputDirFinance = process.env.FINANCE_EXPERTS_OUTPUT_DIR;
-    if (!apiKey) {
+    if (!apiKey2) {
       log("Config Error: ZENMUX_API_KEY or OPENAI_API_KEY missing for finance_experts.");
       return { content: [{ type: "text", text: "Configuration Error: ZENMUX_API_KEY or OPENAI_API_KEY is not set." }], isError: true, _meta: { success: false, expertsProcessed: [], errorType: "ConfigurationError" } };
     }
@@ -14594,9 +14596,9 @@ server.tool(
   `Simulates a board discussion on a given topic using the configured orchestrator model (${ORCHESTRATOR_MODEL_NAME}) via Zenmux/OpenAI. This deliberation includes formulating a recommended orchestrator prompt for the user to execute based on the discussion. Saves the simulated discussion and recommendation to a file in './ceo-and-board/'.`,
   ceoBoardParamsSchema.shape,
   async (params) => {
-    const apiKey = process.env.ZENMUX_API_KEY || process.env.OPENAI_API_KEY;
+    const apiKey2 = process.env.ZENMUX_API_KEY || process.env.OPENAI_API_KEY;
     const outputDirBoard = process.env.CEO_BOARD_OUTPUT_DIR;
-    if (!apiKey) {
+    if (!apiKey2) {
       log("Config Error: ZENMUX_API_KEY or OPENAI_API_KEY missing for ceo_and_board.");
       return { content: [{ type: "text", text: "Configuration Error: ZENMUX_API_KEY or OPENAI_API_KEY is not set." }], isError: true, _meta: { success: false, errorType: "ConfigurationError" } };
     }
