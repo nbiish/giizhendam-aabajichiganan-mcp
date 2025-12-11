@@ -28,12 +28,13 @@
 
 This project implements a Model Context Protocol (MCP) server that provides multi-agent CLI orchestration for developers and decision-makers. It serves as a bridge between different AI models and external CLI agents, and provides specialized tools for financial analysis and collaborative decision simulation.
 
-The server includes a multi-agent orchestrator tool (`orchestrate_agents`) that loads CLI agents from `CLI_AGENTS_JSON` or `llms.txt`, uses a configurable orchestrator model (default: Gemini 2.5 Pro) via OpenRouter to decide between sequential or parallel execution, executes the agents, and synthesizes a consolidated markdown report.
+The server includes a multi-agent orchestrator tool (`orchestrate_agents`) that loads agent definitions from `CLI_AGENTS_JSON` or `llms.txt`. It uses a configurable orchestrator model (default: **deepseek/deepseek-v3.2-speciale**) via **Zenmux/OpenAI** to decide between sequential or parallel execution, executes the agents using the **Qwen CLI** (running off **z-ai/glm-4.6v-flash**), and synthesizes a consolidated markdown report.
 
 **Key Features:**
-- **Unified Orchestrator Model**: All AI operations use a single configurable model via OpenRouter
+- **Unified Orchestrator Model**: All AI operations use a single configurable model via Zenmux/OpenAI
+- **Qwen CLI Integration**: Leverages `qwen -y` with configurable model (default: `z-ai/glm-4.6v-flash`)
 - **18 Financial Expert Agents**: Comprehensive financial analysis with individual expert perspectives (900 tokens each) + RAG consolidation
-- **Model Flexibility**: Easily swap between any OpenRouter-supported model (Gemini, Claude, GPT-4, etc.)
+- **Model Flexibility**: Easily swap between any Zenmux-supported model
 
 <div align="center">
 ◈──◆──◇─────────────────────────────────────────────────◇──◆──◈
@@ -42,8 +43,9 @@ The server includes a multi-agent orchestrator tool (`orchestrate_agents`) that 
 ## ᐴ GASHKITOONAN ᔔ [CAPABILITIES] ◈──◆──◇──◆──◈
 
 - **◇ Multi-Agent Orchestrator ◇**
-  - Load CLI agents from CLI_AGENTS_JSON or llms.txt
+  - Load agent personas/instructions from CLI_AGENTS_JSON or llms.txt
   - Model-chosen sequential or parallel execution
+  - Uses `qwen -y` for autonomous task execution
   - Consolidated markdown synthesis of agent outputs
   
 - **◇ Financial Expert Simulation ◇**
@@ -68,9 +70,10 @@ The server includes a multi-agent orchestrator tool (`orchestrate_agents`) that 
 
 ## ᐴ OSHKI-AABAJICHIGANAN ᔔ [RECENT CHANGES] ◈──◆──◇──◆──◈
 
-- **v0.6.0** - **Major Refactor**: Unified orchestrator model configuration via OpenRouter. Removed direct Gemini API dependency. All AI operations now use a single configurable model (`ORCHESTRATOR_MODEL`). Enhanced financial experts tool with 18 agents, 900-token limits, and RAG consolidation. Supports any OpenRouter model (Gemini, Claude, GPT-4, etc.).
+- **v0.6.6** - **Major Refactor**: Switched orchestrator provider to **Zenmux** (OpenAI SDK compatible). Replaced Aider/generic CLI with **Qwen CLI** (`qwen -y`) for agent execution. `CLI_AGENTS_JSON` now defines agent personas/instructions rather than raw commands.
+- **v0.6.0** - Unified orchestrator model configuration.
 - **v0.5.3** - Added 18 financial expert agents with dynamic prompt loading from markdown files
-- **v0.3.34** - Fixed shebang line in the bundled output file to ensure proper execution via npx. This resolves issues with "Client closed" errors when running via MCP.
+- **v0.3.34** - Fixed shebang line in the bundled output file to ensure proper execution via npx.
 
 <div align="center">
 ◈──◆──◇─────────────────────────────────────────────────◇──◆──◈
@@ -79,9 +82,9 @@ The server includes a multi-agent orchestrator tool (`orchestrate_agents`) that 
 ## ᐴ NITAM-AABAJICHIGANAN ᔔ [PREREQUISITES] ◈──◆──◇──◆──◈
 
 - Node.js (v14 or higher) and npm/yarn
-- CLI tools for agents you plan to run (e.g., qwen, gemini, cursor, goose, opencode, crush) available in PATH
-- **OpenRouter API Key** (required) - Used for all AI operations
-- **ORCHESTRATOR_MODEL** (optional) - Defaults to `google/gemini-2.5-pro`, can be any OpenRouter-supported model
+- **Qwen CLI** (`qwen`) installed and available in PATH (configured for `yolo` mode support)
+- **Zenmux API Key** (required) - Used for all AI operations (or OpenAI API Key)
+- **ORCHESTRATOR_MODEL** (optional) - Defaults to `deepseek/deepseek-v3.2-speciale`
 
 <div align="center">
 ╭──────────────[ ◈◆◇ SYSTEM INSTALLATION ◇◆◈ ]──────────────╮
@@ -159,8 +162,8 @@ Configure the server in your MCP client's configuration file. The location depen
       "command": "npx",
       "args": ["-y", "@nbiish/giizhendam-aabajichiganan-mcp"],
       "env": {
-        "OPENROUTER_API_KEY": "sk-or-v1-your-key-here",
-        "ORCHESTRATOR_MODEL": "google/gemini-2.5-pro"
+        "ZENMUX_API_KEY": "sk-your-zenmux-key-here",
+        "ORCHESTRATOR_MODEL": "deepseek/deepseek-v3.2-speciale"
       }
     }
   }
@@ -176,14 +179,14 @@ Configure the server in your MCP client's configuration file. The location depen
       "command": "npx",
       "args": ["-y", "@nbiish/giizhendam-aabajichiganan-mcp"],
       "env": {
-        "OPENROUTER_API_KEY": "sk-or-v1-your-key-here",
-        "ORCHESTRATOR_MODEL": "google/gemini-2.5-pro",
-        "CLI_AGENTS_JSON": "[{\"name\":\"Qwen\",\"cmd\":\"qwen -y \\\"{prompt}\\\"\"},{\"name\":\"Gemini\",\"cmd\":\"gemini -y \\\"{prompt}\\\"\"}]",
+        "ZENMUX_API_KEY": "sk-your-zenmux-key-here",
+        "ORCHESTRATOR_MODEL": "deepseek/deepseek-v3.2-speciale",
+        "CLI_AGENTS_JSON": "[{\"name\":\"FinanceExpert\",\"cmd\":\"You are an expert financial analyst.\"}]",
         "AGENT_OUTPUT_DIR": "./output/agents",
+        "AGENT_MODEL": "z-ai/glm-4.6v-flash",
         "EXECUTION_STYLE": "auto",
         "FINANCE_EXPERTS_OUTPUT_DIR": "./output/finance-experts",
         "CEO_BOARD_OUTPUT_DIR": "./output/ceo-and-board",
-        "OPENROUTER_TIMEOUT_MS": "30000",
         "SYNTH_MAX_PER_AGENT_CHARS": "20000",
         "SYNTH_MAX_TOTAL_CHARS": "150000"
       }
@@ -198,93 +201,73 @@ Configure the server in your MCP client's configuration file. The location depen
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `OPENROUTER_API_KEY` | Your OpenRouter API key (required for all AI operations) | `sk-or-v1-...` |
+| `ZENMUX_API_KEY` | Your Zenmux API key (required for all AI operations) | `sk-...` |
 
 #### Optional Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ORCHESTRATOR_MODEL` | `google/gemini-2.5-pro` | Model used for all AI operations. Can be any OpenRouter-supported model (see below) |
-| `CLI_AGENTS_JSON` | (none) | JSON array of CLI agent definitions (see CLI Agents section) |
+| `ORCHESTRATOR_MODEL` | `deepseek/deepseek-v3.2-speciale` | Model used for orchestrator. |
+| `AGENT_MODEL` | `z-ai/glm-4.6v-flash` | Model used for Qwen CLI agents. |
+| `CLI_AGENTS_JSON` | (none) | JSON array of agent definitions (defines persona/instructions for Qwen CLI) |
 | `AGENT_OUTPUT_DIR` | `./output/agents` | Directory for orchestrator tool outputs |
 | `EXECUTION_STYLE` | `auto` | Execution style: `auto` (model decides), `sequential`, or `parallel` |
 | `FINANCE_EXPERTS_OUTPUT_DIR` | `./output/finance-experts` | Directory for financial expert analysis outputs |
 | `CEO_BOARD_OUTPUT_DIR` | `./output/ceo-and-board` | Directory for board simulation outputs |
-| `OPENROUTER_TIMEOUT_MS` | `30000` | Timeout for OpenRouter API calls (milliseconds) |
 | `SYNTH_MAX_PER_AGENT_CHARS` | `20000` | Max characters per agent in synthesis |
 | `SYNTH_MAX_TOTAL_CHARS` | `150000` | Max total characters in synthesis |
 
 ### Orchestrator Model Options
 
-The `ORCHESTRATOR_MODEL` can be any model supported by OpenRouter. Popular options:
+The `ORCHESTRATOR_MODEL` can be any model supported by Zenmux. Popular options:
 
-**Google Models:**
-- `google/gemini-2.5-pro` (default, recommended for best quality)
-- `google/gemini-2.0-flash-exp` (faster, cheaper, good for testing)
-- `google/gemini-1.5-pro` (alternative)
-- `google/gemini-1.5-flash` (fastest, cheapest)
-
-**Anthropic Models:**
-- `anthropic/claude-3.5-sonnet` (high quality alternative)
-- `anthropic/claude-3-opus` (premium quality)
-- `anthropic/claude-3-haiku` (fast, cost-effective)
+**DeepSeek Models:**
+- `deepseek/deepseek-v3.2-speciale` (default)
+- `deepseek/deepseek-coder-v2`
 
 **OpenAI Models:**
-- `openai/gpt-4-turbo` (alternative)
-- `openai/gpt-4` (alternative)
-- `openai/gpt-3.5-turbo` (budget option)
+- `gpt-4o`
+- `gpt-4-turbo`
 
-**Other Providers:**
-- `meta-llama/llama-3.1-405b-instruct` (open source)
-- `mistralai/mixtral-8x7b-instruct` (open source)
-
-See [ORCHESTRATOR_MODEL_CONFIG.md](ORCHESTRATOR_MODEL_CONFIG.md) for complete details and testing guidance.
+**Z-AI Models (for Agents):**
+- `z-ai/glm-4.6v-flash` (default for agents)
 
 ### CLI Agents Configuration
 
-Configure CLI agents for the `orchestrate_agents` tool in two ways:
+Configure agent personas for the `orchestrate_agents` tool in two ways:
 
 #### Option A: Using CLI_AGENTS_JSON (Recommended)
 
-Set the `CLI_AGENTS_JSON` environment variable as a JSON array:
+Set the `CLI_AGENTS_JSON` environment variable as a JSON array. Each entry defines an agent "persona" that will be executed via `qwen -y`. The `cmd` field now represents the **System Instruction** or **Persona** for that agent.
 
 ```json
 [
-  {"name": "Qwen", "cmd": "qwen -y \"{prompt}\""},
-  {"name": "Gemini", "cmd": "gemini -y \"{prompt}\""},
-  {"name": "Cursor", "cmd": "cursor agent --print --approve-mcps \"{prompt}\""},
-  {"name": "Goose", "cmd": "echo \"{prompt}\" | goose"},
-  {"name": "Opencode", "cmd": "opencode run \"{prompt}\""},
-  {"name": "Crush", "cmd": "crush run \"{prompt}\""}
+  {"name": "SeniorDev", "cmd": "You are a senior developer expert in TypeScript and Node.js."},
+  {"name": "SecurityAudit", "cmd": "You are a security auditor looking for vulnerabilities."},
+  {"name": "RefactorSpec", "cmd": "You specialize in code refactoring and clean architecture."}
 ]
 ```
 
-**Important:** Escape quotes properly in JSON:
-- Use `\"` for double quotes inside strings
-- Use `\\\"` for quotes inside command strings
+**Important:** Escape quotes properly in JSON.
 
 #### Option B: Using llms.txt (Fallback)
 
-If `CLI_AGENTS_JSON` is not set, the server reads `llms.txt` from the current working directory:
+If `CLI_AGENTS_JSON` is not set, the server reads `llms.txt` from the current working directory. The command block should contain the persona instructions.
 
 ```
-- Qwen
+- SeniorDev
 ```bash
-qwen -y "{prompt}"
+You are a senior developer expert in TypeScript and Node.js.
 ```
 
-- Gemini
+- SecurityAudit
 ```bash
-gemini -y "{prompt}"
-```
-
-- Cursor
-```bash
-cursor agent --print --approve-mcps "{prompt}"
+You are a security auditor looking for vulnerabilities.
 ```
 ```
 
 ### Output Directories
+
 
 All output directories are relative to the server's current working directory (typically your project root). The server will create these directories automatically if they don't exist.
 
@@ -309,7 +292,7 @@ your-project/
       "command": "npx",
       "args": ["-y", "@nbiish/giizhendam-aabajichiganan-mcp"],
       "env": {
-        "OPENROUTER_API_KEY": "your-key-here"
+        "ZENMUX_API_KEY": "your-key-here"
       }
     }
   }
@@ -325,7 +308,7 @@ your-project/
       "command": "npx",
       "args": ["-y", "@nbiish/giizhendam-aabajichiganan-mcp"],
       "env": {
-        "OPENROUTER_API_KEY": "your-key-here",
+        "ZENMUX_API_KEY": "your-key-here",
         "ORCHESTRATOR_MODEL": "anthropic/claude-3.5-sonnet"
       }
     }
@@ -342,8 +325,8 @@ your-project/
       "command": "npx",
       "args": ["-y", "@nbiish/giizhendam-aabajichiganan-mcp"],
       "env": {
-        "OPENROUTER_API_KEY": "your-key-here",
-        "CLI_AGENTS_JSON": "[{\"name\":\"Qwen\",\"cmd\":\"qwen -y \\\"{prompt}\\\"\"}]"
+        "ZENMUX_API_KEY": "your-key-here",
+        "CLI_AGENTS_JSON": "[{\"name\":\"CodeArchitect\",\"cmd\":\"You are a software architect.\"}]"
       }
     }
   }
@@ -355,20 +338,19 @@ your-project/
 ⚠️ **Security:**
 - Never commit your `mcp.json` file with real API keys to version control
 - Use environment variables or secret management tools in production
-- The `GEMINI_API_KEY` environment variable is **no longer used** (removed in v0.6.0)
 
-⚠️ **Breaking Changes (v0.6.0):**
-- Removed `GEMINI_API_KEY` requirement - all operations now use OpenRouter
-- Removed `@google/generative-ai` dependency
-- All AI calls now go through OpenRouter with the orchestrator model
+⚠️ **Breaking Changes (v0.6.6):**
+- Switched from OpenRouter to Zenmux/OpenAI
+- Replaced Aider/generic CLI support with dedicated Qwen CLI support (`qwen -y`)
+- `CLI_AGENTS_JSON` semantics changed: `cmd` is now a system instruction, not a shell command template
 
 ### Troubleshooting Configuration
 
-**Issue: "OPENROUTER_API_KEY is not set"**
-- Solution: Ensure `OPENROUTER_API_KEY` is set in the `env` section of your `mcp.json`
+**Issue: "ZENMUX_API_KEY is not set"**
+- Solution: Ensure `ZENMUX_API_KEY` is set in the `env` section of your `mcp.json` (or `OPENAI_API_KEY`)
 
 **Issue: "Model not found"**
-- Solution: Verify the model name matches OpenRouter's format exactly (e.g., `google/gemini-2.5-pro`)
+- Solution: Verify the model name matches Zenmux/OpenAI format (e.g., `gpt-4o`)
 
 **Issue: "No CLI agents configured"**
 - Solution: Set `CLI_AGENTS_JSON` or create `llms.txt` in your project directory
@@ -546,17 +528,17 @@ npm test
 ## Local Testing Plan
 
 - **Prepare env**
-  - Set `OPENROUTER_API_KEY` in your MCP config env or shell (required).
-  - Optionally set `ORCHESTRATOR_MODEL` to test different models (defaults to `google/gemini-2.5-pro`).
+  - Set `ZENMUX_API_KEY` in your MCP config env or shell (required).
+  - Optionally set `ORCHESTRATOR_MODEL` to test different models (defaults to `gpt-4o`).
   - Optionally set `CLI_AGENTS_JSON` or populate `llms.txt` for orchestrator tool.
-  - Ensure agent CLIs (qwen, gemini, cursor, goose, opencode, crush) are installed and in PATH.
+  - Ensure `qwen` CLI is installed and in PATH.
 - **Install and Test**
   - Test via npx: `npx -y @nbiish/giizhendam-aabajichiganan-mcp`
   - Or install globally: `npm install -g @nbiish/giizhendam-aabajichiganan-mcp`
   - Launch via your MCP client using the `mcp.json` example above.
 - **Invoke tools**
   - **Orchestrator**: Call `orchestrate_agents` with a short `prompt_text`.
-    - Expected: Server selects `parallel` or `sequential`, executes agents, writes per-agent files under `AGENT_OUTPUT_DIR`, and creates a synthesis markdown file.
+    - Expected: Server selects `parallel` or `sequential`, executes Qwen agent, writes per-agent files under `AGENT_OUTPUT_DIR`, and creates a synthesis markdown file.
   - **Finance Experts**: Call `finance_experts` with a financial topic.
     - Expected: 18 expert analyses (900 tokens each) saved individually, then consolidated via RAG into enterprise-ready analysis.
   - **Board Simulation**: Call `ceo_and_board` with a discussion topic.
@@ -566,9 +548,9 @@ npm test
   - Adjust `EXECUTION_STYLE` to `sequential` or `parallel` to force behavior.
   - Test different `ORCHESTRATOR_MODEL` values to compare outputs.
 - **Troubleshoot**
-  - If timeouts occur, tune `OPENROUTER_TIMEOUT_MS`, `SYNTH_MAX_PER_AGENT_CHARS`, `SYNTH_MAX_TOTAL_CHARS`.
-  - Ensure each agent's command runs successfully from your shell with a sample prompt.
-  - Check OpenRouter dashboard for API usage and rate limits.
+  - If timeouts occur, tune `SYNTH_MAX_PER_AGENT_CHARS`, `SYNTH_MAX_TOTAL_CHARS`.
+  - Ensure `qwen` command runs successfully from your shell with `qwen -y "test"`.
+  - Check Zenmux/OpenAI dashboard for API usage.
 
 ## Citation
 
@@ -608,7 +590,17 @@ Copyright © 2025 ᓂᐲᔥ ᐙᐸᓂᒥᑮ-ᑭᓇᐙᐸᑭᓯ (Nbiish Waabanimi
 
 ## Release Notes
 
-### v0.6.0 (Current)
+### v0.6.6 (Current)
+- **Major Refactor**: Unified orchestrator model configuration via Zenmux (OpenAI SDK)
+- Replaced Aider/generic CLI support with dedicated **Qwen CLI** support (`qwen -y`)
+- **Default Models Updated**:
+  - Orchestrator: `deepseek/deepseek-v3.2-speciale`
+  - Agents: `z-ai/glm-4.6v-flash` (via `qwen -m`)
+- Enhanced `CLI_AGENTS_JSON` to define personas/instructions for Qwen
+- Supports any Zenmux-supported model (OpenAI, Anthropic, Google)
+- Updated MCP configuration for simpler usage
+
+### v0.6.0
 - **Major Refactor**: Unified orchestrator model configuration via OpenRouter
 - Removed direct Gemini API dependency (`@google/generative-ai`)
 - All AI operations now use single configurable `ORCHESTRATOR_MODEL` (default: `google/gemini-2.5-pro`)

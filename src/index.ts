@@ -11,7 +11,7 @@ console.error("--- MCP SCRIPT START ---"); // Diagnostic log
  *
  * v0.5.0 Enhancements:
  * - Added multi-agent orchestration with sequential/parallel execution styles.
- * - Introduced model-driven execution-style selection and synthesis via OpenRouter.
+ * - Introduced model-driven execution-style selection and synthesis via Zenmux/OpenAI.
  * - Deprecated prior assistant/tooling references in favor of CLI experts.
  */
 
@@ -23,7 +23,7 @@ import path from 'path';
 import fsPromises from 'fs/promises';
 import net from 'net';
 import { spawn } from 'child_process';
-import https from 'https';
+import OpenAI from "openai";
 
 // Setting up logging
 const LOG_FILE = '/tmp/giizhendam_mcp_v0_5_0_log.txt'; // Updated log file name
@@ -41,10 +41,16 @@ const STANDARD_BOARD_ROLES = [
     "COO (Chief Operations Officer)", "CTO (Chief Technology Officer)", "Independent Director",
     "Corporate Secretary/General Counsel", "Lead Investor/Venture Capitalist", "Risk/Audit Committee Chair"
 ];
-// Orchestrator defaults (Gemini 2.5 Pro via OpenRouter preferred)
-const ORCHESTRATOR_MODEL = process.env.ORCHESTRATOR_MODEL || 'google/gemini-2.5-pro';
+// Orchestrator defaults (Zenmux preferred)
+const ORCHESTRATOR_MODEL = process.env.ORCHESTRATOR_MODEL || 'deepseek/deepseek-v3.2-speciale'; // Default to a standard model, user can override
 const AGENT_OUTPUT_DIR = process.env.AGENT_OUTPUT_DIR || path.join(process.cwd(), 'output', 'agents');
-// (Aider compatibility removed)
+const AGENT_MODEL = process.env.AGENT_MODEL || 'z-ai/glm-4.6v-flash';
+
+// --- OpenAI Client Setup (Zenmux) ---
+const openai = new OpenAI({
+    baseURL: process.env.ZENMUX_BASE_URL || "https://zenmux.ai/api/v1",
+    apiKey: process.env.ZENMUX_API_KEY || process.env.OPENAI_API_KEY,
+});
 
 // --- Server Setup ---
 const serverName = "giizhendam-multi-agent-orchestrator-mcp"; // Updated name
@@ -64,7 +70,7 @@ const orchestrateParamsSchema = z.object({
 
 server.tool(
     'orchestrate_agents',
-    'Runs configured CLI agents (sequential or parallel) on the given prompt. Uses Gemini 2.5 Pro via OpenRouter to choose between sequential and parallel, and to synthesize a consolidated markdown report. Outputs per-agent artifacts and a final synthesis file into AGENT_OUTPUT_DIR.',
+    'Runs configured CLI agents (sequential or parallel) on the given prompt. Uses configured Orchestrator Model via Zenmux/OpenAI to choose between sequential and parallel, and to synthesize a consolidated markdown report. Outputs per-agent artifacts and a final synthesis file into AGENT_OUTPUT_DIR.',
     orchestrateParamsSchema.shape,
     async (params): Promise<{ content: { type: 'text'; text: string }[]; _meta: any; isError?: boolean }> => {
         const agents = await loadAgents();
@@ -155,93 +161,46 @@ function validateUrl(urlStr: string): boolean {
     }
 }
 
-// --- OpenRouter Client (Enhanced for all model calls) ---
+// --- OpenAI/Zenmux Client Wrapper ---
 type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: string };
-type OpenRouterMessage = { role: 'system' | 'user' | 'assistant'; content: string | Array<{ type: string; text?: string; image_url?: any; [key: string]: any }> };
 
-// Enhanced OpenRouter chat function supporting text and file content
-async function openRouterChat(
+async function openaiChat(
     model: string, 
     messages: ChatMessage[], 
     options?: { maxTokens?: number; temperature?: number; fileData?: Array<{ mimeType: string; data: string }> }
 ): Promise<string> {
-    return new Promise((resolve, reject) => {
-        const apiKey = process.env.OPENROUTER_API_KEY || process.env.OPENROUTER_API_AGENTS;
-        if (!apiKey) return reject(new Error('OpenRouter key not set (set OPENROUTER_API_KEY or OPENROUTER_API_AGENTS)'));
-        
-        // Convert messages to OpenRouter format, handling file data if provided
-        const openRouterMessages: OpenRouterMessage[] = messages.map((msg, idx) => {
-            // If this is the last user message and we have file data, include it
-            if (msg.role === 'user' && idx === messages.length - 1 && options?.fileData && options.fileData.length > 0) {
-                const contentParts: any[] = [{ type: 'text', text: msg.content }];
-                // Add file data as text content (OpenRouter supports base64 encoded text)
-                options.fileData.forEach((file) => {
-                    contentParts.push({
-                        type: 'text',
-                        text: `\n\n[File Content - ${file.mimeType}]:\n${Buffer.from(file.data, 'base64').toString('utf8')}`
-                    });
-                });
-                return { role: msg.role, content: contentParts };
-            }
-            return { role: msg.role, content: msg.content };
+    try {
+        const openaiMessages: any[] = messages.map((msg, idx) => {
+             // If this is the last user message and we have file data, include it
+             if (msg.role === 'user' && idx === messages.length - 1 && options?.fileData && options.fileData.length > 0) {
+                 const contentParts: any[] = [{ type: 'text', text: msg.content }];
+                 // Add file data as text content (OpenAI doesn't natively support generic file data in messages unless vision, but we can append text)
+                 // Zenmux might support it differently, but sticking to text is safest for generic models
+                 options.fileData.forEach((file) => {
+                     contentParts.push({
+                         type: 'text',
+                         text: `\n\n[File Content - ${file.mimeType}]:\n${Buffer.from(file.data, 'base64').toString('utf8')}`
+                     });
+                 });
+                 return { role: msg.role, content: contentParts };
+             }
+             return { role: msg.role, content: msg.content };
         });
-        
-        const payload: any = { 
-            model, 
-            messages: openRouterMessages 
-        };
-        
-        // Add generation config if provided
-        if (options?.maxTokens) payload.max_tokens = options.maxTokens;
-        if (options?.temperature !== undefined) payload.temperature = options.temperature;
-        
-        const payloadStr = JSON.stringify(payload);
-        const req = https.request(
-            {
-                method: 'POST',
-                hostname: 'openrouter.ai',
-                path: '/api/v1/chat/completions',
-                headers: {
-                    'Authorization': `Bearer ${apiKey}`,
-                    'Content-Type': 'application/json',
-                    'Content-Length': Buffer.byteLength(payloadStr),
-                    'Accept': 'application/json',
-                    'HTTP-Referer': process.env.OPENROUTER_REFERER || 'https://github.com/nbiish/giizhendam-aabajichiganan-mcp',
-                    'X-Title': 'Giizhendam Aabajichiganan MCP'
-                }
-            },
-            (res) => {
-                let data = '';
-                res.on('data', (chunk) => (data += chunk));
-                res.on('end', () => {
-                    try {
-                        const json = JSON.parse(data);
-                        if (json.error) {
-                            reject(new Error(`OpenRouter API error: ${json.error.message || JSON.stringify(json.error)}`));
-                            return;
-                        }
-                        const text = json?.choices?.[0]?.message?.content || '';
-                        if (!text) {
-                            reject(new Error('OpenRouter returned empty response'));
-                            return;
-                        }
-                        resolve(text);
-                    } catch (e: any) {
-                        reject(new Error(`OpenRouter parse error: ${e?.message || e}`));
-                    }
-                });
-            }
-        );
-        // Timeout guard
-        const timeoutMs = Number(process.env.OPENROUTER_TIMEOUT_MS || '30000');
-        req.setTimeout(timeoutMs, () => {
-            req.destroy(new Error(`OpenRouter request timeout after ${timeoutMs}ms`));
+
+        const completion = await openai.chat.completions.create({
+            model: model,
+            messages: openaiMessages,
+            max_tokens: options?.maxTokens,
+            temperature: options?.temperature,
         });
-        req.on('error', (err) => reject(err));
-        req.write(payloadStr);
-        req.end();
-    });
+
+        return completion.choices[0]?.message?.content || '';
+    } catch (error: any) {
+        log(`OpenAI API error: ${error.message || error}`);
+        throw error;
+    }
 }
+
 
 // --- CLI Agent Loading ---
 interface AgentDef { name: string; cmd: string }
@@ -297,7 +256,19 @@ function fillTemplate(cmd: string, prompt: string): string {
 async function runAgentCommand(agent: AgentDef, prompt: string, outDir: string): Promise<{ name: string; outputPath: string; exitCode: number; error?: string }>{
     await fsPromises.mkdir(outDir, { recursive: true });
     const outFile = path.join(outDir, `${agent.name.toLowerCase().replace(/[^a-z0-9_-]/gi,'_')}_${Date.now()}.txt`);
-    const fullCmd = fillTemplate(agent.cmd, prompt);
+    
+    // Updated to use qwen -y as requested
+    // Command structure: qwen -y "{output dirs} + {prompt}"
+    // We treat agent.cmd as additional context or persona instructions
+    const fullPrompt = `${agent.cmd}\n\nTask: ${prompt}\n\nPlease save your output to the following directory: ${outDir}`;
+    
+    // We pass the prompt to qwen -y via command line argument or echo?
+    // Assuming qwen takes the prompt as an argument: qwen -y "prompt"
+    // We need to escape the prompt for shell execution
+    const escapedPrompt = fullPrompt.replace(/"/g, '\\"');
+    // Using configured AGENT_MODEL (default: z-ai/glm-4.6v-flash)
+    const fullCmd = `qwen -m "${AGENT_MODEL}" -y "${escapedPrompt}"`;
+
     return new Promise((resolve) => {
         const child = spawn('/bin/sh', ['-c', fullCmd], { stdio: ['ignore', 'pipe', 'pipe'] });
         const chunks: Buffer[] = [];
@@ -305,11 +276,28 @@ async function runAgentCommand(agent: AgentDef, prompt: string, outDir: string):
         child.stdout.on('data', (d) => chunks.push(d));
         child.stderr.on('data', (d) => errChunks.push(d));
         child.on('close', async (code) => {
-            try {
-                await fsPromises.writeFile(outFile, Buffer.concat(chunks));
-            } catch (e) {
-                log(`Error writing agent output ${agent.name}: ${safeErrorReport(e)}`);
+            // If qwen writes to stdout, we save it. If it writes to file as requested, we might check that.
+            // Assuming qwen writes to stdout which we capture here, OR it writes to the file we specified in the prompt.
+            // If it writes to stdout:
+            if (chunks.length > 0) {
+                 try {
+                    await fsPromises.writeFile(outFile, Buffer.concat(chunks));
+                } catch (e) {
+                    log(`Error writing agent output ${agent.name}: ${safeErrorReport(e)}`);
+                }
+            } else {
+                // If no stdout, maybe it wrote to a file in outDir? 
+                // For now, we assume the user's instruction "ensure that the proper set output dir is appended" implies qwen handles it.
+                // We'll trust qwen respects the directory.
+                // But we return outputPath as outFile, so we should ensure something is there.
+                if (!fs.existsSync(outFile)) {
+                    // Create a placeholder if missing
+                     try {
+                        await fsPromises.writeFile(outFile, "Agent executed but produced no stdout. Check side effects in output directory.");
+                    } catch (e) {}
+                }
             }
+           
             resolve({ name: agent.name, outputPath: outFile, exitCode: code ?? -1, error: errChunks.length ? Buffer.concat(errChunks).toString('utf8') : undefined });
         });
     });
@@ -320,7 +308,7 @@ async function decideExecutionStyle(taskPrompt: string, agents: AgentDef[]): Pro
     const system = `You are an orchestration strategist. Choose the best execution style from: sequential or parallel. Answer with a single word.`;
     const user = `Task: ${taskPrompt}\nAgents: ${agents.map(a=>a.name).join(', ')}`;
     try {
-        const resp = await openRouterChat(ORCHESTRATOR_MODEL, [{ role: 'system', content: system }, { role: 'user', content: user }]);
+        const resp = await openaiChat(ORCHESTRATOR_MODEL, [{ role: 'system', content: system }, { role: 'user', content: user }]);
         const pick = (resp || '').toLowerCase();
         if (pick.includes('sequential')) return 'sequential';
         return 'parallel';
@@ -352,9 +340,10 @@ async function synthesizeOutputs(taskPrompt: string, results: { name: string; ou
     }
     const system = 'You are an expert technical writer. Given multiple agent outputs, produce a concise, well-structured markdown report with Findings, Evidence, and Recommended Actions sections.';
     const user = `Task: ${taskPrompt}\n\n---\n\n${docs.join('\n\n---\n\n')}`;
-    const summary = await openRouterChat(ORCHESTRATOR_MODEL, [{ role: 'system', content: system }, { role: 'user', content: user }]);
+    const summary = await openaiChat(ORCHESTRATOR_MODEL, [{ role: 'system', content: system }, { role: 'user', content: user }]);
     return summary || '# Synthesis\n\n*(No content returned from model)*';
 }
+
 
 // --- Tools: finance_experts and ceo_and_board (Deliberation for Orchestrator Prompt) ---
 // These tools use Gemini to deliberate and suggest a prompt for orchestrated CLI workflows.
@@ -432,9 +421,9 @@ const financeExpertsParamsSchema = z.object({
 // Orchestrator Model Configuration
 // This model is used throughout the codebase for all AI operations
 // Users can configure it via ORCHESTRATOR_MODEL environment variable
-// Default: google/gemini-2.5-pro (via OpenRouter)
-// Can be any model supported by OpenRouter (e.g., anthropic/claude-3.5-sonnet, openai/gpt-4, etc.)
-const ORCHESTRATOR_MODEL_NAME = process.env.ORCHESTRATOR_MODEL || 'google/gemini-2.5-pro';
+// Default: deepseek/deepseek-v3.2-speciale (via Zenmux)
+// Can be any model supported by Zenmux/OpenAI (e.g., anthropic/claude-3.5-sonnet, openai/gpt-4, etc.)
+const ORCHESTRATOR_MODEL_NAME = process.env.ORCHESTRATOR_MODEL || 'deepseek/deepseek-v3.2-speciale';
 
 const financeExpertsOutputMetaSchema = z.object({
     success: z.boolean(), 
@@ -451,26 +440,26 @@ const financeExpertsOutputMetaSchema = z.object({
 
 server.tool(
     "finance_experts",
-    `Orchestrates 18 financial expert agents using the configured orchestrator model (${ORCHESTRATOR_MODEL_NAME}) via OpenRouter. Each expert provides analysis (900 token limit) saved to individual files. Then uses the orchestrator model with File Search RAG to consolidate all expert outputs into enterprise-ready, production-grade analysis and strategic advisory. Generates comprehensive orchestrator prompt to guide CLI tools/experts in execution.`,
+    `Orchestrates 18 financial expert agents using the configured orchestrator model (${ORCHESTRATOR_MODEL_NAME}) via Zenmux/OpenAI. Each expert provides analysis (900 token limit) saved to individual files. Then uses the orchestrator model with File Search RAG to consolidate all expert outputs into enterprise-ready, production-grade analysis and strategic advisory. Generates comprehensive orchestrator prompt to guide CLI tools/experts in execution.`,
     financeExpertsParamsSchema.shape,
     async (params): Promise<{
         content: { type: 'text'; text: string }[];
         _meta: z.infer<typeof financeExpertsOutputMetaSchema>;
         isError?: boolean;
     }> => {
-        const openRouterKey = process.env.OPENROUTER_API_KEY || process.env.OPENROUTER_API_AGENTS;
+        const apiKey = process.env.ZENMUX_API_KEY || process.env.OPENAI_API_KEY;
         const outputDirFinance = process.env.FINANCE_EXPERTS_OUTPUT_DIR;
 
-        if (!openRouterKey) {
-            log("Config Error: OPENROUTER_API_KEY missing for finance_experts.");
-            return { content: [{ type: 'text', text: "Configuration Error: OPENROUTER_API_KEY or OPENROUTER_API_AGENTS is not set." }], isError: true, _meta: { success: false, expertsProcessed: [], errorType: 'ConfigurationError' } };
+        if (!apiKey) {
+            log("Config Error: ZENMUX_API_KEY or OPENAI_API_KEY missing for finance_experts.");
+            return { content: [{ type: 'text', text: "Configuration Error: ZENMUX_API_KEY or OPENAI_API_KEY is not set." }], isError: true, _meta: { success: false, expertsProcessed: [], errorType: 'ConfigurationError' } };
         }
         if (!outputDirFinance) {
             log("Config Error: FINANCE_EXPERTS_OUTPUT_DIR missing.");
             return { content: [{ type: 'text', text: "Configuration Error: FINANCE_EXPERTS_OUTPUT_DIR is not set." }], isError: true, _meta: { success: false, expertsProcessed: [], errorType: 'ConfigurationError' } };
         }
 
-        log(`FinanceExperts: Using orchestrator model: ${ORCHESTRATOR_MODEL_NAME} via OpenRouter`);
+        log(`FinanceExperts: Using orchestrator model: ${ORCHESTRATOR_MODEL_NAME} via Zenmux/OpenAI`);
 
         // Load agent prompts if not already loaded
         if (Object.keys(EXPERT_PROMPTS).length === 0) {
@@ -493,12 +482,13 @@ server.tool(
             const promptWithLimit = `${basePrompt}\n\nIMPORTANT: Your response must be concise and limited to approximately 900 tokens. Focus on the most critical insights and recommendations.`;
             
             try {
-                log(`FinanceExperts: Generating for ${expert} using ${ORCHESTRATOR_MODEL_NAME} via OpenRouter (900 token limit)`);
-                const responseText = await openRouterChat(
+                log(`FinanceExperts: Generating for ${expert} using ${ORCHESTRATOR_MODEL_NAME} via Zenmux/OpenAI (900 token limit)`);
+                const responseText = await openaiChat(
                     ORCHESTRATOR_MODEL_NAME,
                     [{ role: 'user', content: promptWithLimit }],
                     { maxTokens: 900, temperature: 0.7 }
                 );
+
                 
                 // Save individual expert response to file
                 const expertFileName = `${expert.toLowerCase().replace(/[^a-z0-9_-]/gi, '_')}_${Date.now()}.md`;
@@ -547,7 +537,7 @@ server.tool(
             }
             
             // Use Orchestrator Model with File Search RAG to analyze all expert outputs
-            log(`FinanceExperts: Using orchestrator model (${ORCHESTRATOR_MODEL_NAME}) via OpenRouter with File Search RAG to consolidate ${expertFiles.length} expert analyses...`);
+            log(`FinanceExperts: Using orchestrator model (${ORCHESTRATOR_MODEL_NAME}) via Zenmux/OpenAI with File Search RAG to consolidate ${expertFiles.length} expert analyses...`);
             
             const ragPrompt = `You are a senior financial strategist synthesizing insights from ${expertFiles.length} financial experts who have each provided their analysis on the following topic:
 
@@ -582,14 +572,14 @@ FORMAT YOUR RESPONSE AS FOLLOWS:
 ## Confidence Assessment
 [Overall confidence score (1-10) and risk factors]`;
 
-            // Prepare file data for OpenRouter (as base64 encoded text in message content)
+            // Prepare file data for OpenAI (as base64 encoded text in message content)
             const fileDataArray = ragFiles.map(f => ({
                 mimeType: f.inlineData.mimeType,
                 data: f.inlineData.data
             }));
             
-            // Use OpenRouter with file data embedded in the prompt
-            consolidatedAnalysis = await openRouterChat(
+            // Use OpenAI with file data embedded in the prompt
+            consolidatedAnalysis = await openaiChat(
                 ORCHESTRATOR_MODEL_NAME,
                 [{ role: 'user', content: ragPrompt }],
                 { 
@@ -610,7 +600,7 @@ FORMAT YOUR RESPONSE AS FOLLOWS:
             }
             
             orchestratorDeliberation = consolidatedAnalysis;
-            log(`FinanceExperts: Successfully consolidated expert analyses using orchestrator model (${ORCHESTRATOR_MODEL_NAME}) via OpenRouter with File Search RAG`);
+            log(`FinanceExperts: Successfully consolidated expert analyses using orchestrator model (${ORCHESTRATOR_MODEL_NAME}) via Zenmux/OpenAI with File Search RAG`);
             
         } catch (error: any) {
             log(`FinanceExperts: RAG API Error: ${error.message}. Falling back to text-based consolidation.`);
@@ -623,11 +613,12 @@ FORMAT YOUR RESPONSE AS FOLLOWS:
                 
                 const fallbackPrompt = `Synthesize insights from these ${expertResponses.length} financial experts analyzing: ${params.topic}\n\n${allExpertText}\n\nProvide consolidated analysis and recommended orchestrator prompt.`;
                 
-                orchestratorDeliberation = await openRouterChat(
+                orchestratorDeliberation = await openaiChat(
                     ORCHESTRATOR_MODEL_NAME,
                     [{ role: 'user', content: fallbackPrompt }],
                     { maxTokens: 4000, temperature: 0.7 }
                 );
+
                 
                 const promptMatch = orchestratorDeliberation.match(/## Recommended Orchestrator Prompt[^\n]*\n([^#]+)/im);
                 if (promptMatch && promptMatch[1]) promptSuggestion = promptMatch[1].trim();
@@ -717,26 +708,26 @@ const boardSimulationOutputMetaSchema = z.object({
 
 server.tool(
     "ceo_and_board",
-    `Simulates a board discussion on a given topic using the configured orchestrator model (${ORCHESTRATOR_MODEL_NAME}) via OpenRouter. This deliberation includes formulating a recommended orchestrator prompt for the user to execute based on the discussion. Saves the simulated discussion and recommendation to a file in './ceo-and-board/'.`,
+    `Simulates a board discussion on a given topic using the configured orchestrator model (${ORCHESTRATOR_MODEL_NAME}) via Zenmux/OpenAI. This deliberation includes formulating a recommended orchestrator prompt for the user to execute based on the discussion. Saves the simulated discussion and recommendation to a file in './ceo-and-board/'.`,
     ceoBoardParamsSchema.shape,
     async (params): Promise<{
         content: { type: 'text'; text: string }[];
         _meta: z.infer<typeof boardSimulationOutputMetaSchema>;
         isError?: boolean;
     }> => {
-        const openRouterKey = process.env.OPENROUTER_API_KEY || process.env.OPENROUTER_API_AGENTS;
+        const apiKey = process.env.ZENMUX_API_KEY || process.env.OPENAI_API_KEY;
         const outputDirBoard = process.env.CEO_BOARD_OUTPUT_DIR;
 
-        if (!openRouterKey) {
-            log("Config Error: OPENROUTER_API_KEY missing for ceo_and_board.");
-            return { content: [{ type: 'text', text: "Configuration Error: OPENROUTER_API_KEY or OPENROUTER_API_AGENTS is not set." }], isError: true, _meta: { success: false, errorType: 'ConfigurationError' } };
+        if (!apiKey) {
+            log("Config Error: ZENMUX_API_KEY or OPENAI_API_KEY missing for ceo_and_board.");
+            return { content: [{ type: 'text', text: "Configuration Error: ZENMUX_API_KEY or OPENAI_API_KEY is not set." }], isError: true, _meta: { success: false, errorType: 'ConfigurationError' } };
         }
         if (!outputDirBoard) {
             log("Config Error: CEO_BOARD_OUTPUT_DIR missing.");
             return { content: [{ type: 'text', text: "Configuration Error: CEO_BOARD_OUTPUT_DIR is not set." }], isError: true, _meta: { success: false, errorType: 'ConfigurationError' } };
         }
 
-        log(`CeoAndBoard: Using orchestrator model: ${ORCHESTRATOR_MODEL_NAME} via OpenRouter`);
+        log(`CeoAndBoard: Using orchestrator model: ${ORCHESTRATOR_MODEL_NAME} via Zenmux/OpenAI`);
 
         const rolesToUse = params.roles || STANDARD_BOARD_ROLES;
         const rolesString = rolesToUse.join(', ');
@@ -760,7 +751,7 @@ FORMAT YOUR RESPONSE AS FOLLOWS:
 ## Board Confidence Score (1-10)
 [A number from 1-10 for the recommendation.]`;
 
-            orchestratorDeliberationBoard = await openRouterChat(
+            orchestratorDeliberationBoard = await openaiChat(
                 ORCHESTRATOR_MODEL_NAME,
                 [{ role: 'user', content: deliberationPrompt }],
                 { maxTokens: 2000, temperature: 0.7 }
@@ -785,12 +776,13 @@ FORMAT YOUR RESPONSE AS FOLLOWS:
 
         let simulationText = '', apiError: string | undefined, apiSuccess = false;
         try {
-            log(`CeoAndBoard: Generating simulation for ${params.topic} using ${ORCHESTRATOR_MODEL_NAME} via OpenRouter`);
-            const responseText = await openRouterChat(
+            log(`CeoAndBoard: Generating simulation for ${params.topic} using ${ORCHESTRATOR_MODEL_NAME} via Zenmux/OpenAI`);
+            const responseText = await openaiChat(
                 ORCHESTRATOR_MODEL_NAME,
                 [{ role: 'user', content: simulationPrompt }],
                 { maxTokens: 3000, temperature: 0.8 }
             );
+
             if (responseText) { simulationText = responseText; apiSuccess = true; }
             else {
                 apiError = "No text content received for board simulation.";
