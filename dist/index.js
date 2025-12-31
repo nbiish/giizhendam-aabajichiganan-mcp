@@ -14013,9 +14013,9 @@ var STANDARD_BOARD_ROLES = [
   "Lead Investor/Venture Capitalist",
   "Risk/Audit Committee Chair"
 ];
-var ORCHESTRATOR_MODEL = process.env.ORCHESTRATOR_MODEL || "deepseek/deepseek-v3.2-speciale";
+var ORCHESTRATOR_MODEL = process.env.ORCHESTRATOR_MODEL || "google/gemini-3.0-flash-preview";
 var AGENT_OUTPUT_DIR = process.env.AGENT_OUTPUT_DIR || import_path33.default.join(process.cwd(), "output", "agents");
-var AGENT_MODEL = process.env.AGENT_MODEL || "z-ai/glm-4.6v-flash";
+var AGENT_MODEL = process.env.AGENT_MODEL || "minimax/minimax-m2.1";
 var baseURL = process.env.OPENAI_BASE_URL || process.env.ZENMUX_BASE_URL || "https://zenmux.ai/api/v1";
 var apiKey = process.env.OPENAI_BASE_URL ? process.env.OPENAI_API_KEY || process.env.ZENMUX_API_KEY : process.env.ZENMUX_API_KEY || process.env.OPENAI_API_KEY;
 var openai = new OpenAI({
@@ -14303,7 +14303,7 @@ var financeExpertsParamsSchema = external_exports.object({
   topic: external_exports.string().max(2e3).describe("Financial topic for expert deliberation (e.g., 'Financial risks of Project X')."),
   output_filename: external_exports.string().optional().describe("Optional filename for output. Defaults to sanitized topic.")
 });
-var ORCHESTRATOR_MODEL_NAME = process.env.ORCHESTRATOR_MODEL || "deepseek/deepseek-v3.2-speciale";
+var ORCHESTRATOR_MODEL_NAME = process.env.ORCHESTRATOR_MODEL || "google/gemini-3.0-flash-preview";
 var financeExpertsOutputMetaSchema = external_exports.object({
   success: external_exports.boolean(),
   outputFilePath: external_exports.string().optional(),

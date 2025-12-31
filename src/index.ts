@@ -42,9 +42,11 @@ const STANDARD_BOARD_ROLES = [
     "Corporate Secretary/General Counsel", "Lead Investor/Venture Capitalist", "Risk/Audit Committee Chair"
 ];
 // Orchestrator defaults (Zenmux preferred)
-const ORCHESTRATOR_MODEL = process.env.ORCHESTRATOR_MODEL || 'deepseek/deepseek-v3.2-speciale'; // Default to a standard model, user can override
+// Main orchestrator uses Gemini 3 Flash Preview for planning and synthesis
+const ORCHESTRATOR_MODEL = process.env.ORCHESTRATOR_MODEL || 'google/gemini-3.0-flash-preview';
 const AGENT_OUTPUT_DIR = process.env.AGENT_OUTPUT_DIR || path.join(process.cwd(), 'output', 'agents');
-const AGENT_MODEL = process.env.AGENT_MODEL || 'z-ai/glm-4.6v-flash';
+// Sub-agents/experts use MiniMax M2.1 for specialized analysis
+const AGENT_MODEL = process.env.AGENT_MODEL || 'minimax/minimax-m2.1';
 
 // --- OpenAI Client Setup (Zenmux or Generic OpenAI Provider) ---
 const baseURL = process.env.OPENAI_BASE_URL || process.env.ZENMUX_BASE_URL || "https://zenmux.ai/api/v1";
@@ -427,9 +429,9 @@ const financeExpertsParamsSchema = z.object({
 // Orchestrator Model Configuration
 // This model is used throughout the codebase for all AI operations
 // Users can configure it via ORCHESTRATOR_MODEL environment variable
-// Default: deepseek/deepseek-v3.2-speciale (via Zenmux)
+// Default: google/gemini-3.0-flash-preview (via Zenmux)
 // Can be any model supported by Zenmux/OpenAI (e.g., anthropic/claude-3.5-sonnet, openai/gpt-4, etc.)
-const ORCHESTRATOR_MODEL_NAME = process.env.ORCHESTRATOR_MODEL || 'deepseek/deepseek-v3.2-speciale';
+const ORCHESTRATOR_MODEL_NAME = process.env.ORCHESTRATOR_MODEL || 'google/gemini-3.0-flash-preview';
 
 const financeExpertsOutputMetaSchema = z.object({
     success: z.boolean(), 

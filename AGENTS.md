@@ -1,53 +1,59 @@
-# Enterprise Grade Code Guidelines
+# AGENTS.md
 
-> **TOON Format** (Token-Oriented Object Notation) - Compact, human-readable encoding optimized for LLM prompts.
-> Specification: [TOON v2.0](https://github.com/toon-format/toon)
+<agent>
+**Role**: Senior Principal Engineer  
+**Approach**: Security-first, match existing codebase patterns  
+**Output**: Production-ready, minimal, tested
+</agent>
 
-```toon
-project_setup[2]{type,requirement}:
-  python,uv venv .venv
-  structure_view,eza --all --tree --level=2 --git
-dna_architecture:
-  base_path: repo-root/dna/
-  layers[3]{name,path,purpose}:
-    Atoms,dna/atoms/,"Core utilities, data types, state management"
-    Molecules,dna/molecules/,"Composite components, deployment scripts"
-    Proteins,dna/proteins/,High-level flows and orchestration
-knowledge_base:
-  path: knowledge-base/
-  required: true
-security_checks[9]{category,requirement}:
-  input,Validation and sanitization
-  auth,Authentication and authorization
-  encryption,"At rest, in transit, use asymmetric (RSA, Ed25519)"
-  sql,Injection prevention
-  xss,Cross-Site Scripting prevention
-  csrf,Cross-Site Request Forgery protection
-  env,Environment variable protection
-  errors,Handling without information leakage
-  dos,Rate limiting and DoS prevention
-post_quantum_cryptography:
-  approach: Hybrid mode (classical + PQC) for defense-in-depth
-  nist_standards[4]{algorithm,fips,use_case}:
-    ML-KEM,FIPS-203,Key encapsulation
-    ML-DSA,FIPS-204,Digital signatures
-    SLH-DSA,FIPS-205,Hash-based signatures
-    HQC,Draft-2026,Backup KEM
-  implementation: "Use PQC alongside classical algorithms, enable crypto-agility"
-threat_protection[2]{threat_type,mitigation_required}:
-  Data exfiltration,Access controls & monitoring
-  Unauthorized access,Authentication & authorization
-best_practices[5]{practice,implementation}:
-  Input handling,Validate and sanitize all inputs
-  Prompting,Use role-based prompting
-  Output,Implement output filtering
-  Monitoring,Monitor for suspicious patterns
-  Context,Maintain context boundaries
-module_documentation[6]{component,required}:
-  Purpose,Description of functionality
-  Inputs,Parameter specifications
-  Outputs,Return value types
-  Examples,Usage demonstrations
-  Edge cases,Boundary conditions
-  Errors,Error conditions & handling
-```
+<context>
+- Request only necessary files
+- Summarize long sessions vs carrying full history
+- Verify assumptions against actual code
+</context>
+
+<security>
+## Core
+- Zero Trust: Sanitize all inputs
+- Least Privilege: Minimal permissions
+- No hardcoded secrets—environment variables only
+
+## Post-Quantum Cryptography (NIST Finalized 2024, Updated 2025)
+| Purpose | Standard | Algorithm |
+|---------|----------|-----------|
+| Key Encapsulation | FIPS 203 | ML-KEM-768 (enterprise) / ML-KEM-1024 (high-security) |
+| Digital Signatures | FIPS 204 | ML-DSA-65 (general) / ML-DSA-87 (high-security) |
+| Hash-Based Signatures | FIPS 205 | SLH-DSA (stateless, conservative) |
+| Backup KEM | NIST 2025 | HQC (code-based, diversity) |
+
+**Implementation**:
+- Hybrid mode: X25519 + ML-KEM for key exchange during transition
+- TLS 1.3+ with PQC cipher suites
+- OpenSSL 3.5+ or liboqs for algorithm support
+- Reference: NIST SP 1800-38 (migration playbook)
+</security>
+
+<coding>
+## Universal
+- Match existing codebase style
+- SOLID, DRY, KISS, YAGNI
+- Small, focused changes over rewrites
+
+## By Language
+| Language | Standards |
+|----------|-----------|
+| Bash | `set -euo pipefail`, `[[ ]]`, `"${var}"` |
+| Python | PEP 8, type hints, `uv`/`poetry`, `.venv` |
+| TypeScript | strict mode, ESLint, Prettier |
+| Rust | `cargo fmt`, `cargo clippy`, `Result` over panic |
+| Go | `gofmt`, `go vet`, Effective Go |
+</coding>
+
+<workflow>
+1. Read relevant existing code
+2. Plan approach
+3. Implement with tests
+4. Verify against linters
+
+**Git**: `<type>(<scope>): <description>` — feat|fix|docs|refactor|test|chore|perf|ci
+</workflow>

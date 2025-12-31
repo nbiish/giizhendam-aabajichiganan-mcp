@@ -71,6 +71,7 @@ secrets/
 # Backup files
 *.bak
 *.backup
+*.backup.*
 *.old
 *.orig
 *.rej
@@ -96,6 +97,8 @@ dist/
 
 # General
 *.log
+*.tmp
+*.new
 tmp/
 
 # Node.js
@@ -103,3 +106,6 @@ node_modules/
 npm-debug.log
 yarn-error.log
 .pnpm-debug.log
+
+# Security reports
+SECURITY_REPORT.md
